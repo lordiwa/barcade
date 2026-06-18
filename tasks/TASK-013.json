@@ -1,0 +1,23 @@
+{
+  "key": "TASK-013",
+  "title": "Core mechanic 5 - Recolecta (Collect)",
+  "description": "Fifth core mechanic. Move with the stick to collect good shapes and avoid bad ones; reach the quota before the timer. Pure C# collect/quota logic; simple-shape prefab; MicrogameDefinition asset. Follows unity-microgame-framework skill.",
+  "acceptance_criteria": [
+    "The stick moves the avatar to overlap collectible shapes; good shapes count up, bad shapes penalize.",
+    "Win condition: reach the quota within the time limit; loss otherwise. Collection/quota evaluation is unit-tested in pure C#.",
+    "A MicrogameDefinition asset registers it (verb e.g. '¡RECOLECTA!') and it runs through the sequencer.",
+    "Uses only simple geometric shapes."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": ["milestone-1", "microgame", "unity"],
+  "verification_tier": "tdd",
+  "assignee": null,
+  "depends_on": ["TASK-005", "TASK-006"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

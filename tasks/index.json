@@ -1,0 +1,101 @@
+{
+  "generated_at": "2026-06-18T23:35:10.216Z",
+  "tasks": [
+    {
+      "key": "TASK-001",
+      "title": "Scaffold Unity project and headless test pipeline",
+      "status": "in_progress",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-002",
+      "title": "Core domain model: players, input snapshot, seeded RNG",
+      "status": "todo",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-003",
+      "title": "Variance-friendly scoring model",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-004",
+      "title": "Microgame contract and MicrogameDefinition asset",
+      "status": "todo",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-005",
+      "title": "Microgame sequencer / director",
+      "status": "todo",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-006",
+      "title": "4-player local input via Unity Input System",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-007",
+      "title": "Command (verb) display and rhythmic intermission",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-008",
+      "title": "Bar-grade HUD: 3-tier feedback and 4-corner scores",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-009",
+      "title": "Core mechanic 1 - Esquiva (Dodge)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-010",
+      "title": "Core mechanic 2 - Aporrea (Mash)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-011",
+      "title": "Core mechanic 3 - Apunta (Aim & Fire)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-012",
+      "title": "Core mechanic 4 - Timing (Press on cue)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-013",
+      "title": "Core mechanic 5 - Recolecta (Collect)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-014",
+      "title": "Microgame variant pack (breadth via parameters)",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-015",
+      "title": "End-to-end playable game loop scene",
+      "status": "todo",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-016",
+      "title": "Remote-content architecture proof (Addressables)",
+      "status": "todo",
+      "priority": "medium"
+    }
+  ]
+}

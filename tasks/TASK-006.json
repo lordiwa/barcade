@@ -1,0 +1,24 @@
+{
+  "key": "TASK-006",
+  "title": "4-player local input via Unity Input System",
+  "description": "Map the four cabinet controls (joystick + one action button each) to fixed player slots and expose the Core InputSnapshot per player, with a keyboard dev fallback. Follows unity-input-4player skill (explicit device assignment, NOT press-to-join).",
+  "acceptance_criteria": [
+    "An .inputactions asset defines a minimal map: Move (Vector2) and Action (button).",
+    "Four devices are assigned deterministically to player slots 0-3 so Rojo/Azul/Amarillo/Verde stay stable across restarts (explicit device list, not PlayerInputManager press-to-join).",
+    "A bridge produces a Barcade.Core InputSnapshot for each player every frame.",
+    "A keyboard fallback lets a single developer drive all 4 players for testing.",
+    "Regression locks plus a documented PlayMode/manual check confirm simulated inputs route to the correct slots."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": ["milestone-1", "input", "unity"],
+  "verification_tier": "tests-after",
+  "assignee": null,
+  "depends_on": ["TASK-002"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

@@ -1,0 +1,23 @@
+{
+  "key": "TASK-012",
+  "title": "Core mechanic 4 - Timing (Press on cue)",
+  "description": "Fourth core mechanic. A marker moves across a track; press the action button when it is inside the target zone. Pure C# timing-window logic; simple-shape prefab; MicrogameDefinition asset. Follows unity-microgame-framework skill.",
+  "acceptance_criteria": [
+    "A marker (simple shape) moves at a defined speed across a track with a target zone.",
+    "Win condition: action pressed while the marker is within the zone; loss on miss or no press. Timing-window evaluation is unit-tested in pure C#.",
+    "A MicrogameDefinition asset registers it (verb e.g. '¡AHORA!') and it runs through the sequencer.",
+    "Uses only simple geometric shapes."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": ["milestone-1", "microgame", "unity"],
+  "verification_tier": "tdd",
+  "assignee": null,
+  "depends_on": ["TASK-005", "TASK-006"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

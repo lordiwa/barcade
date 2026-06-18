@@ -1,0 +1,23 @@
+{
+  "key": "TASK-014",
+  "title": "Microgame variant pack (breadth via parameters)",
+  "description": "Deliver the 'many microgames' goal by reusing the 5 core mechanics with varied shapes, speeds, quotas, and durations as data-only MicrogameDefinition assets, proving the framework makes new microgames cheap.",
+  "acceptance_criteria": [
+    "At least 10 distinct MicrogameDefinition assets exist spanning all 5 mechanics with meaningfully varied parameters.",
+    "All variants are registered in the sequencer pool and selectable.",
+    "Running the loop plays varied microgames back-to-back without code changes per variant.",
+    "Adding a variant requires only a new asset (and shapes/params), demonstrating the data-driven design."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": ["milestone-1", "content", "unity"],
+  "verification_tier": "tests-after",
+  "assignee": null,
+  "depends_on": ["TASK-009", "TASK-010", "TASK-011", "TASK-012", "TASK-013"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

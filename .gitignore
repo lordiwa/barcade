@@ -1,0 +1,45 @@
+# Unity generated folders
+Barcade/Library/
+Barcade/Temp/
+Barcade/Logs/
+Barcade/Build/
+Barcade/obj/
+Barcade/Builds/
+Barcade/UserSettings/
+
+# Unity generated project files
+Barcade/*.csproj
+Barcade/*.sln
+Barcade/*.unityproj
+
+# VS / Rider IDE files
+Barcade/.vs/
+Barcade/.vscode/
+Barcade/.idea/
+*.suo
+*.user
+*.pidb
+*.booproj
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Crash reports
+crash.log
+crash.dmp
+
+# Test results (generated artifacts, not source)
+Barcade/TestResults/
+
+# NuGet (note: Unity Packages/ folder is tracked — only nuget packages/ is excluded)
+/packages/
+
+# Unity Cache Server
+Barcade/.cache/

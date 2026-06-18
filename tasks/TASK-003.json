@@ -1,0 +1,23 @@
+{
+  "key": "TASK-003",
+  "title": "Variance-friendly scoring model",
+  "description": "Pure C# ScoreModel in Barcade.Core that accumulates per-player wins/losses across many microgames, embodying the GDD law-of-large-numbers design (raw accumulation, no nested randomness or hidden multipliers).",
+  "acceptance_criteria": [
+    "ScoreModel records a per-player win or loss for each microgame round.",
+    "Exposes per-player totals, WinRate, and LeadingPlayer (deterministic tie handling that can report multiple leaders).",
+    "No layered randomness or hidden score multipliers are applied — accumulation is transparent.",
+    "EditMode tests cover accumulation, leader selection, tie handling, and empty/initial state."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": ["milestone-1", "core", "unity"],
+  "verification_tier": "tdd",
+  "assignee": null,
+  "depends_on": ["TASK-001"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

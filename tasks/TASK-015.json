@@ -1,0 +1,23 @@
+{
+  "key": "TASK-015",
+  "title": "End-to-end playable game loop scene",
+  "description": "A playable scene wiring bootstrap -> 4-player input -> sequencer -> microgames -> command/intermission -> HUD -> end-of-round results. This is the milestone-1 vertical slice.",
+  "acceptance_criteria": [
+    "Launching the scene runs a full round of several microgames for 4 players with live scoring.",
+    "The flow shows command verb, gameplay, and intermission between microgames, with the corner HUD updating.",
+    "An end-of-round results screen shows final standings.",
+    "From launch, a new player can be playing within ~60 seconds with zero instructions (zero-setup goal)."
+  ],
+  "status": "todo",
+  "priority": "critical",
+  "labels": ["milestone-1", "integration", "unity"],
+  "verification_tier": "uat-only",
+  "assignee": null,
+  "depends_on": ["TASK-007", "TASK-008", "TASK-014"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

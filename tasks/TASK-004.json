@@ -1,0 +1,23 @@
+{
+  "key": "TASK-004",
+  "title": "Microgame contract and MicrogameDefinition asset",
+  "description": "The microgame abstraction that makes new microgames cheap to add: an explicit lifecycle with win/lose evaluation expressible in pure C#, plus a data-driven ScriptableObject definition. Follows unity-microgame-framework skill.",
+  "acceptance_criteria": [
+    "An IMicrogame / MicrogameBase contract defines the lifecycle: Prepare -> ShowCommand -> Play(timeLimit, perPlayerInput) -> Evaluate (per-player result) -> Cleanup.",
+    "A MicrogameResult captures per-player win/lose for a round.",
+    "A MicrogameDefinition ScriptableObject carries id, command/verb text, duration, difficulty, and a prefab/address reference.",
+    "Pure-logic win/lose evaluation is unit-testable without the engine; a sample fake microgame exercises the full lifecycle in EditMode tests."
+  ],
+  "status": "todo",
+  "priority": "critical",
+  "labels": ["milestone-1", "framework", "unity"],
+  "verification_tier": "tdd",
+  "assignee": null,
+  "depends_on": ["TASK-002"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

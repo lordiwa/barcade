@@ -1,0 +1,23 @@
+{
+  "key": "TASK-008",
+  "title": "Bar-grade HUD: 3-tier feedback and 4-corner scores",
+  "description": "Minimal contextual HUD implementing the GDD's 3-tier feedback hierarchy and corner-anchored per-player score, keeping the screen center clear for action.",
+  "acceptance_criteria": [
+    "Each player's score/state is anchored to one screen corner, color-coded (Rojo/Azul/Amarillo/Verde) with thick outlines and large icons.",
+    "Three reusable feedback tiers exist: low (subtle), mid (notable), high (screen-shake/flash for climax moments).",
+    "The center of the screen is kept clear for gameplay; HUD elements are contextual (e.g. transient where appropriate).",
+    "Feedback hooks are reusable by microgames and the sequencer."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": ["milestone-1", "ui", "unity"],
+  "verification_tier": "uat-only",
+  "assignee": null,
+  "depends_on": ["TASK-005"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Barcade.Core",
+  "rootNamespace": "Barcade.Core",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": true
+}

@@ -1,0 +1,23 @@
+{
+  "key": "TASK-007",
+  "title": "Command (verb) display and rhythmic intermission",
+  "description": "The single giant imperative verb shown at microgame start, plus the cognitive-buffer intermission between microgames, hooked into the sequencer lifecycle. Follows unity-microgame-framework and the GDD UI guidance.",
+  "acceptance_criteria": [
+    "A command display shows one large, high-legibility imperative verb (e.g. '¡ESQUIVA!') at microgame start for roughly one second.",
+    "An intermission screen plays between microgames as a cognitive buffer with a configurable duration.",
+    "Intermission timing is testable in pure C# (a timer/state machine separate from rendering).",
+    "Both are driven by the sequencer lifecycle, not hardcoded per microgame."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": ["milestone-1", "ui", "unity"],
+  "verification_tier": "tests-after",
+  "assignee": null,
+  "depends_on": ["TASK-005"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

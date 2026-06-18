@@ -1,0 +1,23 @@
+{
+  "key": "TASK-016",
+  "title": "Remote-content architecture proof (Addressables)",
+  "description": "Make microgame content remotely updatable so cabinets can be updated from a central server, per the unity-remote-content skill. Milestone 1 needs the architecture proven with a thin path, not full fleet management.",
+  "acceptance_criteria": [
+    "Microgame definitions/prefabs live in a remote Addressables group; core/framework stays in a local group baked into the build.",
+    "A boot-time routine checks for catalog updates with a short timeout and falls back to cached/local content when the server is unreachable (offline resilience).",
+    "Build-and-host steps are documented (CCD or static HTTP), with versioning/rollback notes.",
+    "The data-vs-binary boundary is documented: which microgame changes ship as remote content vs require a binary rebuild."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": ["milestone-1", "remote-update", "unity"],
+  "verification_tier": "tests-after",
+  "assignee": null,
+  "depends_on": ["TASK-014"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

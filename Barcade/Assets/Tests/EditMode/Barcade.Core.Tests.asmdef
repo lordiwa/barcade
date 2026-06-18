@@ -1,0 +1,11 @@
+{
+  "name": "Barcade.Core.Tests",
+  "rootNamespace": "Barcade.Core.Tests",
+  "references": ["Barcade.Core"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false
+}

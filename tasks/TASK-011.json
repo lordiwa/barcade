@@ -1,0 +1,23 @@
+{
+  "key": "TASK-011",
+  "title": "Core mechanic 3 - Apunta (Aim & Fire)",
+  "description": "Third core mechanic. Aim with the stick at a target shape and press the action button to hit it. Pure C# aim/hit logic; simple-shape prefab; MicrogameDefinition asset. Follows unity-microgame-framework skill.",
+  "acceptance_criteria": [
+    "The stick controls an aim direction/reticle (simple shape); pressing the action button fires.",
+    "Win condition: hit the target within the time limit; loss otherwise. Aim-to-hit evaluation is unit-tested in pure C# (e.g. angle/position tolerance).",
+    "A MicrogameDefinition asset registers it (verb e.g. '¡APUNTA!') and it runs through the sequencer.",
+    "Uses only simple geometric shapes."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": ["milestone-1", "microgame", "unity"],
+  "verification_tier": "tdd",
+  "assignee": null,
+  "depends_on": ["TASK-005", "TASK-006"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

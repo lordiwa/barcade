@@ -1,0 +1,23 @@
+{
+  "key": "TASK-002",
+  "title": "Core domain model: players, input snapshot, seeded RNG",
+  "description": "Pure C# foundation in Barcade.Core. No engine dependencies so it is fully EditMode-testable. Follows unity-core and unity-testing skills.",
+  "acceptance_criteria": [
+    "PlayerSlot type with exactly 4 fixed slots mapped to colors Rojo=0, Azul=1, Amarillo=2, Verde=3.",
+    "An immutable InputSnapshot value type holds stick direction (x,y floats) and action-button state (pressed/held/released) and carries no UnityEngine dependency.",
+    "ISeededRandom interface plus SeededRandom implementation wrapping System.Random; identical seed yields identical sequence.",
+    "EditMode tests cover slot/color mapping, snapshot immutability/derived helpers, and RNG determinism (same seed equals same sequence; different seeds differ)."
+  ],
+  "status": "todo",
+  "priority": "critical",
+  "labels": ["milestone-1", "core", "unity"],
+  "verification_tier": "tdd",
+  "assignee": null,
+  "depends_on": ["TASK-001"],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T22:30:00.000Z",
+  "jira_key": null
+}

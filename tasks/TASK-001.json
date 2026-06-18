@@ -1,0 +1,29 @@
+{
+  "key": "TASK-001",
+  "title": "Scaffold Unity project and headless test pipeline",
+  "description": "Create the Unity 6 project on disk with the packages and assembly structure every later ticket depends on, and prove it compiles and runs tests headlessly. Target the INSTALLED editor 6000.0.38f1 (Unity 6.0 LTS) — do not require a different editor download. Follow the unity-core and unity-testing skills.",
+  "acceptance_criteria": [
+    "A Unity project exists (Assets/, ProjectSettings/, Packages/manifest.json) opened by editor 6000.0.38f1 without upgrade prompts.",
+    "Packages present in manifest: com.unity.inputsystem, com.unity.test-framework, com.unity.addressables.",
+    "Assembly definitions exist: Barcade.Core (pure C#, no UnityEngine-only deps where avoidable), Barcade.Framework (engine adapters, references Core), Barcade.Core.Tests (EditMode test asmdef referencing Core + nunit + test-framework, excluded from player builds).",
+    "Project compiles in Unity batchmode with zero errors.",
+    "One trivial EditMode smoke test runs via the documented Unity CLI headless command and the run exits 0.",
+    "A Unity-appropriate .gitignore is present and the repo is initialized with an initial commit."
+  ],
+  "status": "in_progress",
+  "priority": "critical",
+  "labels": [
+    "milestone-1",
+    "setup",
+    "unity"
+  ],
+  "verification_tier": "tests-after",
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-18T23:35:10.216Z",
+  "jira_key": null
+}

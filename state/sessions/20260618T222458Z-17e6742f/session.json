@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "session_id": "20260618T222458Z-17e6742f",
+  "lifecycle_state": "active",
+  "updated_at": "2026-06-18T22:32:00.000Z",
+  "active_task": "TASK-001",
+  "workflow_step": "developer-impl",
+  "next_action": "Spawn developer (IMPL, tests-after) to scaffold the Unity project and prove headless EditMode tests run; then reviewer.",
+  "handoff_summary": "Engine decision locked to Unity (installed editor 6000.0.38f1). Six Unity tech-training skills authored under .claude/skills/ (unity-core, unity-input-4player, unity-microgame-framework, unity-testing, unity-remote-content, unity-mcp). Generic seed backlog replaced with a 16-ticket milestone-1 backlog (TASK-001..016): scaffold, core model, scoring, microgame contract+sequencer, 4-player input, command/intermission, HUD, 5 core mechanics, variant pack, e2e loop scene, Addressables remote-content proof. Executing autonomously ticket-by-ticket. Starting TASK-001. Key risk: Unity batchmode licensing for headless test runs.",
+  "open_questions": [],
+  "blockers": [],
+  "decisions": [
+    {"at": "2026-06-18T22:31:00.000Z", "summary": "Engine = Unity (C#). Target installed editor 6000.0.38f1 (Unity 6.0 LTS) rather than the 6.3 the unity-core skill recommended, to avoid an editor download; upgrade later if needed."},
+    {"at": "2026-06-18T22:31:30.000Z", "summary": "Milestone 1 is breadth-first: nail 5 core microgame mechanics + a data-driven framework that makes adding microgames cheap; board game is milestone 2."}
+  ],
+  "subagent_results": [],
+  "pending_human_confirmation": null
+}
