@@ -30,8 +30,7 @@ namespace Barcade.Framework
     ///   P1 (Azul)    — Arrow keys + Right Ctrl
     ///   P2 (Amarillo)— IJKL + U
     ///   P3 (Verde)   — Numpad 8456 + Numpad 0
-    ///   NOTE: all 4 keyboard slots share Keyboard.current; that is intentional and
-    ///   expected on a dev machine. The real cabinet has no keyboard.
+    ///   NOTE: all 4 keyboard slots share Keyboard.current; intentional on dev machines.
     ///
     /// Lives in Barcade.Framework (UnityEngine + UnityEngine.InputSystem allowed).
     /// Microgame code reads snapshots via <see cref="GetSnapshot"/> or the
@@ -59,13 +58,18 @@ namespace Barcade.Framework
 
         // ── Runtime state ────────────────────────────────────────────────────────
 
-        private InputAction[]       _moveActions;
-        private InputAction[]       _actionButtonActions;
-        private bool[]              _buttonWasHeld;
-        private InputSnapshot[]     _snapshots;
+        private InputAction[]      _moveActions;
+        private InputAction[]      _actionButtonActions;
+        private bool[]             _buttonWasHeld;
+        private InputSnapshot[]    _snapshots;
 
         // Per-slot InputActionAsset copies (each pinned to one device instance).
-        private InputActionAsset[]  _assetCopies;
+        private InputActionAsset[] _assetCopies;
+
+        // Set to true after Initialize() completes successfully. Awake checks
+        // this to avoid double-initialisation when tests call Initialize() before
+        // activating the GameObject (which defers Awake until SetActive(true)).
+        private bool _initialized;
 
         // ── Static accessor ──────────────────────────────────────────────────────
 
@@ -86,17 +90,33 @@ namespace Barcade.Framework
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            _buttonWasHeld       = new bool[SlotCount];
-            _snapshots           = new InputSnapshot[SlotCount];
-            _moveActions         = new InputAction[SlotCount];
-            _actionButtonActions = new InputAction[SlotCount];
-            _assetCopies         = new InputActionAsset[SlotCount];
+            // If Initialize() was already called explicitly (test path: inactive GO
+            // → Initialize() → SetActive(true) → Awake fires here), skip
+            // re-initialisation so the test-injected state is preserved.
+            if (_initialized)
+                return;
 
-            InitialiseDeviceSlots();
+            // Production path: Inspector-assigned asset is available.
+            if (_actionsAsset != null)
+            {
+                InputDevice[] devices = GatherDevices();
+                Initialize(_actionsAsset, devices);
+            }
+            else
+            {
+                // Production misconfiguration: warn loudly, leave bridge inert.
+                Debug.LogError(
+                    "[ArcadeInputBridge] _actionsAsset is not assigned. " +
+                    "Drag ArcadeControls.inputactions onto the component in the Inspector.");
+
+                // Still allocate arrays so UpdateSlot's null checks don't throw.
+                AllocateArrays();
+            }
         }
 
         private void Update()
         {
+            if (_snapshots == null) return;
             for (int i = 0; i < SlotCount; i++)
                 UpdateSlot(i);
         }
@@ -106,16 +126,95 @@ namespace Barcade.Framework
             if (Instance == this)
                 Instance = null;
 
+            if (_assetCopies == null) return;
             for (int i = 0; i < SlotCount; i++)
             {
                 _moveActions?[i]?.Disable();
                 _actionButtonActions?[i]?.Disable();
-                if (_assetCopies?[i] != null)
+                if (_assetCopies[i] != null)
                     Destroy(_assetCopies[i]);
             }
         }
 
         // ── Public API ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Testability seam and explicit initialiser.
+        ///
+        /// Assigns <paramref name="actionsAsset"/> and sets up each of the four
+        /// player slots using the devices in <paramref name="orderedDevices"/>:
+        ///   - Clones the asset once per slot so action maps are independent.
+        ///   - Pins each map to exactly one device via <c>InputActionMap.devices</c>.
+        ///   - Applies the correct binding-group mask (Joystick / Gamepad / Keyboard-Pn).
+        ///   - Enables the map.
+        ///
+        /// Production: called from <see cref="Awake"/> with the Inspector-assigned asset
+        /// and <see cref="GatherDevices"/> result.
+        ///
+        /// Tests: call this directly on a component attached to an INACTIVE GameObject
+        /// (so <c>Awake</c> has not fired), then activate the object. This avoids the
+        /// null-asset error path entirely and ensures production and test paths are identical.
+        /// </summary>
+        /// <param name="actionsAsset">The InputActionAsset to clone per slot.</param>
+        /// <param name="orderedDevices">
+        /// Exactly 4 devices in slot order (index 0 = Rojo … index 3 = Verde).
+        /// Entries may be null for keyboard-fallback slots.
+        /// </param>
+        public void Initialize(InputActionAsset actionsAsset, IReadOnlyList<InputDevice> orderedDevices)
+        {
+            if (actionsAsset == null)
+                throw new ArgumentNullException(nameof(actionsAsset));
+            if (orderedDevices == null)
+                throw new ArgumentNullException(nameof(orderedDevices));
+            if (orderedDevices.Count != SlotCount)
+                throw new ArgumentException(
+                    $"orderedDevices must have exactly {SlotCount} entries, got {orderedDevices.Count}.",
+                    nameof(orderedDevices));
+
+            // Tear down any previously initialised state (safe to call multiple times).
+            TearDownSlots();
+            AllocateArrays();
+
+            for (int i = 0; i < SlotCount; i++)
+            {
+                InputDevice device = orderedDevices[i];
+
+                // Clone the asset so each slot has a completely independent
+                // action-map instance with its own device list and enabled state.
+                InputActionAsset copy = Instantiate(actionsAsset);
+                copy.name = $"ArcadeControls_P{i}";
+                _assetCopies[i] = copy;
+
+                var map = copy.FindActionMap("Gameplay", throwIfNotFound: true);
+                _moveActions[i]         = map.FindAction("Move",         throwIfNotFound: true);
+                _actionButtonActions[i] = map.FindAction("ActionButton", throwIfNotFound: true);
+
+                // Pin this slot's map to EXACTLY ONE device instance.
+                // InputActionMap.devices restricts which physical device the map reads.
+                // Without this, every slot on scheme "Joystick" hears ALL joysticks —
+                // moving stick 0 would drive slots 0-3 on a 4-joystick cabinet.
+                if (device != null)
+                    map.devices = new InputDevice[] { device };
+
+                // Narrow by binding group so per-player keyboard schemes (Keyboard-P0
+                // vs Keyboard-P1) only fire their own key set, even when device is shared.
+                string scheme = PickScheme(device, i);
+                copy.bindingMask = InputBinding.MaskByGroup(scheme);
+
+                map.Enable();
+
+                Debug.Log(
+                    $"[ArcadeInputBridge] Slot {i} ({(PlayerSlot)i}) " +
+                    $"device='{device?.displayName ?? "none"}' " +
+                    $"scheme='{scheme}' " +
+                    $"product='{device?.description.product}' " +
+                    $"serial='{device?.description.serial}'");
+            }
+
+            // Mark as initialised so Awake (fired when the host GameObject is later
+            // activated) skips the production init path and preserves our state.
+            _initialized = true;
+        }
 
         /// <summary>
         /// Returns the most-recent <see cref="InputSnapshot"/> for <paramref name="slot"/>.
@@ -139,7 +238,7 @@ namespace Barcade.Framework
         ///
         ///   Tier 1: Joystick.all — sorted by stable key (serial → product → deviceId).
         ///   Tier 2: Gamepad.all  — sorted by stable key (serial → product → deviceId).
-        ///   Tier 3: Keyboard.current (dev fallback) — repeated to fill any remaining slots.
+        ///   Tier 3: Keyboard.current (dev fallback) — repeated to fill remaining slots.
         ///
         /// Sorting within each tier ensures the same physical device maps to the same
         /// slot across power cycles, provided the OS assigns the same serial/product string.
@@ -180,90 +279,54 @@ namespace Barcade.Framework
         /// </summary>
         private static int StableDeviceCompare(InputDevice a, InputDevice b)
         {
-            // Serial string (empty/null sorts last so devices without serials don't float up).
             string sa = a.description.serial  ?? string.Empty;
             string sb = b.description.serial  ?? string.Empty;
             int cmp = string.Compare(sa, sb, StringComparison.Ordinal);
             if (cmp != 0) return cmp;
 
-            // Product name.
             string pa = a.description.product ?? string.Empty;
             string pb = b.description.product ?? string.Empty;
             cmp = string.Compare(pa, pb, StringComparison.Ordinal);
             if (cmp != 0) return cmp;
 
-            // Runtime deviceId as last resort.
             return a.deviceId.CompareTo(b.deviceId);
         }
 
-        // ── Initialisation ───────────────────────────────────────────────────────
-
-        private void InitialiseDeviceSlots()
-        {
-            if (_actionsAsset == null)
-            {
-                Debug.LogError(
-                    "[ArcadeInputBridge] _actionsAsset is not assigned. " +
-                    "Drag ArcadeControls.inputactions onto the component in the Inspector.");
-                return;
-            }
-
-            InputDevice[] devices = GatherDevices();
-
-            for (int i = 0; i < SlotCount; i++)
-            {
-                InputDevice device = devices[i];
-
-                // Clone the asset so each player has a completely independent
-                // action-map instance with its own enabled/disabled state and device list.
-                InputActionAsset copy = Instantiate(_actionsAsset);
-                copy.name = $"ArcadeControls_P{i}";
-                _assetCopies[i] = copy;
-
-                var map = copy.FindActionMap("Gameplay", throwIfNotFound: true);
-                _moveActions[i]         = map.FindAction("Move",         throwIfNotFound: true);
-                _actionButtonActions[i] = map.FindAction("ActionButton", throwIfNotFound: true);
-
-                // ── HIGH-1 FIX: pin THIS slot's map to EXACTLY ONE device instance ──
-                // InputActionMap.devices restricts which physical device(s) the map reads.
-                // Without this, all slots on scheme "Joystick" hear ALL joysticks —
-                // moving stick 0 would drive slots 0-3 on a 4-joystick cabinet.
-                // Setting the device array to the single assigned device fixes isolation.
-                // For keyboard fallback, device may be null (headless CI) or shared
-                // across slots — that is acceptable only on dev machines, never on cabinet.
-                if (device != null)
-                    map.devices = new InputDevice[] { device };
-
-                // Also narrow by binding group so per-player keyboard schemes (Keyboard-P0
-                // vs Keyboard-P1) only fire their own key set, even when device is shared.
-                string scheme = PickScheme(device, i);
-                copy.bindingMask = InputBinding.MaskByGroup(scheme);
-
-                map.Enable();
-
-                Debug.Log(
-                    $"[ArcadeInputBridge] Slot {i} ({(PlayerSlot)i}) " +
-                    $"device='{device?.displayName ?? "none"}' " +
-                    $"scheme='{scheme}' " +
-                    $"product='{device?.description.product}' " +
-                    $"serial='{device?.description.serial}'");
-            }
-        }
+        // ── Private helpers ───────────────────────────────────────────────────────
 
         private static string PickScheme(InputDevice device, int slotIndex)
         {
             if (device is Joystick) return "Joystick";
             if (device is Gamepad)  return "Gamepad";
-            // Keyboard or null — use per-player keyboard scheme so key sets don't overlap.
             return KeyboardSchemeNames[slotIndex];
+        }
+
+        private void AllocateArrays()
+        {
+            _buttonWasHeld       = new bool[SlotCount];
+            _snapshots           = new InputSnapshot[SlotCount];
+            _moveActions         = new InputAction[SlotCount];
+            _actionButtonActions = new InputAction[SlotCount];
+            _assetCopies         = new InputActionAsset[SlotCount];
+        }
+
+        private void TearDownSlots()
+        {
+            if (_assetCopies == null) return;
+            for (int i = 0; i < SlotCount; i++)
+            {
+                _moveActions?[i]?.Disable();
+                _actionButtonActions?[i]?.Disable();
+                if (_assetCopies[i] != null)
+                    Destroy(_assetCopies[i]);
+            }
         }
 
         // ── Per-slot snapshot update ──────────────────────────────────────────────
 
         private void UpdateSlot(int i)
         {
-            if (_moveActions == null || _moveActions[i] == null ||
-                _actionButtonActions == null || _actionButtonActions[i] == null)
+            if (_moveActions[i] == null || _actionButtonActions[i] == null)
             {
                 _snapshots[i] = new InputSnapshot(0f, 0f, ButtonState.Released);
                 return;

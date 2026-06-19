@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -34,66 +35,57 @@ namespace Barcade.Input.Tests
         private const string ActionsAssetPath =
             "Assets/Barcade/Input/ArcadeControls.inputactions";
 
-        // ── Helper: create a bridge GameObject backed by the real actions asset ──
+        // ── Helper: create a bridge with explicit device list ────────────────────
 
         /// <summary>
-        /// Creates an <see cref="ArcadeInputBridge"/> MonoBehaviour on a fresh
-        /// GameObject, assigns the production <c>ArcadeControls.inputactions</c>
-        /// asset loaded from disk, and calls Awake by enabling the component.
+        /// Creates an <see cref="ArcadeInputBridge"/> MonoBehaviour using the
+        /// testability seam introduced to fix HIGH-2 / the null-asset-at-Awake bug.
         ///
-        /// The returned bridge has its slot 0 already pinned to the FIRST joystick
-        /// that was registered with the InputTestFixture before this call.
+        /// Construction sequence:
+        ///   1. Create an INACTIVE GameObject — AddComponent defers Awake.
+        ///   2. AddComponent(ArcadeInputBridge) — component exists but Awake has NOT run.
+        ///   3. Load ArcadeControls.inputactions from disk.
+        ///   4. Call bridge.Initialize(asset, orderedDevices) — sets up all slots;
+        ///      sets _initialized = true.
+        ///   5. Activate the GameObject — Awake fires; it finds _initialized == true
+        ///      and returns immediately, preserving the injected state.
         ///
-        /// Caller is responsible for destroying the GameObject in TearDown or
-        /// at end of test (InputTestFixture resets the input system automatically).
+        /// This approach avoids all SerializedObject injection hacks and correctly
+        /// exercises the same Initialize() code path used in production (Awake calls
+        /// Initialize() when _actionsAsset != null in the production flow).
         /// </summary>
-        private static ArcadeInputBridge CreateBridge()
+        private static ArcadeInputBridge CreateBridge(IReadOnlyList<InputDevice> orderedDevices)
         {
             var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ActionsAssetPath);
             Assert.IsNotNull(asset,
                 $"ArcadeControls.inputactions not found at '{ActionsAssetPath}'. " +
                 "Ensure the asset is committed under Assets/Barcade/Input/.");
 
+            // Step 1: inactive GO — Awake is deferred until SetActive(true).
             var go = new GameObject("TestBridge");
+            go.SetActive(false);
+
+            // Step 2: add component while GO is inactive.
             var bridge = go.AddComponent<ArcadeInputBridge>();
 
-            // Inject the actions asset via the serialized field (reflection-free approach
-            // using SerializedObject so we don't need to expose a public setter).
-            var so = new SerializedObject(bridge);
-            so.FindProperty("_actionsAsset").objectReferenceValue = asset;
-            so.ApplyModifiedPropertiesWithoutUndo();
+            // Step 3+4: inject asset and device list via the public seam.
+            // This sets _initialized = true so the deferred Awake is a no-op.
+            bridge.Initialize(asset, orderedDevices);
 
-            // Force Awake by activating the object (it is already active from AddComponent,
-            // but the singleton guard runs immediately; reset the static field first so the
-            // test can create a fresh instance).
-            ArcadeInputBridgeTests.ClearBridgeSingleton();
+            // Step 5: activate — Awake fires but skips initialisation (_initialized == true).
+            // Instance gets set and DontDestroyOnLoad applies.
+            go.SetActive(true);
 
             return bridge;
         }
 
-        /// <summary>
-        /// Resets the static <see cref="ArcadeInputBridge.Instance"/> to null so tests
-        /// can create fresh instances without the singleton guard destroying them.
-        /// Uses reflection since the property setter is private.
-        /// </summary>
-        private static void ClearBridgeSingleton()
-        {
-            var prop = typeof(ArcadeInputBridge)
-                .GetProperty(nameof(ArcadeInputBridge.Instance),
-                    System.Reflection.BindingFlags.Public |
-                    System.Reflection.BindingFlags.Static);
-            prop?.SetValue(null, null);
-        }
-
+        // TearDown ensures no bridge singleton persists between tests.
         [TearDown]
         public override void TearDown()
         {
-            // Destroy any leftover bridge GameObjects to prevent singleton leaks
-            // between tests.
             var existing = ArcadeInputBridge.Instance;
             if (existing != null)
                 Object.DestroyImmediate(existing.gameObject);
-            ClearBridgeSingleton();
 
             base.TearDown(); // resets the Input System
         }
@@ -188,27 +180,28 @@ namespace Barcade.Input.Tests
         /// CRITICAL routing test (HIGH-2 fix verification).
         ///
         /// Creates two simulated joysticks. Instantiates a real <see cref="ArcadeInputBridge"/>
-        /// with the production <c>ArcadeControls.inputactions</c> asset. Drives stick input
-        /// ONLY on the device assigned to slot 0 (Rojo). Pumps a frame. Asserts:
-        ///   - Rojo's StickX reflects the driven value.
-        ///   - Azul's StickX remains zero (device isolation working).
+        /// via the Initialize() seam with explicit device assignment: j0→slot0, j1→slot1,
+        /// kb→slot2, kb→slot3. Drives stick input ONLY on j0. Pumps a frame. Asserts:
+        ///   - Rojo's StickX reflects the driven value  (map.devices pinned correctly).
+        ///   - Azul's StickX remains zero               (device isolation working).
         ///   - Amarillo and Verde remain zero.
         ///
         /// This test FAILS when <c>map.devices</c> is not set (HIGH-1 bug) because the
         /// "Joystick" binding group is shared and all slots hear all joysticks.
-        /// It PASSES after the HIGH-1 fix pins each map to exactly one device.
+        /// It PASSES after the HIGH-1 fix pins each map to exactly one device instance.
         /// </summary>
         [UnityTest]
         public IEnumerator Bridge_DeviceIsolation_Slot0Input_DoesNotAffectOtherSlots()
         {
-            // Arrange: two joysticks — j0 will be slot 0 (Rojo), j1 will be slot 1 (Azul).
+            // Arrange: two joysticks, one keyboard fallback.
             var j0 = InputSystem.AddDevice<Joystick>();
             var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
 
-            // Create the bridge. Awake will call GatherDevices and pin devices.
-            var bridge = CreateBridge();
+            // Create bridge with explicit slot assignment: j0→Rojo, j1→Azul, kb→Amarillo, kb→Verde.
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
 
-            // Let Unity process Awake (already done by AddComponent, but yield to be safe).
+            // Pump one frame — Awake already ran, Update hasn't run yet in this frame.
             yield return null;
 
             // Act: drive the stick on j0 (slot 0 / Rojo) to the right.
@@ -243,8 +236,9 @@ namespace Barcade.Input.Tests
         {
             var j0 = InputSystem.AddDevice<Joystick>();
             var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
 
-            var bridge = CreateBridge();
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
             yield return null;
 
             // Drive only j1 (slot 1 / Azul).
@@ -272,9 +266,10 @@ namespace Barcade.Input.Tests
         public IEnumerator Bridge_ButtonEdges_ThroughRealUpdateSlot_PressedHeldReleased()
         {
             var j0 = InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>(); // j1 — fill slot 1
+            var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
 
-            var bridge = CreateBridge();
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
             yield return null;
 
             // Frame 1: press the trigger (button down on j0).
@@ -316,9 +311,10 @@ namespace Barcade.Input.Tests
         public IEnumerator Bridge_ButtonEdges_QuickPress_PressedThenReleasedNeverHeld()
         {
             var j0 = InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
 
-            var bridge = CreateBridge();
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
             yield return null;
 
             Set(j0.trigger, 1f);
@@ -371,9 +367,10 @@ namespace Barcade.Input.Tests
         public IEnumerator Bridge_StickValues_ReflectDrivenInput()
         {
             var j0 = InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
 
-            var bridge = CreateBridge();
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
             yield return null;
 
             Set(j0.stick, new Vector2(0.6f, -0.4f));
