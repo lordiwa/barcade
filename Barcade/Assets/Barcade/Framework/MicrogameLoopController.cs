@@ -39,7 +39,7 @@ namespace Barcade.Framework
         [SerializeField] private float _intermissionDuration = 2.0f;
 
         [Tooltip("Duration the giant verb is displayed before play starts (seconds).")]
-        [SerializeField] private float _commandShowDuration = 1.0f;
+        [SerializeField] private float _commandShowDuration = 2.5f;
 
         [Tooltip("Duration the result flash is shown after play ends (seconds).")]
         [SerializeField] private float _resultDuration = 1.5f;

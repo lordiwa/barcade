@@ -294,11 +294,14 @@ namespace Barcade.EditorTools
             var lcInputBridge = lcSO.FindProperty("_inputBridge");
             var lcCmdDisplay  = lcSO.FindProperty("_commandDisplayView");
             var lcIntermission= lcSO.FindProperty("_intermissionView");
+            // Pacing: verb shown for 2.5 s so players can read the command.
+            var lcCmdDuration = lcSO.FindProperty("_commandShowDuration");
             if (lcPool         != null) lcPool.objectReferenceValue         = poolAsset;
             if (lcHost         != null) lcHost.objectReferenceValue         = microgameHost;
             if (lcInputBridge  != null) lcInputBridge.objectReferenceValue  = bridge;
             if (lcCmdDisplay   != null) lcCmdDisplay.objectReferenceValue   = cmdDisplayView;
             if (lcIntermission != null) lcIntermission.objectReferenceValue = intermissionView;
+            if (lcCmdDuration  != null) lcCmdDuration.floatValue            = 2.5f;
             lcSO.ApplyModifiedProperties();
 
             // Wire HudController to the loop controller
