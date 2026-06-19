@@ -30,9 +30,13 @@ namespace Barcade.Framework
         [TextArea]
         public string verbText;          // e.g. "¡TOCA!" shown to all players
 
+        [Tooltip("Short one-line hint shown below the verb during the command-show window.")]
+        [TextArea]
+        public string hintText;          // e.g. "Mueve tu cuadro y evita los obstáculos"
+
         [Header("Timing")]
-        [Range(2f, 8f)]
-        public float baseDuration = 5f;  // seconds; actual = baseDuration / speedMultiplier
+        [Range(2f, 12f)]
+        public float baseDuration = 7f;  // seconds; actual = baseDuration / speedMultiplier
 
         [Header("Difficulty")]
         [Range(1, 3)]

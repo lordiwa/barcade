@@ -32,6 +32,7 @@ namespace Barcade.EditorTools
         {
             public string Id;
             public string VerbText;
+            public string HintText;      // short one-line instruction in Spanish
             public float  BaseDuration;
             public int    Difficulty;   // 1=easy, 2=normal, 3=hard
         }
@@ -39,30 +40,59 @@ namespace Barcade.EditorTools
         /// <summary>
         /// All 12+ definitions across the 5 mechanics, with meaningfully varied
         /// difficulty, duration and verbText. Each id matches a MicrogameRegistry key.
+        ///
+        /// Base durations are deliberately generous (7–10 s) so the game reads well on
+        /// a first play-through. The speed ramp compresses them across a session, but a
+        /// minimum effective duration (set in MicrogameLoopController) prevents any round
+        /// from feeling like a blink.
         /// </summary>
         private static readonly DefSpec[] Specs = new DefSpec[]
         {
             // ── Esquiva (dodge) ───────────────────────────────────────────────────
-            new DefSpec { Id="esquiva",       VerbText="¡ESQUIVA!",        BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="esquiva",       VerbText="¡ESQUIVA!",        BaseDuration=4f, Difficulty=2 },
-            new DefSpec { Id="esquiva",       VerbText="¡ESQUIVA RÁPIDO!", BaseDuration=3f, Difficulty=3 },
+            new DefSpec { Id="esquiva", VerbText="¡ESQUIVA!",
+                HintText="Mueve tu figura y evita los obstáculos",
+                BaseDuration=9f, Difficulty=1 },
+            new DefSpec { Id="esquiva", VerbText="¡ESQUIVA!",
+                HintText="Mueve tu figura y evita los obstáculos",
+                BaseDuration=8f, Difficulty=2 },
+            new DefSpec { Id="esquiva", VerbText="¡ESQUIVA RÁPIDO!",
+                HintText="Mueve tu figura y evita los obstáculos",
+                BaseDuration=7f, Difficulty=3 },
 
             // ── Aporrea (mash) ────────────────────────────────────────────────────
-            new DefSpec { Id="aporrea",       VerbText="¡APORREA!",        BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="aporrea",       VerbText="¡APORREA FUERTE!", BaseDuration=4f, Difficulty=3 },
+            new DefSpec { Id="aporrea", VerbText="¡APORREA!",
+                HintText="Aporrea el botón lo más rápido posible",
+                BaseDuration=9f, Difficulty=1 },
+            new DefSpec { Id="aporrea", VerbText="¡APORREA FUERTE!",
+                HintText="Aporrea el botón lo más rápido posible",
+                BaseDuration=8f, Difficulty=3 },
 
             // ── Apunta (aim) ──────────────────────────────────────────────────────
-            new DefSpec { Id="apunta",        VerbText="¡APUNTA!",         BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="apunta",        VerbText="¡APUNTA BIEN!",    BaseDuration=4f, Difficulty=3 },
+            new DefSpec { Id="apunta", VerbText="¡APUNTA!",
+                HintText="Apunta tu marca al objetivo y pulsa",
+                BaseDuration=9f, Difficulty=1 },
+            new DefSpec { Id="apunta", VerbText="¡APUNTA BIEN!",
+                HintText="Apunta tu marca al objetivo y pulsa",
+                BaseDuration=8f, Difficulty=3 },
 
             // ── Timing (press on cue) ─────────────────────────────────────────────
-            new DefSpec { Id="timing",        VerbText="¡AHORA!",          BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="timing",        VerbText="¡YA!",             BaseDuration=3f, Difficulty=3 },
+            new DefSpec { Id="timing", VerbText="¡AHORA!",
+                HintText="Pulsa cuando la marca esté en la zona verde",
+                BaseDuration=8f, Difficulty=1 },
+            new DefSpec { Id="timing", VerbText="¡YA!",
+                HintText="Pulsa cuando la marca esté en la zona verde",
+                BaseDuration=7f, Difficulty=3 },
 
             // ── Recolecta (collect) ───────────────────────────────────────────────
-            new DefSpec { Id="recolecta",     VerbText="¡RECOLECTA!",      BaseDuration=6f, Difficulty=1 },
-            new DefSpec { Id="recolecta",     VerbText="¡RECOGE TODO!",    BaseDuration=5f, Difficulty=2 },
-            new DefSpec { Id="recolecta",     VerbText="¡RECOLECTA TODO!", BaseDuration=4f, Difficulty=3 },
+            new DefSpec { Id="recolecta", VerbText="¡RECOLECTA!",
+                HintText="Recoge los objetos verdes antes de que acabe el tiempo",
+                BaseDuration=10f, Difficulty=1 },
+            new DefSpec { Id="recolecta", VerbText="¡RECOGE TODO!",
+                HintText="Recoge los objetos verdes antes de que acabe el tiempo",
+                BaseDuration=9f, Difficulty=2 },
+            new DefSpec { Id="recolecta", VerbText="¡RECOLECTA TODO!",
+                HintText="Recoge los objetos verdes antes de que acabe el tiempo",
+                BaseDuration=8f, Difficulty=3 },
         };
 
         // ── Public entry point (headless + Editor menu) ────────────────────────
@@ -89,6 +119,7 @@ namespace Barcade.EditorTools
                 MicrogameDefinition def = LoadOrCreate<MicrogameDefinition>(assetPath);
                 def.id           = spec.Id;
                 def.verbText     = spec.VerbText;
+                def.hintText     = spec.HintText;
                 def.baseDuration = spec.BaseDuration;
                 def.difficulty   = spec.Difficulty;
 
