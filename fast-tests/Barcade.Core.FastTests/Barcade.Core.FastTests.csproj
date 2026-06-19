@@ -35,6 +35,7 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SeededRandomTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SmokeTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ScoreModelTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameLifecycleTests.cs" />
   </ItemGroup>
 
 </Project>
