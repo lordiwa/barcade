@@ -145,6 +145,20 @@ namespace Barcade.EditorTools
             cmdCanvasGO.AddComponent<CanvasScaler>();
             cmdCanvasGO.AddComponent<GraphicRaycaster>();
             var cmdDisplayView = cmdCanvasGO.AddComponent<CommandDisplayView>();
+
+            // Semi-transparent dark backdrop ensures the verb is always legible
+            // regardless of what the microgame is drawing behind it.
+            var cmdBgGO = new GameObject("CommandBackground");
+            cmdBgGO.transform.SetParent(cmdCanvasGO.transform, false);
+            var cmdBgRT = cmdBgGO.AddComponent<RectTransform>();
+            cmdBgRT.anchorMin = Vector2.zero;
+            cmdBgRT.anchorMax = Vector2.one;
+            cmdBgRT.offsetMin = Vector2.zero;
+            cmdBgRT.offsetMax = Vector2.zero;
+            var cmdBgImage = cmdBgGO.AddComponent<Image>();
+            cmdBgImage.color         = new Color(0f, 0f, 0f, 0.55f);
+            cmdBgImage.raycastTarget = false;
+
             // Wire a Text child for the verb
             var verbGO = new GameObject("VerbLabel");
             verbGO.transform.SetParent(cmdCanvasGO.transform, false);
@@ -155,7 +169,7 @@ namespace Barcade.EditorTools
             verbRT.offsetMax = Vector2.zero;
             var verbText = verbGO.AddComponent<Text>();
             verbText.text      = "";
-            verbText.fontSize  = 96;
+            verbText.fontSize  = 120;   // larger for bar-cabinet viewing distance
             verbText.fontStyle = FontStyle.Bold;
             verbText.alignment = TextAnchor.MiddleCenter;
             verbText.color     = Color.white;
