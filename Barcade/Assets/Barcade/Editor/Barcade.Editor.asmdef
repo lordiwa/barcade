@@ -1,0 +1,13 @@
+{
+  "name": "Barcade.Editor",
+  "rootNamespace": "Barcade.EditorTools",
+  "references": [
+    "Barcade.Core",
+    "Barcade.Framework"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false
+}
