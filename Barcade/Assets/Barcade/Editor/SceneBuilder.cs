@@ -159,24 +159,43 @@ namespace Barcade.EditorTools
             cmdBgImage.color         = new Color(0f, 0f, 0f, 0.55f);
             cmdBgImage.raycastTarget = false;
 
-            // Wire a Text child for the verb
+            // Verb label — occupies the upper 60% of the canvas, centred.
             var verbGO = new GameObject("VerbLabel");
             verbGO.transform.SetParent(cmdCanvasGO.transform, false);
             var verbRT = verbGO.AddComponent<RectTransform>();
-            verbRT.anchorMin = Vector2.zero;
-            verbRT.anchorMax = Vector2.one;
-            verbRT.offsetMin = Vector2.zero;
-            verbRT.offsetMax = Vector2.zero;
+            verbRT.anchorMin = new Vector2(0f, 0.4f);
+            verbRT.anchorMax = new Vector2(1f, 1.0f);
+            verbRT.offsetMin = new Vector2(20f,  0f);
+            verbRT.offsetMax = new Vector2(-20f, -20f);
             var verbText = verbGO.AddComponent<Text>();
             verbText.text      = "";
             verbText.fontSize  = 120;   // larger for bar-cabinet viewing distance
             verbText.fontStyle = FontStyle.Bold;
             verbText.alignment = TextAnchor.MiddleCenter;
             verbText.color     = Color.white;
-            // Assign via SerializedObject
+
+            // Hint label — occupies the lower 35% of the canvas, below the verb.
+            var hintGO = new GameObject("HintLabel");
+            hintGO.transform.SetParent(cmdCanvasGO.transform, false);
+            var hintRT = hintGO.AddComponent<RectTransform>();
+            hintRT.anchorMin = new Vector2(0.1f, 0.05f);
+            hintRT.anchorMax = new Vector2(0.9f, 0.42f);
+            hintRT.offsetMin = Vector2.zero;
+            hintRT.offsetMax = Vector2.zero;
+            var hintText = hintGO.AddComponent<Text>();
+            hintText.text      = "";
+            hintText.fontSize  = 52;
+            hintText.fontStyle = FontStyle.Normal;
+            hintText.alignment = TextAnchor.MiddleCenter;
+            hintText.color     = new Color(0.9f, 0.9f, 0.9f);
+
+            // Wire both labels via SerializedObject
             var cmdSO    = new SerializedObject(cmdDisplayView);
             var verbProp = cmdSO.FindProperty("_verbLabel");
-            if (verbProp != null) { verbProp.objectReferenceValue = verbText; cmdSO.ApplyModifiedProperties(); }
+            var hintProp = cmdSO.FindProperty("_hintLabel");
+            if (verbProp != null) verbProp.objectReferenceValue = verbText;
+            if (hintProp != null) hintProp.objectReferenceValue = hintText;
+            cmdSO.ApplyModifiedProperties();
 
             // ── IntermissionView ─────────────────────────────────────────────────
             var intermissionCanvasGO = new GameObject("IntermissionCanvas");
@@ -310,12 +329,17 @@ namespace Barcade.EditorTools
             var lcIntermission= lcSO.FindProperty("_intermissionView");
             // Pacing: verb shown for 2.5 s so players can read the command.
             var lcCmdDuration = lcSO.FindProperty("_commandShowDuration");
+            // Ramp: 3% decay per round, minimum 5 s floor — no round ever feels like a blink.
+            var lcRampDecay   = lcSO.FindProperty("_rampDecayPerRound");
+            var lcRampMin     = lcSO.FindProperty("_rampMinDuration");
             if (lcPool         != null) lcPool.objectReferenceValue         = poolAsset;
             if (lcHost         != null) lcHost.objectReferenceValue         = microgameHost;
             if (lcInputBridge  != null) lcInputBridge.objectReferenceValue  = bridge;
             if (lcCmdDisplay   != null) lcCmdDisplay.objectReferenceValue   = cmdDisplayView;
             if (lcIntermission != null) lcIntermission.objectReferenceValue = intermissionView;
             if (lcCmdDuration  != null) lcCmdDuration.floatValue            = 2.5f;
+            if (lcRampDecay    != null) lcRampDecay.floatValue              = 0.97f;
+            if (lcRampMin      != null) lcRampMin.floatValue                = 5.0f;
             lcSO.ApplyModifiedProperties();
 
             // Wire HudController to the loop controller
