@@ -80,25 +80,47 @@ namespace Barcade.Framework
 
         // ── Testability seam ──────────────────────────────────────────────────────
 
-        // Allow tests to inject a pre-built director so the pool doesn't need
-        // ScriptableObject assets in the PlayMode test scene.
-        private SequencerDirector _injectedDirector;
+        // Allow tests to inject all dependencies before Start() runs.
+        // Use the inactive-GO pattern (create inactive, inject, SetActive(true)).
+        private SequencerDirector     _injectedDirector;
+        private IReadOnlyPlayerInputs _testInputs;
 
         /// <summary>
-        /// Injects a pre-built director and input provider for testing.
-        /// Must be called before the controller's Start() runs.
+        /// Injects all test dependencies. Call on an INACTIVE GameObject, then
+        /// call SetActive(true) to let Start() pick them up.
+        ///
+        /// <paramref name="director"/>         — pre-built sequencer director.
+        /// <paramref name="inputs"/>            — stub input provider.
+        /// <paramref name="host"/>              — MicrogameHost to use for Play phase.
+        /// <paramref name="intermission"/>      — override Intermission duration (seconds).
+        /// <paramref name="commandShow"/>       — override CommandShow duration (seconds).
+        /// <paramref name="result"/>            — override Result window duration (seconds).
+        /// <paramref name="commandDisplay"/>    — optional CommandDisplayView reference.
+        /// <paramref name="intermissionView"/>  — optional IntermissionView reference.
         /// </summary>
         public void InjectForTest(
-            SequencerDirector director,
-            IReadOnlyPlayerInputs inputs)
+            SequencerDirector     director,
+            IReadOnlyPlayerInputs inputs,
+            MicrogameHost         host             = null,
+            float                 intermission     = 2.0f,
+            float                 commandShow      = 1.0f,
+            float                 result           = 1.5f,
+            CommandDisplayView    commandDisplay   = null,
+            IntermissionView      intermissionView = null)
         {
             _injectedDirector    = director;
             _testInputs          = inputs;
+
+            // Override serialised fields directly — safe because Start() has not run yet.
+            if (host             != null) _microgameHost        = host;
+            if (commandDisplay   != null) _commandDisplayView   = commandDisplay;
+            if (intermissionView != null) _intermissionView     = intermissionView;
+            _intermissionDuration = intermission;
+            _commandShowDuration  = commandShow;
+            _resultDuration       = result;
         }
 
-        private IReadOnlyPlayerInputs _testInputs;
-
-        // Expose director for test assertions.
+        // Expose director for test assertions (valid after SetActive(true) + first frame).
         public SequencerDirector Director => _director;
 
         // ── Unity lifecycle ───────────────────────────────────────────────────────
