@@ -72,7 +72,7 @@ namespace Barcade.Framework
 
             while (!initHandle.IsDone)
             {
-                policy.Tick(Time.deltaTime);
+                policy.Tick(Time.unscaledDeltaTime);
                 if (policy.IsTerminal)
                 {
                     // Timed out while waiting for init.
@@ -104,7 +104,7 @@ namespace Barcade.Framework
 
             while (!checkHandle.IsDone)
             {
-                policy.Tick(Time.deltaTime);
+                policy.Tick(Time.unscaledDeltaTime);
                 if (policy.IsTerminal)
                 {
                     Debug.LogWarning(
@@ -144,7 +144,7 @@ namespace Barcade.Framework
 
             while (!updateHandle.IsDone)
             {
-                policy.Tick(Time.deltaTime);
+                policy.Tick(Time.unscaledDeltaTime);
                 if (policy.IsTerminal)
                 {
                     Debug.LogWarning(

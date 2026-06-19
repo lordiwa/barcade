@@ -154,7 +154,9 @@ replacing the old catalog pair. Unchanged bundles remain on the server untouched
 ### Step 4 — Cabinets pick it up automatically
 
 On the next boot the `ContentUpdater` coroutine will detect the new catalog,
-download and apply the update within the 8-second timeout window.
+download and apply the update. The timeout applies per stage (see Boot-Time
+Update Check below); a fully offline cabinet gives up after ~8s (init times
+out, remaining stages are skipped).
 
 ---
 
@@ -236,9 +238,17 @@ frequent. This split keeps over-the-air updates fast and cheap.
 2. `Addressables.CheckForCatalogUpdates()` — discovers stale catalogs.
 3. `Addressables.UpdateCatalogs()` — downloads and applies the delta.
 
-Each step is bounded by a **8-second timeout** (Inspector-configurable via
+Each step is bounded by an **8-second timeout** (Inspector-configurable via
 `_catalogTimeoutSeconds`). If any step times out or fails, the coroutine logs
 a warning and returns immediately — the game proceeds with cached/local content.
+
+The timeout is **per-stage**, not total. In the common offline case (server
+unreachable) the init step times out after ~8s and the remaining stages are
+skipped, so boot delay is ~8s. In the rare worst case of a server that is
+reachable but stalls at every stage, all three stages could each reach the
+timeout for a cumulative delay of up to ~24s (3 × 8s). If your network is
+consistently slow, lower `_catalogTimeoutSeconds` to 5s or pre-warm content
+during attract-mode idle time with `Addressables.DownloadDependenciesAsync`.
 
 The decision logic lives in `ContentUpdatePolicy` (pure C#, no Unity refs) and
 is covered by the fast-test suite (`ContentUpdatePolicyTests`).
