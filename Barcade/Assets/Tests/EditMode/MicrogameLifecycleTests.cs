@@ -395,11 +395,13 @@ namespace Barcade.Core.Tests
     {
         public ISeededRandom Rng { get; }
         public PlayerSlot[] Players { get; }
+        public float Difficulty { get; }
 
-        public TestMicrogameContext(ISeededRandom rng, PlayerSlot[] players)
+        public TestMicrogameContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng     = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty;
         }
     }
 

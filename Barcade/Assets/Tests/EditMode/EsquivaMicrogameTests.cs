@@ -19,8 +19,8 @@ namespace Barcade.Core.Tests
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
-        private static IMicrogameContext MakeContext(int seed = 0)
-            => new EsquivaTestContext(new SeededRandom(seed), AllPlayers);
+        private static IMicrogameContext MakeContext(int seed = 0, float difficulty = 0f)
+            => new EsquivaTestContext(new SeededRandom(seed), AllPlayers, difficulty);
 
         private static IReadOnlyPlayerInputs NoInput()
         {
@@ -271,6 +271,72 @@ namespace Barcade.Core.Tests
             Assert.That(x, Is.GreaterThanOrEqualTo(-5f), "Avatar X must not go below -playAreaHalfExtent");
         }
 
+        // ── Difficulty scaling ───────────────────────────────────────────────────
+
+        [Test]
+        public void EsquivaMicrogame_Difficulty0_HasBaseHazardCount()
+        {
+            // With difficulty=0, hazard count = base + round(0*2) = base.
+            var game = new EsquivaMicrogame(hazardCount: 2, hazardSpeed: 0f, avatarRadius: 0.5f,
+                hazardRadius: 0.5f, avatarSpeed: 0f, playAreaHalfExtent: 100f);
+            game.SetForcedHazardPositions(new (float, float)[] { (50f, 50f), (50f, 60f) });
+            game.SetForcedAvatarPositions(new (float, float)[]
+                { (0f, 0f), (0f, 0f), (0f, 0f), (0f, 0f) });
+
+            game.Prepare(MakeContext(seed: 0, difficulty: 0f));
+
+            Assert.That(game.HazardCount, Is.EqualTo(2),
+                "Difficulty 0 must not add hazards beyond the base count");
+        }
+
+        [Test]
+        public void EsquivaMicrogame_Difficulty1_IncreasesHazardCountAndSpeed()
+        {
+            var game = new EsquivaMicrogame(hazardCount: 2, hazardSpeed: 2f, avatarRadius: 0.5f,
+                hazardRadius: 0.5f, avatarSpeed: 0f, playAreaHalfExtent: 100f);
+
+            // Difficulty=1 → hazardCount = 2 + round(1*2) = 4; speed = 2*(1+1) = 4.
+            game.Prepare(MakeContext(seed: 0, difficulty: 1f));
+
+            Assert.That(game.HazardCount, Is.EqualTo(4),
+                "Difficulty 1 must add 2 extra hazards (base 2 → 4)");
+            Assert.That(game.EffectiveHazardSpeed, Is.EqualTo(4f).Within(0.001f),
+                "Difficulty 1 must double the hazard speed (base 2 → 4)");
+        }
+
+        [Test]
+        public void EsquivaMicrogame_LowDifficultyWins_HighDifficultyLoses()
+        {
+            // A player standing still at (0,0):
+            //   - At difficulty=0: 0 hazards → no collision → WIN.
+            //   - At difficulty=1: 4 hazards, one forced at (0,0) → immediate collision → LOSS.
+            var gameEasy = new EsquivaMicrogame(hazardCount: 0, hazardSpeed: 0f, avatarRadius: 0.5f,
+                hazardRadius: 0.5f, avatarSpeed: 0f, playAreaHalfExtent: 100f);
+            gameEasy.SetForcedAvatarPositions(new (float, float)[]
+                { (0f, 0f), (50f, 50f), (50f, 60f), (-50f, 50f) });
+            gameEasy.Prepare(MakeContext(seed: 0, difficulty: 0f));
+            gameEasy.Tick(0.1f, NoInput());
+            var easyResult = gameEasy.Evaluate();
+            gameEasy.Cleanup();
+
+            // Hard game: 2 base hazards + difficulty adds 2 more; force one at player position.
+            var gameHard = new EsquivaMicrogame(hazardCount: 2, hazardSpeed: 0f, avatarRadius: 0.5f,
+                hazardRadius: 0.5f, avatarSpeed: 0f, playAreaHalfExtent: 100f);
+            gameHard.SetForcedHazardPositions(new (float, float)[]
+                { (0f, 0f), (50f, 50f) }); // first hazard ON the player
+            gameHard.SetForcedAvatarPositions(new (float, float)[]
+                { (0f, 0f), (50f, 50f), (50f, 60f), (-50f, 50f) });
+            gameHard.Prepare(MakeContext(seed: 0, difficulty: 1f));
+            gameHard.Tick(0.1f, NoInput());
+            var hardResult = gameHard.Evaluate();
+            gameHard.Cleanup();
+
+            Assert.That(easyResult.IsWin(PlayerSlot.Rojo), Is.True,
+                "No hazards at difficulty 0 → Rojo survives (WIN)");
+            Assert.That(hardResult.IsWin(PlayerSlot.Rojo), Is.False,
+                "Hazard at player position at difficulty 1 → Rojo hit (LOSS)");
+        }
+
         // ── Prepare resets state ─────────────────────────────────────────────────
 
         [Test]
@@ -315,10 +381,12 @@ namespace Barcade.Core.Tests
     {
         public ISeededRandom Rng { get; }
         public PlayerSlot[] Players { get; }
-        public EsquivaTestContext(ISeededRandom rng, PlayerSlot[] players)
+        public float Difficulty { get; }
+        public EsquivaTestContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty;
         }
     }
 

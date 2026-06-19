@@ -18,8 +18,8 @@ namespace Barcade.Core.Tests
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
-        private static IMicrogameContext MakeContext(int seed = 0)
-            => new ApporreaTestContext(new SeededRandom(seed), AllPlayers);
+        private static IMicrogameContext MakeContext(int seed = 0, float difficulty = 0f)
+            => new ApporreaTestContext(new SeededRandom(seed), AllPlayers, difficulty);
 
         private static IReadOnlyPlayerInputs AllPressed()
         {
@@ -240,6 +240,61 @@ namespace Barcade.Core.Tests
                 "Press count must reset on second Prepare");
         }
 
+        // ── Difficulty scaling ───────────────────────────────────────────────────
+
+        [Test]
+        public void AporreaMicrogame_Difficulty0_HasBaseThreshold()
+        {
+            // difficulty=0: threshold = base + round(0 * base) = base.
+            const int baseThreshold = 5;
+            var game = new AporreaMicrogame(threshold: baseThreshold, timeLimit: 10f);
+            game.Prepare(MakeContext(seed: 0, difficulty: 0f));
+
+            Assert.That(game.Threshold, Is.EqualTo(baseThreshold),
+                "Difficulty 0 must keep the base threshold");
+        }
+
+        [Test]
+        public void AporreaMicrogame_Difficulty1_DoublesThreshold()
+        {
+            // difficulty=1: threshold = base + round(1*base) = 2*base.
+            const int baseThreshold = 4;
+            var game = new AporreaMicrogame(threshold: baseThreshold, timeLimit: 10f);
+            game.Prepare(MakeContext(seed: 0, difficulty: 1f));
+
+            Assert.That(game.Threshold, Is.EqualTo(2 * baseThreshold),
+                "Difficulty 1 must double the threshold (base 4 → 8)");
+        }
+
+        [Test]
+        public void AporreaMicrogame_LowDifficultyWins_HighDifficultyLoses()
+        {
+            // Base threshold=3. At difficulty=0 effective threshold=3; at difficulty=1 it's 6.
+            // Feed exactly 3 presses:
+            //   - Easy (difficulty=0): threshold=3 → exactly enough → WIN.
+            //   - Hard (difficulty=1): threshold=6 → not enough → LOSS.
+            const int baseThreshold = 3;
+
+            var gameEasy = new AporreaMicrogame(threshold: baseThreshold, timeLimit: 10f);
+            gameEasy.Prepare(MakeContext(seed: 0, difficulty: 0f));
+            for (int i = 0; i < baseThreshold; i++)
+                gameEasy.Tick(0.1f, AllPressed());
+            var easyResult = gameEasy.Evaluate();
+            gameEasy.Cleanup();
+
+            var gameHard = new AporreaMicrogame(threshold: baseThreshold, timeLimit: 10f);
+            gameHard.Prepare(MakeContext(seed: 0, difficulty: 1f));
+            for (int i = 0; i < baseThreshold; i++)
+                gameHard.Tick(0.1f, AllPressed());
+            var hardResult = gameHard.Evaluate();
+            gameHard.Cleanup();
+
+            Assert.That(easyResult.IsWin(PlayerSlot.Rojo), Is.True,
+                "3 presses at difficulty 0 (threshold=3) → WIN");
+            Assert.That(hardResult.IsWin(PlayerSlot.Rojo), Is.False,
+                "3 presses at difficulty 1 (threshold=6) → LOSS");
+        }
+
         // ── Expose per-player press count for view rendering ─────────────────────
 
         [Test]
@@ -269,10 +324,12 @@ namespace Barcade.Core.Tests
     {
         public ISeededRandom Rng { get; }
         public PlayerSlot[] Players { get; }
-        public ApporreaTestContext(ISeededRandom rng, PlayerSlot[] players)
+        public float Difficulty { get; }
+        public ApporreaTestContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty;
         }
     }
 

@@ -18,11 +18,16 @@ namespace Barcade.Core
     /// </summary>
     public sealed class TimingMicrogame : IMicrogame
     {
-        // ── Configuration ────────────────────────────────────────────────────────
+        // ── Configuration (base; difficulty scales at Prepare time) ─────────────
 
-        private readonly float _speed;
-        private readonly float _zoneMin;
-        private readonly float _zoneMax;
+        private readonly float _baseSpeed;
+        private readonly float _baseZoneMin;
+        private readonly float _baseZoneMax;
+
+        // Effective values computed from difficulty at Prepare time.
+        private float _speed;
+        private float _zoneMin;
+        private float _zoneMax;
 
         // ── Per-round state (reset in Prepare) ───────────────────────────────────
 
@@ -40,9 +45,9 @@ namespace Barcade.Core
         /// <param name="zoneMax">End of the target zone (inclusive), (0,1].</param>
         public TimingMicrogame(float speed, float zoneMin, float zoneMax)
         {
-            _speed   = speed;
-            _zoneMin = zoneMin;
-            _zoneMax = zoneMax;
+            _baseSpeed   = speed;
+            _baseZoneMin = zoneMin;
+            _baseZoneMax = zoneMax;
         }
 
         // ── IMicrogame ───────────────────────────────────────────────────────────
@@ -55,6 +60,17 @@ namespace Barcade.Core
         {
             _ctx     = ctx;
             _elapsed = 0f;
+
+            // Difficulty [0,1]: speed increases up to 2× and zone narrows by up to 50%.
+            float d = ctx.Difficulty < 0f ? 0f : (ctx.Difficulty > 1f ? 1f : ctx.Difficulty);
+            _speed = _baseSpeed * (1f + d);
+
+            float baseWidth = _baseZoneMax - _baseZoneMin;
+            float baseCentre = (_baseZoneMin + _baseZoneMax) * 0.5f;
+            float newHalfWidth = baseWidth * 0.5f * (1f - d * 0.5f);
+            if (newHalfWidth < 0.01f) newHalfWidth = 0.01f; // never degenerate
+            _zoneMin = baseCentre - newHalfWidth;
+            _zoneMax = baseCentre + newHalfWidth;
 
             _latch = new Dictionary<PlayerSlot, bool?>(ctx.Players.Length);
             foreach (PlayerSlot slot in ctx.Players)
@@ -103,6 +119,9 @@ namespace Barcade.Core
             _ctx     = null;
             _latch   = null;
             _elapsed = 0f;
+            _speed   = 0f;
+            _zoneMin = 0f;
+            _zoneMax = 0f;
         }
 
         // ── State accessors (for tests and view) ─────────────────────────────────
@@ -111,6 +130,15 @@ namespace Barcade.Core
         /// Returns the current marker position in [0, 1) based on elapsed time.
         /// </summary>
         public float GetMarkerPosition() => MarkerPosition(_elapsed);
+
+        /// <summary>Returns the effective marker speed after difficulty scaling.</summary>
+        public float EffectiveSpeed => _speed;
+
+        /// <summary>Returns the effective zone minimum after difficulty scaling.</summary>
+        public float EffectiveZoneMin => _zoneMin;
+
+        /// <summary>Returns the effective zone maximum after difficulty scaling.</summary>
+        public float EffectiveZoneMax => _zoneMax;
 
         // ── Helpers ──────────────────────────────────────────────────────────────
 

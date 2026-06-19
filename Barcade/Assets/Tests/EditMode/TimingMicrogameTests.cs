@@ -25,8 +25,8 @@ namespace Barcade.Core.Tests
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
-        private static IMicrogameContext MakeContext(int seed = 0)
-            => new TimingTestContext(new SeededRandom(seed), AllPlayers);
+        private static IMicrogameContext MakeContext(int seed = 0, float difficulty = 0f)
+            => new TimingTestContext(new SeededRandom(seed), AllPlayers, difficulty);
 
         private static IReadOnlyPlayerInputs AllPressed()
         {
@@ -283,6 +283,69 @@ namespace Barcade.Core.Tests
                 "Marker wraps mod 1; 1.5 wraps to 0.5 which is in zone");
         }
 
+        // ── Difficulty scaling ───────────────────────────────────────────────────
+
+        [Test]
+        public void TimingMicrogame_Difficulty0_HasBaseSpeedAndZone()
+        {
+            // difficulty=0: speed stays base; zone stays [baseMin, baseMax].
+            const float baseSpeed = 1f;
+            const float baseMin   = 0.4f;
+            const float baseMax   = 0.6f;
+            var game = new TimingMicrogame(speed: baseSpeed, zoneMin: baseMin, zoneMax: baseMax);
+            game.Prepare(MakeContext(seed: 0, difficulty: 0f));
+
+            Assert.That(game.EffectiveSpeed,   Is.EqualTo(baseSpeed).Within(0.001f));
+            Assert.That(game.EffectiveZoneMin, Is.EqualTo(baseMin).Within(0.001f));
+            Assert.That(game.EffectiveZoneMax, Is.EqualTo(baseMax).Within(0.001f));
+        }
+
+        [Test]
+        public void TimingMicrogame_Difficulty1_IncreasesSpeedAndNarrowsZone()
+        {
+            const float baseSpeed = 1f;
+            const float baseMin   = 0.4f;
+            const float baseMax   = 0.6f;
+            var game = new TimingMicrogame(speed: baseSpeed, zoneMin: baseMin, zoneMax: baseMax);
+            game.Prepare(MakeContext(seed: 0, difficulty: 1f));
+
+            // speed = base*(1+1) = 2; zone half-width = 0.1*(1-0.5)=0.05; zone=[0.45,0.55].
+            Assert.That(game.EffectiveSpeed, Is.EqualTo(2f).Within(0.001f),
+                "Difficulty 1 must double the marker speed");
+            Assert.That(game.EffectiveZoneMax - game.EffectiveZoneMin,
+                Is.LessThan(baseMax - baseMin),
+                "Difficulty 1 must narrow the target zone");
+        }
+
+        [Test]
+        public void TimingMicrogame_LowDifficultyWins_HighDifficultyLoses()
+        {
+            // Zone at difficulty 0: [0.4, 0.6]. Press at t=0.5s → marker at 0.5 → in zone → WIN.
+            // Zone at difficulty 1: centre=0.5, half-width=0.1*(1-0.5)=0.05 → [0.45,0.55].
+            //   Speed=2, press at t=0.5s → marker=(2*0.5)%1=0.0 → outside [0.45,0.55] → LOSS.
+            // (marker wraps: 2*0.5=1.0, mod1=0.0, outside zone)
+            const float baseSpeed = 1f;
+            const float baseMin   = 0.4f;
+            const float baseMax   = 0.6f;
+
+            var gameEasy = new TimingMicrogame(speed: baseSpeed, zoneMin: baseMin, zoneMax: baseMax);
+            gameEasy.Prepare(MakeContext(seed: 0, difficulty: 0f));
+            gameEasy.Tick(0.5f, AllPressed()); // marker at 0.5 → in [0.4, 0.6]
+            var easyResult = gameEasy.Evaluate();
+            gameEasy.Cleanup();
+
+            var gameHard = new TimingMicrogame(speed: baseSpeed, zoneMin: baseMin, zoneMax: baseMax);
+            gameHard.Prepare(MakeContext(seed: 0, difficulty: 1f));
+            gameHard.Tick(0.5f, AllPressed()); // speed=2 → marker=(2*0.5)%1=0.0 → outside [0.45,0.55]
+            var hardResult = gameHard.Evaluate();
+            gameHard.Cleanup();
+
+            Assert.That(easyResult.IsWin(PlayerSlot.Rojo), Is.True,
+                "Press at t=0.5s in easy mode (marker 0.5 in [0.4,0.6]) → WIN");
+            Assert.That(hardResult.IsWin(PlayerSlot.Rojo), Is.False,
+                "Press at t=0.5s in hard mode (marker wraps to 0.0, outside [0.45,0.55]) → LOSS");
+        }
+
         // ── GetMarkerPosition reflects current state ─────────────────────────────
 
         [Test]
@@ -323,10 +386,12 @@ namespace Barcade.Core.Tests
     {
         public ISeededRandom Rng { get; }
         public PlayerSlot[] Players { get; }
-        public TimingTestContext(ISeededRandom rng, PlayerSlot[] players)
+        public float Difficulty { get; }
+        public TimingTestContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty;
         }
     }
 

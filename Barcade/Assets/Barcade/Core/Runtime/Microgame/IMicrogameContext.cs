@@ -15,5 +15,12 @@ namespace Barcade.Core
         /// For a standard 4-player barcade session this is all four slots.
         /// </summary>
         PlayerSlot[] Players { get; }
+
+        /// <summary>
+        /// Normalised difficulty for this round, clamped to [0, 1].
+        /// 0.0 = easiest variant; 1.0 = hardest variant.
+        /// Derived from <c>MicrogameDefinition.difficulty</c> mapped from [1,3] → [0,1].
+        /// </summary>
+        float Difficulty { get; }
     }
 }

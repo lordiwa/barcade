@@ -59,7 +59,11 @@ namespace Barcade.Framework
         [SerializeField] private ArcadeInputBridge _inputBridge;
 
         [Header("Microgame Pool")]
-        [Tooltip("All available microgame definitions for this session.")]
+        [Tooltip("Optional: assign a MicrogamePool asset to load all definitions from it. " +
+                 "If set, takes priority over the manual _pool list.")]
+        [SerializeField] private MicrogamePool _microgamePoolAsset;
+
+        [Tooltip("Manual list of microgame definitions (used when _microgamePoolAsset is null).")]
         [SerializeField] private List<MicrogameDefinition> _pool;
 
         [Tooltip("Seed for the microgame selection RNG. 0 = use TickCount (non-deterministic).")]
@@ -178,10 +182,22 @@ namespace Barcade.Framework
             int actualSeed = (_seed == 0) ? System.Environment.TickCount : _seed;
             var rng = new SeededRandom(actualSeed);
 
-            var descriptors = new List<MicrogameDescriptor>(_pool != null ? _pool.Count : 0);
-            if (_pool != null)
+            // Resolve the source list: pool asset takes priority over manual list.
+            List<MicrogameDefinition> sourceList = null;
+            if (_microgamePoolAsset != null && _microgamePoolAsset.definitions != null
+                && _microgamePoolAsset.definitions.Count > 0)
             {
-                foreach (MicrogameDefinition def in _pool)
+                sourceList = _microgamePoolAsset.definitions;
+            }
+            else
+            {
+                sourceList = _pool;
+            }
+
+            var descriptors = new List<MicrogameDescriptor>(sourceList != null ? sourceList.Count : 0);
+            if (sourceList != null)
+            {
+                foreach (MicrogameDefinition def in sourceList)
                 {
                     if (def == null) continue;
                     descriptors.Add(new MicrogameDescriptor(
@@ -264,11 +280,16 @@ namespace Barcade.Framework
 
             SequencerRoundContext ctx = _director.CurrentRoundContext;
 
+            // Map MicrogameDescriptor.Difficulty (int 1-3) to normalised [0,1].
+            // difficulty=1 → 0.0, difficulty=2 → 0.5, difficulty=3 → 1.0.
+            float normalisedDifficulty = (ctx.Descriptor.Difficulty - 1) / 2f;
+
             _microgameHost.StartRound(
                 microgameId:  _currentDescriptor.Id,
                 seed:         _currentRoundSeed,
                 playDuration: ctx.EffectiveDuration,
-                inputs:       inputs);
+                inputs:       inputs,
+                difficulty:   normalisedDifficulty);
         }
 
         private void OnRoundComplete()
@@ -295,9 +316,16 @@ namespace Barcade.Framework
 
         private string ResolveVerbText(string id)
         {
-            if (_pool != null)
+            // Search pool asset first, then manual list.
+            List<MicrogameDefinition> searchList = null;
+            if (_microgamePoolAsset != null && _microgamePoolAsset.definitions != null)
+                searchList = _microgamePoolAsset.definitions;
+            else
+                searchList = _pool;
+
+            if (searchList != null)
             {
-                foreach (MicrogameDefinition def in _pool)
+                foreach (MicrogameDefinition def in searchList)
                 {
                     if (def != null && def.id == id)
                         return def.verbText ?? id;

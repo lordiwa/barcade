@@ -21,8 +21,8 @@ namespace Barcade.Core.Tests
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
-        private static IMicrogameContext MakeContext(int seed = 0)
-            => new ApuntaTestContext(new SeededRandom(seed), AllPlayers);
+        private static IMicrogameContext MakeContext(int seed = 0, float difficulty = 0f)
+            => new ApuntaTestContext(new SeededRandom(seed), AllPlayers, difficulty);
 
         // Build inputs where the given player aims in direction (aimX, aimY) and fires (Button.Pressed).
         private static IReadOnlyPlayerInputs AimAndFire(PlayerSlot who, float aimX, float aimY)
@@ -262,6 +262,71 @@ namespace Barcade.Core.Tests
             Assert.That(result.IsWin(PlayerSlot.Verde),    Is.True,  "Verde aimed at its target → win");
         }
 
+        // ── Difficulty scaling ───────────────────────────────────────────────────
+
+        [Test]
+        public void ApuntaMicrogame_Difficulty0_HasBaseAngleTolerance()
+        {
+            const float baseTolerance = 30f;
+            var game = new ApuntaMicrogame(angleTolerance: baseTolerance);
+            game.SetForcedTargetDirections(new (float, float)[]
+                { (1f, 0f), (1f, 0f), (1f, 0f), (1f, 0f) });
+            game.Prepare(MakeContext(seed: 0, difficulty: 0f));
+
+            // At difficulty=0: tolerance = base*(1-0*0.75) = base.
+            Assert.That(game.EffectiveAngleTolerance, Is.EqualTo(baseTolerance).Within(0.01f),
+                "Difficulty 0 must preserve the base angle tolerance");
+        }
+
+        [Test]
+        public void ApuntaMicrogame_Difficulty1_NarrowsAngleTolerance()
+        {
+            const float baseTolerance = 40f;
+            var game = new ApuntaMicrogame(angleTolerance: baseTolerance);
+            game.SetForcedTargetDirections(new (float, float)[]
+                { (1f, 0f), (1f, 0f), (1f, 0f), (1f, 0f) });
+            game.Prepare(MakeContext(seed: 0, difficulty: 1f));
+
+            // At difficulty=1: tolerance = base*(1-0.75) = base*0.25 = 10.
+            float expected = baseTolerance * 0.25f;
+            Assert.That(game.EffectiveAngleTolerance, Is.EqualTo(expected).Within(0.01f),
+                "Difficulty 1 must narrow tolerance to 25% of base");
+        }
+
+        [Test]
+        public void ApuntaMicrogame_LowDifficultyWins_HighDifficultyLoses()
+        {
+            // Target: right (1,0). Aim: 20 degrees off.
+            // - Easy (difficulty=0): tolerance=30° → 20° is within → WIN.
+            // - Hard (difficulty=1): tolerance=30*0.25=7.5° → 20° exceeds → LOSS.
+            const float baseTolerance = 30f;
+            float aimAngleDeg = 20f;
+            float aimRad = aimAngleDeg * (float)Math.PI / 180f;
+            float aimX = (float)Math.Cos(aimRad);
+            float aimY = (float)Math.Sin(aimRad);
+
+            var gameEasy = new ApuntaMicrogame(angleTolerance: baseTolerance);
+            gameEasy.SetForcedTargetDirections(new (float, float)[]
+                { (1f, 0f), (1f, 0f), (1f, 0f), (1f, 0f) });
+            gameEasy.Prepare(MakeContext(seed: 0, difficulty: 0f));
+            gameEasy.Tick(0.1f, AllAimAndFire(aimX, aimY));
+            var easyResult = gameEasy.Evaluate();
+            gameEasy.Cleanup();
+
+            var gameHard = new ApuntaMicrogame(angleTolerance: baseTolerance);
+            gameHard.SetForcedTargetDirections(new (float, float)[]
+                { (1f, 0f), (1f, 0f), (1f, 0f), (1f, 0f) });
+            gameHard.Prepare(MakeContext(seed: 0, difficulty: 1f));
+            gameHard.Tick(0.1f, AllAimAndFire(aimX, aimY));
+            var hardResult = gameHard.Evaluate();
+            gameHard.Cleanup();
+
+            Assert.That(easyResult.IsWin(PlayerSlot.Rojo), Is.True,
+                "20° aim within 30° tolerance (difficulty 0) → WIN");
+            Assert.That(hardResult.IsWin(PlayerSlot.Rojo), Is.False,
+                "20° aim outside 7.5° tolerance (difficulty 1) → LOSS");
+        }
+
         // ── Evaluate frozen ──────────────────────────────────────────────────────
 
         [Test]
@@ -289,10 +354,12 @@ namespace Barcade.Core.Tests
     {
         public ISeededRandom Rng { get; }
         public PlayerSlot[] Players { get; }
-        public ApuntaTestContext(ISeededRandom rng, PlayerSlot[] players)
+        public float Difficulty { get; }
+        public ApuntaTestContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty;
         }
     }
 

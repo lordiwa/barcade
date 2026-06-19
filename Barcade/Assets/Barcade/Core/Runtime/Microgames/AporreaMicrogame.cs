@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Barcade.Core
@@ -13,9 +14,9 @@ namespace Barcade.Core
     /// </summary>
     public sealed class AporreaMicrogame : IMicrogame
     {
-        // ── Configuration ────────────────────────────────────────────────────────
+        // ── Configuration (base values; difficulty scales at Prepare time) ─────
 
-        private readonly int _threshold;
+        private readonly int _baseThreshold;
         private readonly float _timeLimit;
 
         // ── Per-round state (reset in Prepare) ───────────────────────────────────
@@ -24,6 +25,9 @@ namespace Barcade.Core
         private float _elapsed;
         private Dictionary<PlayerSlot, int> _pressCount;
 
+        // Effective threshold computed from difficulty at Prepare time.
+        private int _threshold;
+
         // ── Constructor ──────────────────────────────────────────────────────────
 
         /// <summary>Creates an AporreaMicrogame.</summary>
@@ -31,8 +35,8 @@ namespace Barcade.Core
         /// <param name="timeLimit">Round duration in seconds.</param>
         public AporreaMicrogame(int threshold, float timeLimit)
         {
-            _threshold = threshold;
-            _timeLimit  = timeLimit;
+            _baseThreshold = threshold;
+            _timeLimit     = timeLimit;
         }
 
         // ── IMicrogame ───────────────────────────────────────────────────────────
@@ -45,6 +49,10 @@ namespace Barcade.Core
         {
             _ctx     = ctx;
             _elapsed = 0f;
+
+            // Difficulty [0,1]: scale threshold up to 2× at max difficulty.
+            float d = ctx.Difficulty < 0f ? 0f : (ctx.Difficulty > 1f ? 1f : ctx.Difficulty);
+            _threshold = _baseThreshold + (int)MathF.Round(d * _baseThreshold);
 
             _pressCount = new Dictionary<PlayerSlot, int>(ctx.Players.Length);
             foreach (PlayerSlot slot in ctx.Players)
@@ -85,6 +93,7 @@ namespace Barcade.Core
             _ctx        = null;
             _pressCount = null;
             _elapsed    = 0f;
+            _threshold  = 0;
         }
 
         // ── State accessors (for tests and view) ─────────────────────────────────
@@ -92,7 +101,7 @@ namespace Barcade.Core
         /// <summary>Returns how many rising-edge presses <paramref name="slot"/> has registered this round.</summary>
         public int GetPressCount(PlayerSlot slot) => _pressCount[slot];
 
-        /// <summary>The press threshold needed to win.</summary>
+        /// <summary>The effective press threshold needed to win (after difficulty scaling).</summary>
         public int Threshold => _threshold;
     }
 }

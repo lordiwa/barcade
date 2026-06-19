@@ -152,11 +152,17 @@ namespace Barcade.Framework
         /// <param name="seed">Deterministic seed for this round's RNG.</param>
         /// <param name="playDuration">Effective play window in seconds.</param>
         /// <param name="inputs">Live input provider; polled each Tick.</param>
+        /// <param name="difficulty">
+        /// Normalised difficulty [0,1] passed into the microgame context.
+        /// Derived from <c>MicrogameDefinition.difficulty</c> mapped [1,3]→[0,1].
+        /// Defaults to 0 (easiest) when not provided.
+        /// </param>
         public void StartRound(
             string microgameId,
             int seed,
             float playDuration,
-            IReadOnlyPlayerInputs inputs)
+            IReadOnlyPlayerInputs inputs,
+            float difficulty = 0f)
         {
             if (inputs == null) throw new ArgumentNullException(nameof(inputs));
 
@@ -183,8 +189,9 @@ namespace Barcade.Framework
             // Build the logic instance.
             _currentGame = entry.CreateLogic();
 
-            // Build per-round context.
-            var ctx = new MicrogameContext(new SeededRandom(seed), AllPlayers);
+            // Build per-round context (clamp difficulty to [0,1]).
+            float clampedDifficulty = difficulty < 0f ? 0f : (difficulty > 1f ? 1f : difficulty);
+            var ctx = new MicrogameContext(new SeededRandom(seed), AllPlayers, clampedDifficulty);
 
             // Prepare.
             _currentGame.Prepare(ctx);

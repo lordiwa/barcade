@@ -12,13 +12,15 @@ namespace Barcade.Framework
     /// </summary>
     internal sealed class MicrogameContext : IMicrogameContext
     {
-        public ISeededRandom Rng     { get; }
-        public PlayerSlot[]  Players { get; }
+        public ISeededRandom Rng        { get; }
+        public PlayerSlot[]  Players    { get; }
+        public float         Difficulty { get; }
 
-        public MicrogameContext(ISeededRandom rng, PlayerSlot[] players)
+        public MicrogameContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng     = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty < 0f ? 0f : (difficulty > 1f ? 1f : difficulty);
         }
     }
 }

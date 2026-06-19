@@ -34,12 +34,15 @@ namespace Barcade.Core
     /// </summary>
     public sealed class RecolectaMicrogame : IMicrogame
     {
-        // ── Configuration ────────────────────────────────────────────────────────
+        // ── Configuration (base; difficulty scales at Prepare time) ─────────────
 
-        private readonly int _quota;
+        private readonly int _baseQuota;
         private readonly float _collectRadius;
         private readonly float _avatarSpeed;
         private readonly float _playAreaHalfExtent;
+
+        // Effective quota computed from difficulty at Prepare time.
+        private int _quota;
 
         // ── Test overrides ───────────────────────────────────────────────────────
 
@@ -74,7 +77,7 @@ namespace Barcade.Core
             float avatarSpeed,
             float playAreaHalfExtent = 8f)
         {
-            _quota              = quota;
+            _baseQuota          = quota;
             _collectRadius      = collectRadius;
             _avatarSpeed        = avatarSpeed;
             _playAreaHalfExtent = playAreaHalfExtent;
@@ -103,6 +106,10 @@ namespace Barcade.Core
         public void Prepare(IMicrogameContext ctx)
         {
             _ctx = ctx;
+
+            // Difficulty [0,1]: quota scales from base up to base+3 at max difficulty.
+            float d = ctx.Difficulty < 0f ? 0f : (ctx.Difficulty > 1f ? 1f : ctx.Difficulty);
+            _quota = _baseQuota + (int)MathF.Round(d * 3f);
 
             _avatarX  = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
             _avatarY  = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
@@ -209,12 +216,13 @@ namespace Barcade.Core
         /// <inheritdoc/>
         public void Cleanup()
         {
-            _ctx        = null;
-            _avatarX    = null;
-            _avatarY    = null;
-            _netScore   = null;
-            _collected  = null;
+            _ctx          = null;
+            _avatarX      = null;
+            _avatarY      = null;
+            _netScore     = null;
+            _collected    = null;
             _collectibles = null;
+            _quota        = 0;
         }
 
         // ── State accessors (for tests and view) ─────────────────────────────────

@@ -20,8 +20,8 @@ namespace Barcade.Core.Tests
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
-        private static IMicrogameContext MakeContext(int seed = 0)
-            => new RecolectaTestContext(new SeededRandom(seed), AllPlayers);
+        private static IMicrogameContext MakeContext(int seed = 0, float difficulty = 0f)
+            => new RecolectaTestContext(new SeededRandom(seed), AllPlayers, difficulty);
 
         private static IReadOnlyPlayerInputs NoInput()
         {
@@ -296,6 +296,83 @@ namespace Barcade.Core.Tests
             game.Cleanup();
         }
 
+        // ── Difficulty scaling ───────────────────────────────────────────────────
+
+        [Test]
+        public void RecolectaMicrogame_Difficulty0_HasBaseQuota()
+        {
+            const int baseQuota = 3;
+            var game = new RecolectaMicrogame(quota: baseQuota, collectRadius: 0.6f,
+                avatarSpeed: 5f, playAreaHalfExtent: 100f);
+            game.SetForcedCollectibles(new RecolectaCollectible[0]);
+            game.SetForcedAvatarPositions(new (float, float)[]
+                { (0f, 0f), (0f, 0f), (0f, 0f), (0f, 0f) });
+            game.Prepare(MakeContext(seed: 0, difficulty: 0f));
+
+            // difficulty=0: quota = base + round(0*3) = base.
+            Assert.That(game.Quota, Is.EqualTo(baseQuota),
+                "Difficulty 0 must preserve base quota");
+        }
+
+        [Test]
+        public void RecolectaMicrogame_Difficulty1_RaisesQuota()
+        {
+            const int baseQuota = 3;
+            var game = new RecolectaMicrogame(quota: baseQuota, collectRadius: 0.6f,
+                avatarSpeed: 5f, playAreaHalfExtent: 100f);
+            game.SetForcedCollectibles(new RecolectaCollectible[0]);
+            game.SetForcedAvatarPositions(new (float, float)[]
+                { (0f, 0f), (0f, 0f), (0f, 0f), (0f, 0f) });
+            game.Prepare(MakeContext(seed: 0, difficulty: 1f));
+
+            // difficulty=1: quota = base + round(1*3) = base + 3 = 6.
+            Assert.That(game.Quota, Is.EqualTo(baseQuota + 3),
+                "Difficulty 1 must add 3 to the base quota (3 → 6)");
+        }
+
+        [Test]
+        public void RecolectaMicrogame_LowDifficultyWins_HighDifficultyLoses()
+        {
+            // 3 good collectibles available. Player collects all 3.
+            // - Easy (difficulty=0): quota=3 → exactly enough → WIN.
+            // - Hard (difficulty=1): quota=6 → only 3 collected → LOSS.
+            var collectibles = new RecolectaCollectible[]
+            {
+                new RecolectaCollectible(1f, 0f, isGood: true),
+                new RecolectaCollectible(2f, 0f, isGood: true),
+                new RecolectaCollectible(3f, 0f, isGood: true),
+            };
+            var avatarPos = new (float, float)[]
+                { (0f, 0f), (50f, 50f), (50f, 60f), (-50f, 50f) };
+
+            var gameEasy = new RecolectaMicrogame(quota: 3, collectRadius: 0.6f,
+                avatarSpeed: 5f, playAreaHalfExtent: 100f);
+            gameEasy.SetForcedCollectibles(collectibles);
+            gameEasy.SetForcedAvatarPositions(avatarPos);
+            gameEasy.Prepare(MakeContext(seed: 0, difficulty: 0f));
+            gameEasy.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
+            gameEasy.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
+            gameEasy.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
+            var easyResult = gameEasy.Evaluate();
+            gameEasy.Cleanup();
+
+            var gameHard = new RecolectaMicrogame(quota: 3, collectRadius: 0.6f,
+                avatarSpeed: 5f, playAreaHalfExtent: 100f);
+            gameHard.SetForcedCollectibles(collectibles);
+            gameHard.SetForcedAvatarPositions(avatarPos);
+            gameHard.Prepare(MakeContext(seed: 0, difficulty: 1f));
+            gameHard.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
+            gameHard.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
+            gameHard.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
+            var hardResult = gameHard.Evaluate();
+            gameHard.Cleanup();
+
+            Assert.That(easyResult.IsWin(PlayerSlot.Rojo), Is.True,
+                "3 items collected vs quota=3 (difficulty 0) → WIN");
+            Assert.That(hardResult.IsWin(PlayerSlot.Rojo), Is.False,
+                "3 items collected vs quota=6 (difficulty 1) → LOSS");
+        }
+
         // ── Evaluate returns frozen result ───────────────────────────────────────
 
         [Test]
@@ -370,10 +447,12 @@ namespace Barcade.Core.Tests
     {
         public ISeededRandom Rng { get; }
         public PlayerSlot[] Players { get; }
-        public RecolectaTestContext(ISeededRandom rng, PlayerSlot[] players)
+        public float Difficulty { get; }
+        public RecolectaTestContext(ISeededRandom rng, PlayerSlot[] players, float difficulty = 0f)
         {
-            Rng = rng;
-            Players = players;
+            Rng        = rng;
+            Players    = players;
+            Difficulty = difficulty;
         }
     }
 

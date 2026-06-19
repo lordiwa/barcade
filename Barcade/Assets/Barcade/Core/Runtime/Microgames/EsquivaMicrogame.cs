@@ -15,10 +15,10 @@ namespace Barcade.Core
     /// </summary>
     public sealed class EsquivaMicrogame : IMicrogame
     {
-        // ── Configuration ────────────────────────────────────────────────────────
+        // ── Configuration (base values; difficulty scales them at Prepare time) ──
 
-        private readonly int _hazardCount;
-        private readonly float _hazardSpeed;
+        private readonly int _baseHazardCount;
+        private readonly float _baseHazardSpeed;
         private readonly float _avatarRadius;
         private readonly float _hazardRadius;
         private readonly float _avatarSpeed;
@@ -32,6 +32,10 @@ namespace Barcade.Core
         // ── Per-round state (reset in Prepare) ───────────────────────────────────
 
         private IMicrogameContext _ctx;
+
+        // Effective values computed from difficulty at Prepare time.
+        private int   _hazardCount;
+        private float _hazardSpeed;
 
         // Per-player avatar positions.
         private Dictionary<PlayerSlot, float> _avatarX;
@@ -60,8 +64,8 @@ namespace Barcade.Core
             float avatarSpeed = 5f,
             float playAreaHalfExtent = 8f)
         {
-            _hazardCount         = hazardCount;
-            _hazardSpeed         = hazardSpeed;
+            _baseHazardCount     = hazardCount;
+            _baseHazardSpeed     = hazardSpeed;
             _avatarRadius        = avatarRadius;
             _hazardRadius        = hazardRadius;
             _avatarSpeed         = avatarSpeed;
@@ -97,6 +101,11 @@ namespace Barcade.Core
         public void Prepare(IMicrogameContext ctx)
         {
             _ctx = ctx;
+
+            // Difficulty [0,1]: scale hazard count (base .. base+2) and speed (base .. base*2).
+            float d = Clamp(ctx.Difficulty, 0f, 1f);
+            _hazardCount = _baseHazardCount + (int)MathF.Round(d * 2f);
+            _hazardSpeed = _baseHazardSpeed * (1f + d);
 
             _avatarX = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
             _avatarY = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
@@ -229,6 +238,8 @@ namespace Barcade.Core
             _hazardY    = null;
             _hazardDirX = null;
             _hazardDirY = null;
+            _hazardCount = 0;
+            _hazardSpeed = 0f;
         }
 
         // ── State accessors (for tests and view) ─────────────────────────────────
@@ -242,8 +253,11 @@ namespace Barcade.Core
         /// <summary>Returns true if the given player has been hit.</summary>
         public bool IsHit(PlayerSlot slot) => _hit[slot];
 
-        /// <summary>Returns the number of hazards.</summary>
+        /// <summary>Returns the number of hazards (effective, after difficulty scaling).</summary>
         public int HazardCount => _hazardCount;
+
+        /// <summary>Returns the effective hazard speed after difficulty scaling.</summary>
+        public float EffectiveHazardSpeed => _hazardSpeed;
 
         /// <summary>Returns the X position of hazard at index <paramref name="i"/>.</summary>
         public float GetHazardX(int i) => _hazardX[i];

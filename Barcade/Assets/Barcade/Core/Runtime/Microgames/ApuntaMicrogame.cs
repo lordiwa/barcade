@@ -17,9 +17,12 @@ namespace Barcade.Core
     /// </summary>
     public sealed class ApuntaMicrogame : IMicrogame
     {
-        // ── Configuration ────────────────────────────────────────────────────────
+        // ── Configuration (base; difficulty scales at Prepare time) ─────────────
 
-        private readonly float _angleTolerance; // degrees
+        private readonly float _baseAngleTolerance; // degrees
+
+        // Effective tolerance computed from difficulty at Prepare time.
+        private float _angleTolerance;
 
         // ── Test overrides ───────────────────────────────────────────────────────
 
@@ -44,7 +47,7 @@ namespace Barcade.Core
         /// </param>
         public ApuntaMicrogame(float angleTolerance = 15f)
         {
-            _angleTolerance = angleTolerance;
+            _baseAngleTolerance = angleTolerance;
         }
 
         // ── Test injection ───────────────────────────────────────────────────────
@@ -68,6 +71,12 @@ namespace Barcade.Core
         public void Prepare(IMicrogameContext ctx)
         {
             _ctx = ctx;
+
+            // Difficulty [0,1]: tolerance shrinks from base down to base/4 at max difficulty.
+            // Higher difficulty → smaller tolerance → harder to hit.
+            float d = ctx.Difficulty < 0f ? 0f : (ctx.Difficulty > 1f ? 1f : ctx.Difficulty);
+            _angleTolerance = _baseAngleTolerance * (1f - d * 0.75f);
+            if (_angleTolerance < 1f) _angleTolerance = 1f; // never below 1 degree
 
             _targetDirX = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
             _targetDirY = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
@@ -152,10 +161,11 @@ namespace Barcade.Core
         /// <inheritdoc/>
         public void Cleanup()
         {
-            _ctx        = null;
-            _targetDirX = null;
-            _targetDirY = null;
-            _latch      = null;
+            _ctx            = null;
+            _targetDirX     = null;
+            _targetDirY     = null;
+            _latch          = null;
+            _angleTolerance = 0f;
         }
 
         // ── State accessors (for tests and view) ─────────────────────────────────
@@ -171,5 +181,8 @@ namespace Barcade.Core
         /// null = not yet fired, true = hit, false = missed.
         /// </summary>
         public bool? GetLatch(PlayerSlot slot) => _latch[slot];
+
+        /// <summary>Effective angle tolerance in degrees after difficulty scaling.</summary>
+        public float EffectiveAngleTolerance => _angleTolerance;
     }
 }
