@@ -1,0 +1,145 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 468a46d0ae32c3544b7d98094e6448a9, type: 3}
+  m_Name: AddressableAssetSettings
+  m_EditorClassIdentifier: 
+  m_DefaultGroup: 714cd4bda626b624780199a3c1b20a08
+  m_currentHash:
+    serializedVersion: 2
+    Hash: 00000000000000000000000000000000
+  m_OptimizeCatalogSize: 0
+  m_BuildRemoteCatalog: 1
+  m_CatalogRequestsTimeout: 0
+  m_DisableCatalogUpdateOnStart: 0
+  m_InternalIdNamingMode: 0
+  m_InternalBundleIdMode: 1
+  m_AssetLoadMode: 0
+  m_BundledAssetProviderType:
+    m_AssemblyName: 
+    m_ClassName: 
+  m_AssetBundleProviderType:
+    m_AssemblyName: 
+    m_ClassName: 
+  m_IgnoreUnsupportedFilesInBuild: 0
+  m_UniqueBundleIds: 0
+  m_EnableJsonCatalog: 0
+  m_NonRecursiveBuilding: 1
+  m_CCDEnabled: 0
+  m_maxConcurrentWebRequests: 3
+  m_UseUWRForLocalBundles: 0
+  m_BundleTimeout: 0
+  m_BundleRetryCount: 0
+  m_BundleRedirectLimit: -1
+  m_SharedBundleSettings: 0
+  m_SharedBundleSettingsCustomGroupIndex: 0
+  m_ContiguousBundles: 1
+  m_StripUnityVersionFromBundleBuild: 0
+  m_DisableVisibleSubAssetRepresentations: 0
+  m_BuiltInBundleNaming: 0
+  mBuiltInBundleCustomNaming: 
+  m_MonoScriptBundleNaming: 0
+  m_CheckForContentUpdateRestrictionsOption: 0
+  m_MonoScriptBundleCustomNaming: 
+  m_RemoteCatalogBuildPath:
+    m_Id: 0889c9ce7f947d345948dffc3516ea94
+  m_RemoteCatalogLoadPath:
+    m_Id: f3f25f7a39cb1c94d9ef5c0504b3b03e
+  m_ContentStateBuildPathProfileVariableName: 
+  m_CustomContentStateBuildPath: 
+  m_ContentStateBuildPath: 
+  m_BuildAddressablesWithPlayerBuild: 0
+  m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
+  m_GroupAssets:
+  - {fileID: 11400000, guid: 4224a431731680647ac0af494a91cb52, type: 2}
+  - {fileID: 11400000, guid: 1b54580eb5b65fc45b06b392e4b98308, type: 2}
+  - {fileID: 11400000, guid: 3a72d6b6090aee74d97c3aa9f607ebcc, type: 2}
+  m_BuildSettings:
+    m_LogResourceManagerExceptions: 1
+    m_BundleBuildPath: Temp/com.unity.addressables/AssetBundles
+  m_ProfileSettings:
+    m_Profiles:
+    - m_InheritedParent: 
+      m_Id: 5ae3f7ef0dec97d4a9624bb0477d3f75
+      m_ProfileName: Default
+      m_Values:
+      - m_Id: 012e5634cb49f4b4e8cce26b97f4b51e
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+      - m_Id: 0889c9ce7f947d345948dffc3516ea94
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: 2950f042350623b47aae3a720cc43557
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: 9ec049df44bccd344a2eabcf2471be69
+        m_Value: <undefined>
+      - m_Id: aedc4abfcf368194d8f9a1b760618998
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
+      - m_Id: f1f3e425bc720934f81fadbb84545099
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: f3f25f7a39cb1c94d9ef5c0504b3b03e
+        m_Value: 'https://content.barcade.game/v1/[BuildTarget]'
+    - m_InheritedParent: 
+      m_Id: 765745f68afddd843aca4ccd55064ab6
+      m_ProfileName: Production
+      m_Values:
+      - m_Id: 012e5634cb49f4b4e8cce26b97f4b51e
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+      - m_Id: 0889c9ce7f947d345948dffc3516ea94
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: 2950f042350623b47aae3a720cc43557
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: 9ec049df44bccd344a2eabcf2471be69
+        m_Value: <undefined>
+      - m_Id: aedc4abfcf368194d8f9a1b760618998
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
+      - m_Id: f1f3e425bc720934f81fadbb84545099
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: f3f25f7a39cb1c94d9ef5c0504b3b03e
+        m_Value: 'https://content.barcade.game/v1/[BuildTarget]'
+    m_ProfileEntryNames:
+    - m_Id: 012e5634cb49f4b4e8cce26b97f4b51e
+      m_Name: BuildTarget
+      m_InlineUsage: 0
+    - m_Id: 0889c9ce7f947d345948dffc3516ea94
+      m_Name: RemoteBuildPath
+      m_InlineUsage: 0
+    - m_Id: 2950f042350623b47aae3a720cc43557
+      m_Name: Remote.BuildPath
+      m_InlineUsage: 0
+    - m_Id: 9ec049df44bccd344a2eabcf2471be69
+      m_Name: Remote.LoadPath
+      m_InlineUsage: 0
+    - m_Id: aedc4abfcf368194d8f9a1b760618998
+      m_Name: Local.BuildPath
+      m_InlineUsage: 0
+    - m_Id: f1f3e425bc720934f81fadbb84545099
+      m_Name: Local.LoadPath
+      m_InlineUsage: 0
+    - m_Id: f3f25f7a39cb1c94d9ef5c0504b3b03e
+      m_Name: RemoteLoadPath
+      m_InlineUsage: 0
+    m_ProfileVersion: 1
+  m_LabelTable:
+    m_LabelNames:
+    - default
+    - microgame
+  m_SchemaTemplates: []
+  m_GroupTemplateObjects:
+  - {fileID: 11400000, guid: d5ec71bb1fa29b14193251af9bb1d2f9, type: 2}
+  m_InitializationObjects: []
+  m_CertificateHandlerType:
+    m_AssemblyName: 
+    m_ClassName: 
+  m_ActivePlayerDataBuilderIndex: 2
+  m_DataBuilders:
+  - {fileID: 11400000, guid: a5f88e46bb5e17942b1e47d6e9e20dec, type: 2}
+  - {fileID: 11400000, guid: e9346505f4c31cf45a59e2578d4e1ea1, type: 2}
+  - {fileID: 11400000, guid: 999f615096d0d364f87e421e78cd632b, type: 2}
+  m_ActiveProfileId: 5ae3f7ef0dec97d4a9624bb0477d3f75

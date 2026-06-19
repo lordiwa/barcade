@@ -1,0 +1,101 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Barcade-Microgames
+  m_EditorClassIdentifier: 
+  m_GroupName: Barcade-Microgames
+  m_GUID: 5d3b55c86ea5920419569995067d7365
+  m_SerializeEntries:
+  - m_GUID: 1a23316bda7f229469f8d347950cb9fc
+    m_Address: Microgames/esquiva-d3-02
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 285e8ac36461fed479358c463941a8c0
+    m_Address: Microgames/aporrea-d3-04
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3a68e59e4d79cb64cbba1b370d618e90
+    m_Address: Microgames/DefaultMicrogamePool
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4e66e91b35e55104da76d8a0785d6b87
+    m_Address: Microgames/apunta-d3-06
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4fe4a5b9f5229564b8680fe86dac0dd6
+    m_Address: Microgames/recolecta-d2-10
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5663ddc7b3e02714b95f055a5915bede
+    m_Address: Microgames/recolecta-d3-11
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 72a00a9bacde4f84b8c9398293ce8b21
+    m_Address: Microgames/aporrea-d1-03
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 769181279ba8e8c48abdb427949f6687
+    m_Address: Microgames/recolecta-d1-09
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 910d5db15a41c2b4495c7232ee62f50c
+    m_Address: Microgames/apunta-d1-05
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 91ecf6e6278c08e40a151bf9c0aa6a6b
+    m_Address: Microgames/timing-d1-07
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d35256d7502bd954092058cf69068eb6
+    m_Address: Microgames/esquiva-d2-01
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: db3860c0116d2204ebbd870af3dc6eaf
+    m_Address: Microgames/timing-d3-08
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f7621eb6fb31dd44db9dbce5738cfb17
+    m_Address: Microgames/esquiva-d1-00
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - microgame
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: d86a8f3b770c2174f895746e4aefb214, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 32618cbaa627a624ca86a43bb1c3c633, type: 2}
+    - {fileID: 11400000, guid: d9c4c5d0fec801749a1073d39738bc05, type: 2}
