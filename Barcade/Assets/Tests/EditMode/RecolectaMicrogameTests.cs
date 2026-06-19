@@ -164,11 +164,12 @@ namespace Barcade.Core.Tests
             game.Tick(0.2f, StickInput(PlayerSlot.Rojo, 1f, 0f));
 
             MicrogameResult result = game.Evaluate();
+            int netScore = game.GetNetScore(PlayerSlot.Rojo); // read before Cleanup
             game.Cleanup();
 
             Assert.That(result.IsWin(PlayerSlot.Rojo), Is.False,
                 "Collecting bad items reduces net score — net=1 < quota=3 → loss");
-            Assert.That(game.GetNetScore(PlayerSlot.Rojo), Is.EqualTo(1),
+            Assert.That(netScore, Is.EqualTo(1),
                 "Net score should be good(2) - bad(1) = 1");
         }
 
@@ -196,12 +197,13 @@ namespace Barcade.Core.Tests
             game.Tick(0.1f, NoInput()); // overlap tick 2 — must NOT count again
 
             MicrogameResult result = game.Evaluate();
+            int netScore = game.GetNetScore(PlayerSlot.Rojo); // read before Cleanup
             game.Cleanup();
 
             // net score = 1, quota = 2 → loss (confirms counted only once).
             Assert.That(result.IsWin(PlayerSlot.Rojo), Is.False,
                 "A collectible may only be collected once — staying on it must not double-count");
-            Assert.That(game.GetNetScore(PlayerSlot.Rojo), Is.EqualTo(1),
+            Assert.That(netScore, Is.EqualTo(1),
                 "Score must be 1 even after 2 ticks on the same collectible");
         }
 
@@ -359,23 +361,6 @@ namespace Barcade.Core.Tests
 
             Assert.That(round2.IsWin(PlayerSlot.Rojo), Is.False,
                 "Score must be reset between Prepare calls");
-        }
-    }
-
-    // ── Shared collectible data type ─────────────────────────────────────────────
-
-    /// <summary>Plain data used by tests and the implementation to describe a collectible.</summary>
-    public sealed class RecolectaCollectible
-    {
-        public float X { get; }
-        public float Y { get; }
-        public bool IsGood { get; }
-
-        public RecolectaCollectible(float x, float y, bool isGood)
-        {
-            X = x;
-            Y = y;
-            IsGood = isGood;
         }
     }
 
