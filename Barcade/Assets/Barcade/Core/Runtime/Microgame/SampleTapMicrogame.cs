@@ -96,6 +96,7 @@ namespace Barcade.Core
             foreach (PlayerSlot slot in _ctx.Players)
                 result.SetOutcome(slot, _pressed[slot]);
 
+            result.Freeze();
             return result;
         }
 

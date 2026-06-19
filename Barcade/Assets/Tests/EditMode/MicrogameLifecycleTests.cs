@@ -301,6 +301,87 @@ namespace Barcade.Core.Tests
             Assert.That(inputs.For(PlayerSlot.Amarillo).Button, Is.EqualTo(ButtonState.Pressed));
             Assert.That(inputs.For(PlayerSlot.Rojo).Button,     Is.EqualTo(ButtonState.Released));
         }
+
+        // ── Late-press path (withinWindow guard) ─────────────────────────────────
+
+        /// <summary>
+        /// A press arriving in a Tick whose deltaTime carries elapsed PAST the time
+        /// limit must NOT count. The button is pressed after expiry; all players
+        /// should lose because no valid press occurred within the window.
+        /// This pins the withinWindow guard in SampleTapMicrogame.Tick.
+        /// </summary>
+        [Test]
+        public void SampleTapMicrogame_PressAfterTimerExpiry_DoesNotCountAsWin()
+        {
+            const float limit = 2f;
+            var game = new SampleTapMicrogame(timeLimit: limit);
+            IMicrogameContext ctx = MakeContext(seed: 0);
+
+            game.Prepare(ctx);
+
+            // Tick 1: advance past the full time limit with NO input.
+            game.Tick(limit + 0.5f, NoInput());
+
+            // Tick 2: all players press — but the timer has already expired.
+            game.Tick(0.1f, AllButtons(ButtonState.Pressed));
+
+            MicrogameResult result = game.Evaluate();
+
+            Assert.That(result.IsWin(PlayerSlot.Rojo),     Is.False, "Late press must not win (Rojo)");
+            Assert.That(result.IsWin(PlayerSlot.Azul),     Is.False, "Late press must not win (Azul)");
+            Assert.That(result.IsWin(PlayerSlot.Amarillo), Is.False, "Late press must not win (Amarillo)");
+            Assert.That(result.IsWin(PlayerSlot.Verde),    Is.False, "Late press must not win (Verde)");
+
+            game.Cleanup();
+        }
+
+        // ── MicrogameResult freeze / effective immutability ──────────────────────
+
+        [Test]
+        public void MicrogameResult_AfterFreeze_SetOutcomeThrowsInvalidOperationException()
+        {
+            var participants = new PlayerSlot[] { PlayerSlot.Rojo, PlayerSlot.Azul };
+            var result = new MicrogameResult(participants);
+            result.SetOutcome(PlayerSlot.Rojo, true);
+            result.Freeze();
+
+            // Any SetOutcome after Freeze must throw.
+            Assert.Throws<System.InvalidOperationException>(
+                () => result.SetOutcome(PlayerSlot.Rojo, false),
+                "SetOutcome on a frozen result must throw InvalidOperationException");
+        }
+
+        [Test]
+        public void MicrogameResult_AfterFreeze_IsWinRemainsReadable()
+        {
+            var participants = new PlayerSlot[]
+            {
+                PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
+            };
+            var result = new MicrogameResult(participants);
+            result.SetOutcome(PlayerSlot.Rojo, true);
+            result.SetOutcome(PlayerSlot.Azul, false);
+            result.Freeze();
+
+            // Read access must still work after freeze.
+            Assert.That(result.IsWin(PlayerSlot.Rojo), Is.True,  "Rojo win should be readable post-freeze");
+            Assert.That(result.IsWin(PlayerSlot.Azul), Is.False, "Azul loss should be readable post-freeze");
+        }
+
+        [Test]
+        public void SampleTapMicrogame_EvaluateReturnsAFrozenResult()
+        {
+            var game = new SampleTapMicrogame(timeLimit: 5f);
+            game.Prepare(MakeContext());
+            game.Tick(0.1f, AllButtons(ButtonState.Pressed));
+
+            MicrogameResult result = game.Evaluate();
+
+            Assert.That(result.IsFrozen, Is.True,
+                "Evaluate must freeze the result before returning it");
+
+            game.Cleanup();
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────────────
