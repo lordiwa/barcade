@@ -63,7 +63,7 @@ namespace Barcade.Framework.Tests
             bool found = false;
             for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
             {
-                string path = SceneUtility.GetScenePathByIndex(i);
+                string path = SceneUtility.GetScenePathByBuildIndex(i);
                 if (path.Contains(SceneName))
                 {
                     found = true;
