@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8, type: 3}
+  m_Name: DefaultMicrogamePool
+  m_EditorClassIdentifier: 
+  definitions:
+  - {fileID: 11400000, guid: f7621eb6fb31dd44db9dbce5738cfb17, type: 2}
+  - {fileID: 11400000, guid: d35256d7502bd954092058cf69068eb6, type: 2}
+  - {fileID: 11400000, guid: 1a23316bda7f229469f8d347950cb9fc, type: 2}
+  - {fileID: 11400000, guid: 72a00a9bacde4f84b8c9398293ce8b21, type: 2}
+  - {fileID: 11400000, guid: 285e8ac36461fed479358c463941a8c0, type: 2}
+  - {fileID: 11400000, guid: 910d5db15a41c2b4495c7232ee62f50c, type: 2}
+  - {fileID: 11400000, guid: 4e66e91b35e55104da76d8a0785d6b87, type: 2}
+  - {fileID: 11400000, guid: 91ecf6e6278c08e40a151bf9c0aa6a6b, type: 2}
+  - {fileID: 11400000, guid: db3860c0116d2204ebbd870af3dc6eaf, type: 2}
+  - {fileID: 11400000, guid: 769181279ba8e8c48abdb427949f6687, type: 2}
+  - {fileID: 11400000, guid: 4fe4a5b9f5229564b8680fe86dac0dd6, type: 2}
+  - {fileID: 11400000, guid: 5663ddc7b3e02714b95f055a5915bede, type: 2}
