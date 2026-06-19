@@ -73,7 +73,7 @@ namespace Barcade.EditorTools
         {
             Debug.Log("[AddressablesGroupConfigurator] Starting Configure...");
 
-            var settings = AddressableAssetSettingsDefaultObject.GetSettings(createIfNull: true);
+            var settings = AddressableAssetSettingsDefaultObject.GetSettings(create: true);
             if (settings == null)
             {
                 Debug.LogError("[AddressablesGroupConfigurator] Could not get/create AddressableAssetSettings.");
