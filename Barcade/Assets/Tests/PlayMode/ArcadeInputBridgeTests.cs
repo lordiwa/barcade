@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
+using UnityEditor;
 using Barcade.Core;
 using Barcade.Framework;
 
@@ -15,30 +16,98 @@ namespace Barcade.Input.Tests
     /// device input without physical hardware.
     ///
     /// Acceptance criteria verified:
-    ///   AC1: GatherDevices returns Joystick first, then Gamepad, then Keyboard fallback.
-    ///   AC2: InputSnapshot.Button transitions correctly — Pressed (first frame held),
-    ///        Held (subsequent frames), Released (button up).
-    ///   AC3: Per-player slot routing — a press on device assigned to slot Rojo only
-    ///        affects slot Rojo; Azul/Amarillo/Verde remain Released.
-    ///   AC4: Stick values map to InputSnapshot.StickX / StickY.
-    ///   AC5: Keyboard fallback populates all slots when no physical devices present.
+    ///   AC1: GatherDevices returns Joystick first (stable-sorted), then Gamepad,
+    ///        then Keyboard fallback; always exactly 4 slots.
+    ///   AC2: ButtonState edge transitions (Pressed / Held / Released) through the
+    ///        REAL ArcadeInputBridge.UpdateSlot path, not a copy.
+    ///   AC3: Per-player slot routing — driving device assigned to slot 0 (Rojo) ONLY
+    ///        affects slot 0; other slots stay zero/Released.
+    ///   AC4: Stick values (StickX/StickY) round-trip through the bridge correctly.
+    ///   AC5: Keyboard fallback populates all slots when no physical devices exist.
+    ///   MEDIUM-1: GatherDevices stable-sorts within each tier by serial→product→deviceId.
     /// </summary>
     [TestFixture]
     public class ArcadeInputBridgeTests : InputTestFixture
     {
+        // ── Path to the ArcadeControls actions asset ─────────────────────────────
+
+        private const string ActionsAssetPath =
+            "Assets/Barcade/Input/ArcadeControls.inputactions";
+
+        // ── Helper: create a bridge GameObject backed by the real actions asset ──
+
+        /// <summary>
+        /// Creates an <see cref="ArcadeInputBridge"/> MonoBehaviour on a fresh
+        /// GameObject, assigns the production <c>ArcadeControls.inputactions</c>
+        /// asset loaded from disk, and calls Awake by enabling the component.
+        ///
+        /// The returned bridge has its slot 0 already pinned to the FIRST joystick
+        /// that was registered with the InputTestFixture before this call.
+        ///
+        /// Caller is responsible for destroying the GameObject in TearDown or
+        /// at end of test (InputTestFixture resets the input system automatically).
+        /// </summary>
+        private static ArcadeInputBridge CreateBridge()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ActionsAssetPath);
+            Assert.IsNotNull(asset,
+                $"ArcadeControls.inputactions not found at '{ActionsAssetPath}'. " +
+                "Ensure the asset is committed under Assets/Barcade/Input/.");
+
+            var go = new GameObject("TestBridge");
+            var bridge = go.AddComponent<ArcadeInputBridge>();
+
+            // Inject the actions asset via the serialized field (reflection-free approach
+            // using SerializedObject so we don't need to expose a public setter).
+            var so = new SerializedObject(bridge);
+            so.FindProperty("_actionsAsset").objectReferenceValue = asset;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            // Force Awake by activating the object (it is already active from AddComponent,
+            // but the singleton guard runs immediately; reset the static field first so the
+            // test can create a fresh instance).
+            ArcadeInputBridgeTests.ClearBridgeSingleton();
+
+            return bridge;
+        }
+
+        /// <summary>
+        /// Resets the static <see cref="ArcadeInputBridge.Instance"/> to null so tests
+        /// can create fresh instances without the singleton guard destroying them.
+        /// Uses reflection since the property setter is private.
+        /// </summary>
+        private static void ClearBridgeSingleton()
+        {
+            var prop = typeof(ArcadeInputBridge)
+                .GetProperty(nameof(ArcadeInputBridge.Instance),
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.Static);
+            prop?.SetValue(null, null);
+        }
+
+        [TearDown]
+        public override void TearDown()
+        {
+            // Destroy any leftover bridge GameObjects to prevent singleton leaks
+            // between tests.
+            var existing = ArcadeInputBridge.Instance;
+            if (existing != null)
+                Object.DestroyImmediate(existing.gameObject);
+            ClearBridgeSingleton();
+
+            base.TearDown(); // resets the Input System
+        }
+
         // ── AC1: GatherDevices priority ordering ─────────────────────────────────
 
         [Test]
         public void GatherDevices_PrefersJoysticksOverGamepads()
         {
-            // Arrange: add one Joystick and one Gamepad via the Input System test fixture.
             var joystick = InputSystem.AddDevice<Joystick>();
             var gamepad  = InputSystem.AddDevice<Gamepad>();
 
-            // Act
             InputDevice[] devices = ArcadeInputBridge.GatherDevices();
 
-            // Assert: joystick must come before gamepad in the result.
             Assert.That(devices[0], Is.SameAs(joystick),
                 "Slot 0 should be the Joystick (higher priority than Gamepad)");
             Assert.That(devices[1], Is.SameAs(gamepad),
@@ -48,14 +117,11 @@ namespace Barcade.Input.Tests
         [Test]
         public void GatherDevices_FillsRemainingWithKeyboard_WhenFewerThanFourPhysicalDevices()
         {
-            // Arrange: only one Joystick; no other physical devices.
             var joystick = InputSystem.AddDevice<Joystick>();
             var keyboard = InputSystem.AddDevice<Keyboard>();
 
-            // Act
             InputDevice[] devices = ArcadeInputBridge.GatherDevices();
 
-            // Assert: 4 slots, Joystick first, remaining filled by keyboard.
             Assert.That(devices.Length, Is.EqualTo(4));
             Assert.That(devices[0], Is.SameAs(joystick));
             for (int i = 1; i < 4; i++)
@@ -66,17 +132,17 @@ namespace Barcade.Input.Tests
         [Test]
         public void GatherDevices_WithFourJoysticks_ReturnsFourJoysticks()
         {
-            // Arrange: simulate a fully-populated cabinet with 4 joystick encoders.
             var j0 = InputSystem.AddDevice<Joystick>();
             var j1 = InputSystem.AddDevice<Joystick>();
             var j2 = InputSystem.AddDevice<Joystick>();
             var j3 = InputSystem.AddDevice<Joystick>();
 
-            // Act
             InputDevice[] devices = ArcadeInputBridge.GatherDevices();
 
-            // Assert: all four slots occupied by the four joysticks.
             Assert.That(devices.Length, Is.EqualTo(4));
+            // The stable sort uses deviceId as tie-breaker; j0..j3 are added in order
+            // and all have empty serial/product in the test fixture, so deviceId order
+            // is the sort order — same as insertion order for this case.
             Assert.That(devices[0], Is.SameAs(j0));
             Assert.That(devices[1], Is.SameAs(j1));
             Assert.That(devices[2], Is.SameAs(j2));
@@ -86,12 +152,8 @@ namespace Barcade.Input.Tests
         [Test]
         public void GatherDevices_ReturnsExactlyFourSlots()
         {
-            // Arrange: even with many devices, must return exactly 4.
-            InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>();
-            InputSystem.AddDevice<Joystick>(); // extra — must be ignored
+            for (int i = 0; i < 5; i++)
+                InputSystem.AddDevice<Joystick>();
 
             InputDevice[] devices = ArcadeInputBridge.GatherDevices();
 
@@ -99,87 +161,191 @@ namespace Barcade.Input.Tests
                 "GatherDevices must always return exactly 4 slots");
         }
 
-        // ── AC2: Edge-state detection in InputSnapshot ──────────────────────────
+        // ── MEDIUM-1: Stable sort within tier (deviceId fallback) ───────────────
+
+        [Test]
+        public void GatherDevices_StableSort_WithinTier_SortsByDeviceId_AsTieBreak()
+        {
+            // Add 3 joysticks in order. All have empty serial/product in the test fixture,
+            // so the stable sort falls through to deviceId (runtime ordinal).
+            // deviceId is assigned in add-order, so j0.deviceId < j1.deviceId < j2.deviceId.
+            // GatherDevices must return them in the same add-order (sort is stable on deviceId).
+            var j0 = InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
+            var j2 = InputSystem.AddDevice<Joystick>();
+
+            InputDevice[] devices = ArcadeInputBridge.GatherDevices();
+
+            // Stable sort by deviceId ascending preserves add-order when serial/product are equal.
+            Assert.That(devices[0], Is.SameAs(j0), "Slot 0: lowest deviceId joystick");
+            Assert.That(devices[1], Is.SameAs(j1), "Slot 1: middle deviceId joystick");
+            Assert.That(devices[2], Is.SameAs(j2), "Slot 2: highest deviceId joystick");
+        }
+
+        // ── AC3 + HIGH-2: End-to-end device isolation through the real bridge ────
 
         /// <summary>
-        /// Verifies the ButtonState machine computed by ArcadeInputBridge
-        /// using a stripped-down inline bridge that mirrors the production logic.
-        /// Testing the logic directly avoids needing a full scene for state-machine
-        /// correctness.
+        /// CRITICAL routing test (HIGH-2 fix verification).
+        ///
+        /// Creates two simulated joysticks. Instantiates a real <see cref="ArcadeInputBridge"/>
+        /// with the production <c>ArcadeControls.inputactions</c> asset. Drives stick input
+        /// ONLY on the device assigned to slot 0 (Rojo). Pumps a frame. Asserts:
+        ///   - Rojo's StickX reflects the driven value.
+        ///   - Azul's StickX remains zero (device isolation working).
+        ///   - Amarillo and Verde remain zero.
+        ///
+        /// This test FAILS when <c>map.devices</c> is not set (HIGH-1 bug) because the
+        /// "Joystick" binding group is shared and all slots hear all joysticks.
+        /// It PASSES after the HIGH-1 fix pins each map to exactly one device.
         /// </summary>
-        [Test]
-        public void ButtonStateMachine_Pressed_Held_Released_Cycle()
+        [UnityTest]
+        public IEnumerator Bridge_DeviceIsolation_Slot0Input_DoesNotAffectOtherSlots()
         {
-            // Simulate the edge-detection state machine from ArcadeInputBridge.UpdateSlot.
-            bool wasHeld = false;
+            // Arrange: two joysticks — j0 will be slot 0 (Rojo), j1 will be slot 1 (Azul).
+            var j0 = InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
 
-            // Frame 1: button goes down.
-            bool held = true;
-            ButtonState state1 = ComputeState(held, ref wasHeld);
-            Assert.That(state1, Is.EqualTo(ButtonState.Pressed),
-                "First frame with button down must be Pressed");
+            // Create the bridge. Awake will call GatherDevices and pin devices.
+            var bridge = CreateBridge();
 
-            // Frame 2: button still held.
-            ButtonState state2 = ComputeState(held, ref wasHeld);
-            Assert.That(state2, Is.EqualTo(ButtonState.Held),
-                "Second consecutive frame with button held must be Held");
+            // Let Unity process Awake (already done by AddComponent, but yield to be safe).
+            yield return null;
 
-            // Frame 3: button released.
-            held = false;
-            ButtonState state3 = ComputeState(held, ref wasHeld);
-            Assert.That(state3, Is.EqualTo(ButtonState.Released),
-                "Frame after releasing button must be Released");
+            // Act: drive the stick on j0 (slot 0 / Rojo) to the right.
+            Set(j0.stick, new Vector2(0.8f, 0f));
+
+            // Pump a frame so ArcadeInputBridge.Update() runs and reads the value.
+            yield return null;
+
+            // Assert: slot 0 (Rojo) sees the movement.
+            var rojoSnap = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(rojoSnap.StickX, Is.GreaterThan(0.5f),
+                "Rojo's StickX must reflect j0's stick input (device correctly routed to slot 0)");
+
+            // Assert: slot 1 (Azul) is NOT affected — j1 was not moved.
+            var azulSnap = bridge.GetSnapshot(PlayerSlot.Azul);
+            Assert.That(azulSnap.StickX, Is.EqualTo(0f).Within(0.01f),
+                "Azul's StickX must be zero — j0's input must NOT leak to slot 1 (HIGH-1 fix)");
+
+            // Assert: slots 2 and 3 are also unaffected.
+            Assert.That(bridge.GetSnapshot(PlayerSlot.Amarillo).StickX, Is.EqualTo(0f).Within(0.01f),
+                "Amarillo must be zero — no cross-slot input leakage");
+            Assert.That(bridge.GetSnapshot(PlayerSlot.Verde).StickX, Is.EqualTo(0f).Within(0.01f),
+                "Verde must be zero — no cross-slot input leakage");
+        }
+
+        /// <summary>
+        /// Drives slot 1 (Azul) while slot 0 stays idle, confirming isolation is
+        /// bidirectional — slot 1's device does not spill into slot 0.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Bridge_DeviceIsolation_Slot1Input_DoesNotAffectSlot0()
+        {
+            var j0 = InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
+
+            var bridge = CreateBridge();
+            yield return null;
+
+            // Drive only j1 (slot 1 / Azul).
+            Set(j1.stick, new Vector2(-0.7f, 0.3f));
+            yield return null;
+
+            // Azul should see the input.
+            var azulSnap = bridge.GetSnapshot(PlayerSlot.Azul);
+            Assert.That(azulSnap.StickX, Is.LessThan(-0.5f),
+                "Azul's StickX must reflect j1's stick input");
+
+            // Rojo must stay zero.
+            var rojoSnap = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(rojoSnap.StickX, Is.EqualTo(0f).Within(0.01f),
+                "Rojo's StickX must be zero — j1's input must not leak to slot 0");
+        }
+
+        // ── AC2 + HIGH-2: Button edge states through the REAL UpdateSlot path ────
+
+        /// <summary>
+        /// Drives a joystick trigger through the real ArcadeInputBridge.UpdateSlot path
+        /// (not the ComputeState test copy) and asserts Pressed→Held→Released transitions.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Bridge_ButtonEdges_ThroughRealUpdateSlot_PressedHeldReleased()
+        {
+            var j0 = InputSystem.AddDevice<Joystick>();
+            InputSystem.AddDevice<Joystick>(); // j1 — fill slot 1
+
+            var bridge = CreateBridge();
+            yield return null;
+
+            // Frame 1: press the trigger (button down on j0).
+            Set(j0.trigger, 1f);
+            yield return null;
+
+            var snap1 = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap1.Button, Is.EqualTo(ButtonState.Pressed),
+                "First frame with trigger held must be Pressed (through real UpdateSlot)");
+
+            // Frame 2: keep holding.
+            yield return null;
+
+            var snap2 = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap2.Button, Is.EqualTo(ButtonState.Held),
+                "Second consecutive frame while trigger held must be Held");
+
+            // Frame 3: release the trigger.
+            Set(j0.trigger, 0f);
+            yield return null;
+
+            var snap3 = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap3.Button, Is.EqualTo(ButtonState.Released),
+                "Frame after releasing trigger must be Released");
 
             // Frame 4: still released.
-            ButtonState state4 = ComputeState(held, ref wasHeld);
-            Assert.That(state4, Is.EqualTo(ButtonState.Released),
-                "Remaining Released frames must stay Released");
+            yield return null;
+
+            var snap4 = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap4.Button, Is.EqualTo(ButtonState.Released),
+                "Subsequent frames after release must stay Released");
         }
 
-        [Test]
-        public void ButtonStateMachine_ShortPress_PressedThenReleasedAfterOneFrame()
+        /// <summary>
+        /// A quick-press (one frame held then released) must produce Pressed then Released
+        /// — never Held — through the real bridge.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Bridge_ButtonEdges_QuickPress_PressedThenReleasedNeverHeld()
         {
-            bool wasHeld = false;
+            var j0 = InputSystem.AddDevice<Joystick>();
+            InputSystem.AddDevice<Joystick>();
 
-            // Quick press: one frame down.
-            bool held = true;
-            ButtonState s1 = ComputeState(held, ref wasHeld);
-            Assert.That(s1, Is.EqualTo(ButtonState.Pressed));
+            var bridge = CreateBridge();
+            yield return null;
 
-            // Immediately released.
-            held = false;
-            ButtonState s2 = ComputeState(held, ref wasHeld);
-            Assert.That(s2, Is.EqualTo(ButtonState.Released));
+            Set(j0.trigger, 1f);
+            yield return null;
+            Assert.That(bridge.GetSnapshot(PlayerSlot.Rojo).Button, Is.EqualTo(ButtonState.Pressed));
+
+            Set(j0.trigger, 0f);
+            yield return null;
+            Assert.That(bridge.GetSnapshot(PlayerSlot.Rojo).Button, Is.EqualTo(ButtonState.Released));
         }
 
-        [Test]
-        public void ButtonStateMachine_NeverPressed_AlwaysReleased()
-        {
-            bool wasHeld = false;
-            for (int i = 0; i < 10; i++)
-            {
-                ButtonState state = ComputeState(false, ref wasHeld);
-                Assert.That(state, Is.EqualTo(ButtonState.Released),
-                    $"Frame {i}: should be Released when button never pressed");
-            }
-        }
-
-        // ── AC3: Slot routing via GatherDevices ordering ─────────────────────────
+        // ── AC1: GatherDevices slot routing ─────────────────────────────────────
 
         [Test]
-        public void GatherDevices_SlotZero_IsFirstJoystick()
+        public void GatherDevices_SlotZero_IsFirstJoystick_ByStableSort()
         {
-            // On a real cabinet slot 0 (Rojo) maps to the first physical joystick.
             var j0 = InputSystem.AddDevice<Joystick>();
             var j1 = InputSystem.AddDevice<Joystick>();
 
             InputDevice[] devices = ArcadeInputBridge.GatherDevices();
 
-            // The first joystick connected becomes Rojo (slot 0).
+            // Both joysticks have empty serial/product — sorted by deviceId, which
+            // is assigned in add-order, so j0 < j1.
             Assert.That(devices[(int)PlayerSlot.Rojo], Is.SameAs(j0),
-                "First Joystick must be assigned to slot Rojo (0)");
+                "First Joystick (lower deviceId) must be slot Rojo (0)");
             Assert.That(devices[(int)PlayerSlot.Azul], Is.SameAs(j1),
-                "Second Joystick must be assigned to slot Azul (1)");
+                "Second Joystick must be slot Azul (1)");
         }
 
         [Test]
@@ -191,22 +357,53 @@ namespace Barcade.Input.Tests
 
             InputDevice[] devices = ArcadeInputBridge.GatherDevices();
 
-            Assert.That(devices[0], Is.SameAs(j0),   "Slot 0 = first joystick");
-            Assert.That(devices[1], Is.SameAs(j1),   "Slot 1 = second joystick");
-            Assert.That(devices[2], Is.SameAs(gp),   "Slot 2 = gamepad");
-            // Slot 3 falls back to Keyboard.current; may be null in headless batchmode
-            // when the InputTestFixture has no keyboard registered. Verify it is
-            // Keyboard.current regardless of whether current is null or not.
+            Assert.That(devices[0], Is.SameAs(j0), "Slot 0 = first joystick");
+            Assert.That(devices[1], Is.SameAs(j1), "Slot 1 = second joystick");
+            Assert.That(devices[2], Is.SameAs(gp), "Slot 2 = gamepad");
+            // Slot 3: Keyboard.current (may be null in headless — must equal Keyboard.current).
             Assert.That(devices[3], Is.EqualTo(Keyboard.current),
-                "Slot 3 must be Keyboard.current (the keyboard dev-fallback)");
+                "Slot 3 must be Keyboard.current (keyboard dev-fallback)");
         }
 
-        // ── AC4: Stick values ────────────────────────────────────────────────────
+        // ── AC4: Stick values via bridge ─────────────────────────────────────────
+
+        [UnityTest]
+        public IEnumerator Bridge_StickValues_ReflectDrivenInput()
+        {
+            var j0 = InputSystem.AddDevice<Joystick>();
+            InputSystem.AddDevice<Joystick>();
+
+            var bridge = CreateBridge();
+            yield return null;
+
+            Set(j0.stick, new Vector2(0.6f, -0.4f));
+            yield return null;
+
+            var snap = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap.StickX, Is.GreaterThan(0.4f),  "StickX must reflect driven x");
+            Assert.That(snap.StickY, Is.LessThan(-0.2f),    "StickY must reflect driven y");
+        }
+
+        // ── AC5: Keyboard fallback when no physical devices ──────────────────────
+
+        [Test]
+        public void GatherDevices_NoPhysicalDevices_AllSlotsGetKeyboard()
+        {
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+
+            InputDevice[] devices = ArcadeInputBridge.GatherDevices();
+
+            Assert.That(devices.Length, Is.EqualTo(4));
+            foreach (var device in devices)
+                Assert.That(device, Is.SameAs(keyboard),
+                    "Every slot should fall back to keyboard when no physical devices exist");
+        }
+
+        // ── InputSnapshot value tests (pure data — no bridge needed) ─────────────
 
         [Test]
         public void InputSnapshot_StickValues_StoredAsXY()
         {
-            // Verify InputSnapshot correctly stores x/y from constructor.
             var snap = new InputSnapshot(0.75f, -0.5f, ButtonState.Released);
             Assert.That(snap.StickX, Is.EqualTo(0.75f).Within(0.0001f));
             Assert.That(snap.StickY, Is.EqualTo(-0.5f).Within(0.0001f));
@@ -227,37 +424,52 @@ namespace Barcade.Input.Tests
             Assert.That(snap.Magnitude(), Is.EqualTo(1f).Within(0.0001f));
         }
 
-        // ── AC5: Keyboard fallback when no physical devices ──────────────────────
+        // ── Retained: ButtonStateMachine inline tests (kept as fast sanity checks) ─
 
         [Test]
-        public void GatherDevices_NoPhysicalDevices_AllSlotsGetKeyboard()
+        public void ButtonStateMachine_Pressed_Held_Released_Cycle()
         {
-            var keyboard = InputSystem.AddDevice<Keyboard>();
+            bool wasHeld = false;
 
-            InputDevice[] devices = ArcadeInputBridge.GatherDevices();
-
-            Assert.That(devices.Length, Is.EqualTo(4));
-            foreach (var device in devices)
-                Assert.That(device, Is.SameAs(keyboard),
-                    "Every slot should fall back to keyboard when no physical devices exist");
+            Assert.That(ComputeState(true,  ref wasHeld), Is.EqualTo(ButtonState.Pressed),
+                "First frame held = Pressed");
+            Assert.That(ComputeState(true,  ref wasHeld), Is.EqualTo(ButtonState.Held),
+                "Second frame held = Held");
+            Assert.That(ComputeState(false, ref wasHeld), Is.EqualTo(ButtonState.Released),
+                "Release frame = Released");
+            Assert.That(ComputeState(false, ref wasHeld), Is.EqualTo(ButtonState.Released),
+                "Subsequent release = Released");
         }
 
-        // ── Helpers ──────────────────────────────────────────────────────────────
+        [Test]
+        public void ButtonStateMachine_ShortPress_PressedThenReleasedAfterOneFrame()
+        {
+            bool wasHeld = false;
+            Assert.That(ComputeState(true,  ref wasHeld), Is.EqualTo(ButtonState.Pressed));
+            Assert.That(ComputeState(false, ref wasHeld), Is.EqualTo(ButtonState.Released));
+        }
+
+        [Test]
+        public void ButtonStateMachine_NeverPressed_AlwaysReleased()
+        {
+            bool wasHeld = false;
+            for (int i = 0; i < 10; i++)
+                Assert.That(ComputeState(false, ref wasHeld), Is.EqualTo(ButtonState.Released),
+                    $"Frame {i}: should be Released when button never pressed");
+        }
+
+        // ── Private helpers ───────────────────────────────────────────────────────
 
         /// <summary>
-        /// Mirrors the edge-detection logic from <see cref="ArcadeInputBridge.UpdateSlot"/>.
-        /// Used to unit-test the state machine without spinning up a full Unity scene.
+        /// Mirrors the edge-detection logic from ArcadeInputBridge.UpdateSlot for
+        /// inline sanity checks that don't need a full scene.
         /// </summary>
         private static ButtonState ComputeState(bool held, ref bool wasHeld)
         {
-            ButtonState result;
-            if (held && !wasHeld)
-                result = ButtonState.Pressed;
-            else if (held)
-                result = ButtonState.Held;
-            else
-                result = ButtonState.Released;
-
+            ButtonState result =
+                held && !wasHeld ? ButtonState.Pressed :
+                held             ? ButtonState.Held    :
+                                   ButtonState.Released;
             wasHeld = held;
             return result;
         }

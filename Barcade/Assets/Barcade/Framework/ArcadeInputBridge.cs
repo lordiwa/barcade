@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Utilities;
 using Barcade.Core;
 
 namespace Barcade.Framework
@@ -9,25 +11,31 @@ namespace Barcade.Framework
     /// Produces a <see cref="Barcade.Core.InputSnapshot"/> for each of the four
     /// fixed player slots every frame.
     ///
-    /// Device assignment is DETERMINISTIC for a fixed arcade cabinet:
-    ///   1. Joystick.all — zero-delay USB encoders enumerate as HID Joystick.
-    ///   2. Gamepad.all  — USB gamepad / dual-mode encoder boards.
-    ///   3. Keyboard.current (repeated) — dev fallback when fewer than 4 physical
-    ///      devices are connected.
+    /// DEVICE ASSIGNMENT — DETERMINISTIC, PER-DEVICE-INSTANCE:
+    ///   Priority tier order: Joystick.all first, Gamepad.all second, Keyboard fallback.
+    ///   Within each tier devices are sorted by a stable identity key so the same
+    ///   physical device lands in the same slot across reboots:
+    ///     1. description.serial  (USB serial string — most stable)
+    ///     2. description.product (product name — stable for single-model cabinets)
+    ///     3. deviceId            (runtime ordinal — last resort; not stable across reboots)
+    ///   NOTE: final physical-port→slot binding will be configured per-cabinet via a
+    ///   serial→slot config map (a later milestone). Stable sort is the interim guarantee.
     ///
-    /// Each frame this component reads the raw action values from the
-    /// Unity Input System and converts them to the engine-agnostic
-    /// <see cref="Barcade.Core.InputSnapshot"/> struct.
+    ///   Each slot's InputActionAsset copy has its Gameplay map pinned to EXACTLY ONE
+    ///   device via <c>InputActionMap.devices</c>. This prevents all-joystick cabinets
+    ///   from routing every joystick's movement to every slot.
     ///
-    /// Keyboard dev-fallback key layout (for testing without cabinet hardware):
+    /// KEYBOARD DEV-FALLBACK (single-developer testing without cabinet hardware):
     ///   P0 (Rojo)    — WASD + Left Shift
     ///   P1 (Azul)    — Arrow keys + Right Ctrl
     ///   P2 (Amarillo)— IJKL + U
     ///   P3 (Verde)   — Numpad 8456 + Numpad 0
+    ///   NOTE: all 4 keyboard slots share Keyboard.current; that is intentional and
+    ///   expected on a dev machine. The real cabinet has no keyboard.
     ///
     /// Lives in Barcade.Framework (UnityEngine + UnityEngine.InputSystem allowed).
     /// Microgame code reads snapshots via <see cref="GetSnapshot"/> or the
-    /// <see cref="IReadOnlyPlayerInputs"/> adapter via <see cref="AsReadOnly"/>.
+    /// <see cref="IReadOnlyPlayerInputs"/> interface from <see cref="AsReadOnly"/>.
     /// </summary>
     public sealed class ArcadeInputBridge : MonoBehaviour, IReadOnlyPlayerInputs
     {
@@ -51,14 +59,13 @@ namespace Barcade.Framework
 
         // ── Runtime state ────────────────────────────────────────────────────────
 
-        private InputAction[] _moveActions;
-        private InputAction[] _actionButtonActions;
-        private bool[]        _buttonWasHeld;
-        private InputSnapshot[] _snapshots;
+        private InputAction[]       _moveActions;
+        private InputAction[]       _actionButtonActions;
+        private bool[]              _buttonWasHeld;
+        private InputSnapshot[]     _snapshots;
 
-        // We keep a per-slot InputActionAsset copy so each player's actions
-        // can be independently device-constrained.
-        private InputActionAsset[] _assetCopies;
+        // Per-slot InputActionAsset copies (each pinned to one device instance).
+        private InputActionAsset[]  _assetCopies;
 
         // ── Static accessor ──────────────────────────────────────────────────────
 
@@ -79,11 +86,11 @@ namespace Barcade.Framework
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            _buttonWasHeld        = new bool[SlotCount];
-            _snapshots            = new InputSnapshot[SlotCount];
-            _moveActions          = new InputAction[SlotCount];
-            _actionButtonActions  = new InputAction[SlotCount];
-            _assetCopies          = new InputActionAsset[SlotCount];
+            _buttonWasHeld       = new bool[SlotCount];
+            _snapshots           = new InputSnapshot[SlotCount];
+            _moveActions         = new InputAction[SlotCount];
+            _actionButtonActions = new InputAction[SlotCount];
+            _assetCopies         = new InputActionAsset[SlotCount];
 
             InitialiseDeviceSlots();
         }
@@ -128,28 +135,65 @@ namespace Barcade.Framework
         // ── Device gathering ─────────────────────────────────────────────────────
 
         /// <summary>
-        /// Gathers exactly 4 devices for slots 0–3 using stable priority order:
-        ///   1. Joystick.all  — USB arcade HID joystick encoders
-        ///   2. Gamepad.all   — USB gamepad controllers
-        ///   3. Keyboard.current (dev fallback, may appear multiple times if fewer than 4 physical devices)
+        /// Gathers exactly 4 devices for slots 0–3 using stable priority + sort:
         ///
-        /// Entries may be null if Keyboard.current is also unavailable.
+        ///   Tier 1: Joystick.all — sorted by stable key (serial → product → deviceId).
+        ///   Tier 2: Gamepad.all  — sorted by stable key (serial → product → deviceId).
+        ///   Tier 3: Keyboard.current (dev fallback) — repeated to fill any remaining slots.
+        ///
+        /// Sorting within each tier ensures the same physical device maps to the same
+        /// slot across power cycles, provided the OS assigns the same serial/product string.
+        /// Final cabinet-specific slot assignment (serial→slot config) is a later milestone.
+        ///
+        /// Entries may be null only if Keyboard.current is also unavailable (headless CI).
         /// </summary>
         public static InputDevice[] GatherDevices()
         {
             var result = new List<InputDevice>(SlotCount);
 
-            foreach (var j in Joystick.all)
+            // Tier 1 — Joystick (HID arcade encoders). Sort within tier for stability.
+            var joysticks = new List<Joystick>(Joystick.all);
+            joysticks.Sort(StableDeviceCompare);
+            foreach (var j in joysticks)
                 if (result.Count < SlotCount) result.Add(j);
 
-            foreach (var g in Gamepad.all)
+            // Tier 2 — Gamepad. Sort within tier for stability.
+            var gamepads = new List<Gamepad>(Gamepad.all);
+            gamepads.Sort(StableDeviceCompare);
+            foreach (var g in gamepads)
                 if (result.Count < SlotCount) result.Add(g);
 
-            // Fill remaining slots with keyboard (dev fallback).
+            // Tier 3 — Keyboard dev fallback. Fill remaining slots.
             while (result.Count < SlotCount)
-                result.Add(Keyboard.current); // may be null in headless/batchmode
+                result.Add(Keyboard.current); // null in fully headless CI — slot reads zero
 
             return result.ToArray();
+        }
+
+        // ── Stable sort comparator ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Compares two input devices by a stable, boot-invariant identity:
+        ///   1. description.serial  — USB serial string (most stable).
+        ///   2. description.product — product name (stable within single-model installs).
+        ///   3. deviceId            — runtime-assigned ordinal (last resort; not boot-stable).
+        /// </summary>
+        private static int StableDeviceCompare(InputDevice a, InputDevice b)
+        {
+            // Serial string (empty/null sorts last so devices without serials don't float up).
+            string sa = a.description.serial  ?? string.Empty;
+            string sb = b.description.serial  ?? string.Empty;
+            int cmp = string.Compare(sa, sb, StringComparison.Ordinal);
+            if (cmp != 0) return cmp;
+
+            // Product name.
+            string pa = a.description.product ?? string.Empty;
+            string pb = b.description.product ?? string.Empty;
+            cmp = string.Compare(pa, pb, StringComparison.Ordinal);
+            if (cmp != 0) return cmp;
+
+            // Runtime deviceId as last resort.
+            return a.deviceId.CompareTo(b.deviceId);
         }
 
         // ── Initialisation ───────────────────────────────────────────────────────
@@ -170,7 +214,8 @@ namespace Barcade.Framework
             {
                 InputDevice device = devices[i];
 
-                // Clone the asset so each player has an independent action-map instance.
+                // Clone the asset so each player has a completely independent
+                // action-map instance with its own enabled/disabled state and device list.
                 InputActionAsset copy = Instantiate(_actionsAsset);
                 copy.name = $"ArcadeControls_P{i}";
                 _assetCopies[i] = copy;
@@ -179,11 +224,19 @@ namespace Barcade.Framework
                 _moveActions[i]         = map.FindAction("Move",         throwIfNotFound: true);
                 _actionButtonActions[i] = map.FindAction("ActionButton", throwIfNotFound: true);
 
-                // Bind the map to a specific device using an override group so only the
-                // correct keyboard scheme (or joystick/gamepad) responds.
-                string scheme = PickScheme(device, i);
+                // ── HIGH-1 FIX: pin THIS slot's map to EXACTLY ONE device instance ──
+                // InputActionMap.devices restricts which physical device(s) the map reads.
+                // Without this, all slots on scheme "Joystick" hear ALL joysticks —
+                // moving stick 0 would drive slots 0-3 on a 4-joystick cabinet.
+                // Setting the device array to the single assigned device fixes isolation.
+                // For keyboard fallback, device may be null (headless CI) or shared
+                // across slots — that is acceptable only on dev machines, never on cabinet.
+                if (device != null)
+                    map.devices = new InputDevice[] { device };
 
-                // Apply a binding mask so only the correct control-scheme group fires.
+                // Also narrow by binding group so per-player keyboard schemes (Keyboard-P0
+                // vs Keyboard-P1) only fire their own key set, even when device is shared.
+                string scheme = PickScheme(device, i);
                 copy.bindingMask = InputBinding.MaskByGroup(scheme);
 
                 map.Enable();
@@ -201,7 +254,7 @@ namespace Barcade.Framework
         {
             if (device is Joystick) return "Joystick";
             if (device is Gamepad)  return "Gamepad";
-            // Keyboard or null — use per-player keyboard scheme.
+            // Keyboard or null — use per-player keyboard scheme so key sets don't overlap.
             return KeyboardSchemeNames[slotIndex];
         }
 
