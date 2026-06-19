@@ -297,7 +297,7 @@ namespace Barcade.Core.Tests
 
             var leaders = model.GetLeaders();
             Assert.That(leaders.Count, Is.EqualTo(3));
-            Assert.That(leaders, Does.Not.Contain(PlayerSlot.Verde));
+            CollectionAssert.DoesNotContain(leaders, PlayerSlot.Verde);
         }
 
         // ── AC2: deterministic single-leader tie-break ───────────────────────────

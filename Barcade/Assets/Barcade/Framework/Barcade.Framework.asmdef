@@ -1,7 +1,10 @@
 {
   "name": "Barcade.Framework",
   "rootNamespace": "Barcade.Framework",
-  "references": ["Barcade.Core"],
+  "references": [
+    "Barcade.Core",
+    "Unity.InputSystem"
+  ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
