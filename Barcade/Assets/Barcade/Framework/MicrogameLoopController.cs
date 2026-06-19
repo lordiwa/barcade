@@ -69,11 +69,22 @@ namespace Barcade.Framework
         [Tooltip("Seed for the microgame selection RNG. 0 = use TickCount (non-deterministic).")]
         [SerializeField] private int _seed = 0;
 
+        [Header("Speed Ramp")]
+        [Tooltip("Multiplicative decay applied to effective duration each round (0–1). " +
+                 "0.97 = 3% shorter per round. Lower values ramp faster.")]
+        [SerializeField] private float _rampDecayPerRound = 0.97f;
+
+        [Tooltip("Minimum effective play duration in seconds. " +
+                 "No round will be shorter than this regardless of how many rounds have passed.")]
+        [SerializeField] private float _rampMinDuration = 5.0f;
+
         // ── Runtime state ─────────────────────────────────────────────────────────
 
         private RoundPhaseMachine   _phaseMachine;
         private SequencerDirector   _director;
         private MicrogameDescriptor _currentDescriptor;
+        // Hint text for the current round, resolved from the pool alongside the verb.
+        private string              _currentHintText;
 
         // TASK-007 BUG FIX state: track how long we've been in the Result phase.
         private bool  _inResultWindow;
@@ -213,7 +224,11 @@ namespace Barcade.Framework
                 Debug.LogWarning("[MicrogameLoopController] Pool is empty — using 'esquiva' placeholder.");
             }
 
-            return new SequencerDirector(descriptors, rng, RampSettings.Default);
+            // Use the inspector-tunable ramp so the default play session ramps gently.
+            var ramp = new RampSettings(
+                decayPerRound: _rampDecayPerRound,
+                minDuration:   _rampMinDuration);
+            return new SequencerDirector(descriptors, rng, ramp);
         }
 
         private void BeginNextRound()
@@ -222,6 +237,7 @@ namespace Barcade.Framework
             SequencerRoundContext ctx = _director.CurrentRoundContext;
 
             string verbText = ResolveVerbText(_currentDescriptor.Id);
+            _currentHintText = ResolveHintText(_currentDescriptor.Id);
             _phaseMachine.StartRound(verbText, ctx.EffectiveDuration);
 
             // Compute a deterministic seed for this round's microgame from the
@@ -248,7 +264,7 @@ namespace Barcade.Framework
 
                 case PhaseKind.CommandShow:
                     if (_commandDisplayView != null)
-                        _commandDisplayView.Show(_phaseMachine.VerbText);
+                        _commandDisplayView.Show(_phaseMachine.VerbText, _currentHintText);
                     break;
 
                 case PhaseKind.Play:
@@ -317,12 +333,7 @@ namespace Barcade.Framework
         private string ResolveVerbText(string id)
         {
             // Search pool asset first, then manual list.
-            List<MicrogameDefinition> searchList = null;
-            if (_microgamePoolAsset != null && _microgamePoolAsset.definitions != null)
-                searchList = _microgamePoolAsset.definitions;
-            else
-                searchList = _pool;
-
+            List<MicrogameDefinition> searchList = GetSearchList();
             if (searchList != null)
             {
                 foreach (MicrogameDefinition def in searchList)
@@ -332,6 +343,27 @@ namespace Barcade.Framework
                 }
             }
             return id;
+        }
+
+        private string ResolveHintText(string id)
+        {
+            List<MicrogameDefinition> searchList = GetSearchList();
+            if (searchList != null)
+            {
+                foreach (MicrogameDefinition def in searchList)
+                {
+                    if (def != null && def.id == id)
+                        return def.hintText ?? string.Empty;
+                }
+            }
+            return string.Empty;
+        }
+
+        private List<MicrogameDefinition> GetSearchList()
+        {
+            if (_microgamePoolAsset != null && _microgamePoolAsset.definitions != null)
+                return _microgamePoolAsset.definitions;
+            return _pool;
         }
 
         // ── Null-input fallback ───────────────────────────────────────────────────

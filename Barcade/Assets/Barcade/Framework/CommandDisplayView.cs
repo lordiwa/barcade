@@ -21,6 +21,9 @@ namespace Barcade.Framework
     {
         [SerializeField] private Text _verbLabel;
 
+        [Tooltip("Optional short hint shown below the verb. Wired by SceneBuilder.")]
+        [SerializeField] private Text _hintLabel;
+
         private void Awake()
         {
             // Hide by default; MicrogameLoopController activates us per phase.
@@ -28,13 +31,17 @@ namespace Barcade.Framework
         }
 
         /// <summary>
-        /// Activates the view and sets the displayed verb text.
+        /// Activates the view and sets the displayed verb and optional hint text.
         /// </summary>
         /// <param name="verbText">The command verb, e.g. "¡ESQUIVA!".</param>
-        public void Show(string verbText)
+        /// <param name="hintText">Optional one-line hint, e.g. "Mueve tu figura y evita los obstáculos".</param>
+        public void Show(string verbText, string hintText = null)
         {
             if (_verbLabel != null)
                 _verbLabel.text = verbText ?? string.Empty;
+
+            if (_hintLabel != null)
+                _hintLabel.text = hintText ?? string.Empty;
 
             gameObject.SetActive(true);
         }
