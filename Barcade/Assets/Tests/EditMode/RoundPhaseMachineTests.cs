@@ -89,7 +89,8 @@ namespace Barcade.Core.Tests
             var m = MakeMachine(intermissionDuration: 0f, commandShowDuration: 1.0f);
             m.StartRound("¡TOCA!", PlayDur);
 
-            // Intermission=0 -> immediately in CommandShow
+            // Intermission=0 -> Tick(0) advances past it to CommandShow
+            m.Tick(0f);
             Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.CommandShow));
 
             m.Tick(0.9f);
@@ -106,10 +107,14 @@ namespace Barcade.Core.Tests
             var m = MakeMachine(intermissionDuration: 0f, commandShowDuration: 2.5f);
             m.StartRound("¡SALTA!", PlayDur);
 
+            // Tick(0) advances past zero-duration Intermission to CommandShow
+            m.Tick(0f);
+            Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.CommandShow));
+
             m.Tick(2.4f);
             Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.CommandShow));
 
-            m.Tick(0.2f); // total 2.6 s
+            m.Tick(0.2f); // total 2.6 s >= 2.5 s
             Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.Play));
         }
 
@@ -129,7 +134,9 @@ namespace Barcade.Core.Tests
             var m = MakeMachine(intermissionDuration: 0f, commandShowDuration: 0f);
             m.StartRound("¡AGACHA!", PlayDur);
 
-            // Already in Play with 0-duration intermission and command
+            // Tick(0) advances past zero-duration phases to Play
+            m.Tick(0f);
+            Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.Play));
             Assert.That(m.VerbText, Is.EqualTo("¡AGACHA!"),
                 "VerbText must persist even during Play phase");
         }
@@ -168,7 +175,8 @@ namespace Barcade.Core.Tests
             var m = MakeMachine(intermissionDuration: 0f, commandShowDuration: 0f);
             m.StartRound("¡BLOQUEA!", playDuration: 3.0f);
 
-            // Starting in Play (0-duration predecessors)
+            // Tick(0) advances past 0-duration predecessors to Play
+            m.Tick(0f);
             Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.Play));
 
             m.Tick(2.9f);
@@ -182,6 +190,8 @@ namespace Barcade.Core.Tests
             var m = MakeMachine(intermissionDuration: 0f, commandShowDuration: 0f);
             m.StartRound("¡BLOQUEA!", playDuration: 3.0f);
 
+            // A single Tick of 3.0 s advances past 0-duration phases and
+            // exhausts the 3 s play phase, landing in Result.
             m.Tick(3.0f);
             Assert.That(m.CurrentPhase, Is.EqualTo(PhaseKind.Result));
         }
