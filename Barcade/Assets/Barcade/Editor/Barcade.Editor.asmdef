@@ -3,7 +3,8 @@
   "rootNamespace": "Barcade.EditorTools",
   "references": [
     "Barcade.Core",
-    "Barcade.Framework"
+    "Barcade.Framework",
+    "Unity.InputSystem"
   ],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
