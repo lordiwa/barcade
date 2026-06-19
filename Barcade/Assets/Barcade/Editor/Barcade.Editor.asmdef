@@ -4,7 +4,10 @@
   "references": [
     "Barcade.Core",
     "Barcade.Framework",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor",
+    "Unity.ResourceManager"
   ],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
