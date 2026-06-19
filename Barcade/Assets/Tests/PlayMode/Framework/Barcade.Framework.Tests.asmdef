@@ -1,0 +1,16 @@
+{
+  "name": "Barcade.Framework.Tests",
+  "rootNamespace": "Barcade.Framework.Tests",
+  "references": [
+    "Barcade.Core",
+    "Barcade.Framework",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false
+}
