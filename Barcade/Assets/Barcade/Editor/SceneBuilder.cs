@@ -66,6 +66,10 @@ namespace Barcade.EditorTools
             // ── Camera ───────────────────────────────────────────────────────────
             var cameraGO = new GameObject("Main Camera");
             cameraGO.tag = "MainCamera";
+            // Standard 2D position: z=-10 so the camera looks +Z into the play area.
+            // Without this, the camera sits at z=0 and clips everything drawn at z=0
+            // behind the near plane — the entire play area is invisible.
+            cameraGO.transform.position = new Vector3(0f, 0f, -10f);
             var camera = cameraGO.AddComponent<Camera>();
             camera.orthographic     = true;
             camera.orthographicSize = 5f;
@@ -254,8 +258,30 @@ namespace Barcade.EditorTools
             rsSO.ApplyModifiedProperties();
 
             // ── MicrogameHost ─────────────────────────────────────────────────────
+            // MicrogameRoot is a stable empty transform at world origin used as the
+            // parent for per-round view GameObjects. Assigning it to _viewParent keeps
+            // the scene hierarchy clean and makes it easy to locate active views.
+            var microgameRootGO = new GameObject("MicrogameRoot");
+            microgameRootGO.transform.position = Vector3.zero;
+
             var hostGO = new GameObject("MicrogameHost");
             var microgameHost = hostGO.AddComponent<MicrogameHost>();
+
+            // Assign _viewParent via SerializedObject so per-round view roots are
+            // parented deterministically under MicrogameRoot.
+            var mhSO         = new SerializedObject(microgameHost);
+            var mhViewParent = mhSO.FindProperty("_viewParent");
+            if (mhViewParent != null)
+            {
+                mhViewParent.objectReferenceValue = microgameRootGO.transform;
+                mhSO.ApplyModifiedProperties();
+                Debug.Log("[SceneBuilder] MicrogameHost._viewParent assigned to MicrogameRoot.");
+            }
+            else
+            {
+                Debug.LogWarning("[SceneBuilder] Could not find '_viewParent' on MicrogameHost — " +
+                                 "view roots will spawn unparented.");
+            }
 
             // ── MicrogameLoopController ───────────────────────────────────────────
             var loopGO = new GameObject("MicrogameLoopController");
