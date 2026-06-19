@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+    <!-- Exclude Unity-generated files from the compiler's default glob -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.3.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Link Core sources (pure C#, no UnityEngine) -->
+  <ItemGroup>
+    <Compile Include="..\..\Barcade\Assets\Barcade\Core\Runtime\**\*.cs"
+             Exclude="..\..\Barcade\Assets\Barcade\Core\Runtime\**\*.asmdef" />
+  </ItemGroup>
+
+  <!-- Link pure-logic EditMode test files (no UnityEngine / [UnityTest]) -->
+  <ItemGroup>
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputSnapshotTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\PlayerSlotTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SeededRandomTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SmokeTests.cs" />
+  </ItemGroup>
+
+</Project>

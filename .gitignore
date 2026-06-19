@@ -43,3 +43,7 @@ Barcade/TestResults/
 
 # Unity Cache Server
 Barcade/.cache/
+
+# fast-tests build artifacts (dotnet)
+fast-tests/**/bin/
+fast-tests/**/obj/
