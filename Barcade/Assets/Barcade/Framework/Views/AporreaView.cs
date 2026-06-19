@@ -22,13 +22,20 @@ namespace Barcade.Framework
         private PlayerSlot[]     _players;
 
         private GameObject[] _barShapes;
+        // Small player-coloured outlined square shown below each bar so players
+        // know which bar is theirs without counting from left.
+        private GameObject[] _avatarSquares;
+        private GameObject[] _avatarOutlines;
         private GameObject   _thresholdLine;
 
         // Layout constants (world units).
-        private const float BarWidth   = 1.0f;
-        private const float BarSpacing = 1.4f;
-        private const float MaxHeight  = 4.0f;
-        private const float BaseY      = -2.0f; // bottom of bars in world space
+        private const float BarWidth      = 1.0f;
+        private const float BarSpacing    = 1.4f;
+        private const float MaxHeight     = 4.0f;
+        private const float BaseY         = -2.0f; // bottom of bars in world space
+        private const float AvatarMarkY   = -3.0f; // below the bars
+        private const float AvatarInner   = 0.7f;
+        private const float AvatarOuter   = 0.95f;
 
         // ── Initialise ────────────────────────────────────────────────────────────
 
@@ -61,7 +68,9 @@ namespace Barcade.Framework
         private void BuildShapes()
         {
             DestroyShapes();
-            _barShapes = new GameObject[_players.Length];
+            _barShapes      = new GameObject[_players.Length];
+            _avatarSquares  = new GameObject[_players.Length];
+            _avatarOutlines = new GameObject[_players.Length];
 
             float totalWidth = _players.Length * BarSpacing;
             float startX = -totalWidth * 0.5f + BarSpacing * 0.5f;
@@ -79,6 +88,21 @@ namespace Barcade.Framework
                     transform);
                 go.name = $"Bar_{slot}";
                 _barShapes[i] = go;
+
+                // Avatar marker below each bar — outlined so players recognise their
+                // slot at a glance (matches HUD corner colour).
+                GameObject outline;
+                var avatar = ShapeFactory.MakeOutlinedSquare(
+                    slot,
+                    new Vector3(x, AvatarMarkY, 0f),
+                    AvatarInner,
+                    AvatarOuter,
+                    transform,
+                    out outline);
+                avatar.name  = $"AvatarMark_{slot}";
+                outline.name = $"AvatarMarkOutline_{slot}";
+                _avatarSquares[i]  = avatar;
+                _avatarOutlines[i] = outline;
             }
 
             // Threshold line — white horizontal rule at MaxHeight.
@@ -117,6 +141,16 @@ namespace Barcade.Framework
             {
                 foreach (var go in _barShapes) if (go != null) Destroy(go);
                 _barShapes = null;
+            }
+            if (_avatarSquares != null)
+            {
+                foreach (var go in _avatarSquares) if (go != null) Destroy(go);
+                _avatarSquares = null;
+            }
+            if (_avatarOutlines != null)
+            {
+                foreach (var go in _avatarOutlines) if (go != null) Destroy(go);
+                _avatarOutlines = null;
             }
             if (_thresholdLine != null) { Destroy(_thresholdLine); _thresholdLine = null; }
         }

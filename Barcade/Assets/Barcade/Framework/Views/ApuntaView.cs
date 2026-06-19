@@ -25,18 +25,22 @@ namespace Barcade.Framework
         private PlayerSlot[]    _players;
 
         // Per-player shapes.
-        private List<GameObject> _avatarShapes  = new List<GameObject>();
-        private List<GameObject> _targetShapes  = new List<GameObject>();
-        private List<GameObject> _aimLines      = new List<GameObject>();
+        private List<GameObject> _avatarShapes   = new List<GameObject>();
+        // White outline behind each avatar for instant player identification.
+        private List<GameObject> _avatarOutlines  = new List<GameObject>();
+        private List<GameObject> _targetShapes   = new List<GameObject>();
+        private List<GameObject> _aimLines       = new List<GameObject>();
 
         // Latest aim directions per-player (stick input passed in from the host).
         private float[] _aimX;
         private float[] _aimY;
 
-        private const float AvatarSize = 0.8f;
-        private const float TargetSize = 0.4f;
-        private const float AimLength  = 2.5f;
-        private const float AimThick   = 0.08f;
+        // Avatar is larger than the target so it reads as "this is ME, that is the goal".
+        private const float AvatarInner = 1.0f;
+        private const float AvatarOuter = 1.35f;
+        private const float TargetSize  = 0.45f;
+        private const float AimLength   = 2.5f;
+        private const float AimThick    = 0.08f;
 
         private static readonly float[] AvatarOffsetX = { -3f, 3f, -3f,  3f };
         private static readonly float[] AvatarOffsetY = {  2f, 2f, -2f, -2f };
@@ -97,10 +101,14 @@ namespace Barcade.Framework
                 PlayerSlot slot = _players[i];
                 Vector3 avatarPos = GetAvatarPos(i);
 
-                // Avatar square.
-                var avatarGo = ShapeFactory.MakeSquare(slot, avatarPos, AvatarSize, transform);
-                avatarGo.name = $"Avatar_{slot}";
+                // Avatar square — outlined so it stands apart from the target.
+                GameObject outline;
+                var avatarGo = ShapeFactory.MakeOutlinedSquare(
+                    slot, avatarPos, AvatarInner, AvatarOuter, transform, out outline);
+                avatarGo.name  = $"Avatar_{slot}";
+                outline.name   = $"AvatarOutline_{slot}";
                 _avatarShapes.Add(avatarGo);
+                _avatarOutlines.Add(outline);
 
                 // Target indicator.
                 float tx = _game.GetTargetDirX(slot);
@@ -167,10 +175,12 @@ namespace Barcade.Framework
 
         private void DestroyShapes()
         {
-            foreach (var go in _avatarShapes) if (go != null) Destroy(go);
-            foreach (var go in _targetShapes) if (go != null) Destroy(go);
-            foreach (var go in _aimLines)     if (go != null) Destroy(go);
+            foreach (var go in _avatarShapes)   if (go != null) Destroy(go);
+            foreach (var go in _avatarOutlines)  if (go != null) Destroy(go);
+            foreach (var go in _targetShapes)   if (go != null) Destroy(go);
+            foreach (var go in _aimLines)       if (go != null) Destroy(go);
             _avatarShapes.Clear();
+            _avatarOutlines.Clear();
             _targetShapes.Clear();
             _aimLines.Clear();
         }

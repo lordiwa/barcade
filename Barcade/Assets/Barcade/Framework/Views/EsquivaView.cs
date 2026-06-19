@@ -22,14 +22,18 @@ namespace Barcade.Framework
         private EsquivaMicrogame _game;
         private PlayerSlot[]     _players;
 
-        private readonly List<GameObject> _avatarShapes  = new List<GameObject>();
-        private readonly List<GameObject> _hazardShapes  = new List<GameObject>();
+        private readonly List<GameObject> _avatarShapes   = new List<GameObject>();
+        // White outline quads rendered just behind each avatar.
+        private readonly List<GameObject> _avatarOutlines  = new List<GameObject>();
+        private readonly List<GameObject> _hazardShapes   = new List<GameObject>();
 
-        private const float AvatarSize  = 1.0f; // world units (avatarRadius * 2)
-        private const float HazardSize  = 1.0f;
+        // Avatars are larger and outlined; hazards are smaller and unoutlined.
+        private const float AvatarInner  = 1.1f; // coloured square
+        private const float AvatarOuter  = 1.4f; // white outline behind it
+        private const float HazardSize   = 0.8f; // visually smaller than avatar
 
         private static readonly Color HazardColor = new Color(1f, 0.5f, 0f); // orange
-        private static readonly Color HitOverlay  = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+        private static readonly Color HitOverlay  = new Color(0.5f, 0.1f, 0.1f, 0.8f);
 
         // ── Initialise ────────────────────────────────────────────────────────────
 
@@ -63,19 +67,24 @@ namespace Barcade.Framework
         {
             DestroyShapes();
 
-            // Player avatars.
+            // Player avatars — outlined so they stand out from hazards.
             for (int i = 0; i < _players.Length; i++)
             {
                 PlayerSlot slot = _players[i];
-                var go = ShapeFactory.MakeSquare(slot,
+                GameObject outline;
+                var go = ShapeFactory.MakeOutlinedSquare(slot,
                     GetAvatarPos(slot),
-                    AvatarSize,
-                    transform);
-                go.name = $"Avatar_{slot}";
+                    AvatarInner,
+                    AvatarOuter,
+                    transform,
+                    out outline);
+                go.name      = $"Avatar_{slot}";
+                outline.name = $"AvatarOutline_{slot}";
                 _avatarShapes.Add(go);
+                _avatarOutlines.Add(outline);
             }
 
-            // Hazards.
+            // Hazards — smaller than avatars and no outline.
             for (int h = 0; h < _game.HazardCount; h++)
             {
                 var go = ShapeFactory.MakeSquare(HazardColor,
@@ -92,9 +101,15 @@ namespace Barcade.Framework
             for (int i = 0; i < _players.Length; i++)
             {
                 PlayerSlot slot = _players[i];
-                _avatarShapes[i].transform.position = GetAvatarPos(slot);
+                Vector3 pos = GetAvatarPos(slot);
+                _avatarShapes[i].transform.position = pos;
 
-                // Dim the avatar if the player has been hit.
+                // Keep the outline centred behind the avatar.
+                if (i < _avatarOutlines.Count && _avatarOutlines[i] != null)
+                    _avatarOutlines[i].transform.position =
+                        new Vector3(pos.x, pos.y, pos.z + 0.01f);
+
+                // Darken avatar (not outline) when the player has been hit.
                 var mr = _avatarShapes[i].GetComponent<MeshRenderer>();
                 if (mr != null && _game.IsHit(slot))
                     mr.material.color = HitOverlay;
@@ -115,9 +130,11 @@ namespace Barcade.Framework
 
         private void DestroyShapes()
         {
-            foreach (var go in _avatarShapes) if (go != null) Destroy(go);
-            foreach (var go in _hazardShapes) if (go != null) Destroy(go);
+            foreach (var go in _avatarShapes)   if (go != null) Destroy(go);
+            foreach (var go in _avatarOutlines)  if (go != null) Destroy(go);
+            foreach (var go in _hazardShapes)   if (go != null) Destroy(go);
             _avatarShapes.Clear();
+            _avatarOutlines.Clear();
             _hazardShapes.Clear();
         }
     }

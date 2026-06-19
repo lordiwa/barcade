@@ -34,15 +34,18 @@ namespace Barcade.Framework
         private GameObject   _zoneRect;
         private GameObject   _marker;
         private GameObject[] _outcomeSquares;
+        // White outlines behind the outcome squares for clear player identification.
+        private GameObject[] _outcomeOutlines;
 
         // Layout (world units).
-        private const float TrackY      =  1.0f;
-        private const float TrackWidth  = 10.0f;
-        private const float TrackHeight =  0.4f;
-        private const float MarkerSize  =  0.5f;
-        private const float OutcomeY    = -1.0f;
-        private const float OutcomeSize =  0.8f;
-        private const float OutcomeSpacing = 1.2f;
+        private const float TrackY         =  1.0f;
+        private const float TrackWidth     = 10.0f;
+        private const float TrackHeight    =  0.4f;
+        private const float MarkerSize     =  0.6f;
+        private const float OutcomeY       = -1.5f;
+        private const float OutcomeInner   =  1.0f;  // coloured square
+        private const float OutcomeOuter   =  1.35f; // white outline
+        private const float OutcomeSpacing =  1.6f;
 
         private static readonly Color TrackColor  = new Color(0.3f, 0.3f, 0.3f);
         private static readonly Color ZoneColor   = new Color(0.1f, 0.8f, 0.2f, 0.7f);
@@ -105,18 +108,22 @@ namespace Barcade.Framework
                 MarkerSize, transform);
             _marker.name = "Marker";
 
-            // Per-player outcome squares.
-            _outcomeSquares = new GameObject[_players.Length];
+            // Per-player outcome squares — outlined for clear player identification.
+            _outcomeSquares  = new GameObject[_players.Length];
+            _outcomeOutlines = new GameObject[_players.Length];
             float totalW = _players.Length * OutcomeSpacing;
             float startX = -totalW * 0.5f + OutcomeSpacing * 0.5f;
             for (int i = 0; i < _players.Length; i++)
             {
                 PlayerSlot slot = _players[i];
-                var go = ShapeFactory.MakeSquare(slot,
-                    new Vector3(startX + i * OutcomeSpacing, OutcomeY, 0f),
-                    OutcomeSize, transform);
-                go.name = $"Outcome_{slot}";
-                _outcomeSquares[i] = go;
+                Vector3 pos = new Vector3(startX + i * OutcomeSpacing, OutcomeY, 0f);
+                GameObject outline;
+                var go = ShapeFactory.MakeOutlinedSquare(
+                    slot, pos, OutcomeInner, OutcomeOuter, transform, out outline);
+                go.name      = $"Outcome_{slot}";
+                outline.name = $"OutcomeOutline_{slot}";
+                _outcomeSquares[i]  = go;
+                _outcomeOutlines[i] = outline;
             }
         }
 
@@ -164,6 +171,11 @@ namespace Barcade.Framework
             {
                 foreach (var go in _outcomeSquares) if (go != null) Destroy(go);
                 _outcomeSquares = null;
+            }
+            if (_outcomeOutlines != null)
+            {
+                foreach (var go in _outcomeOutlines) if (go != null) Destroy(go);
+                _outcomeOutlines = null;
             }
         }
     }

@@ -25,11 +25,15 @@ namespace Barcade.Framework
         private PlayerSlot[]          _players;
         private RecolectaCollectible[] _collectibles;
 
-        private List<GameObject> _avatarShapes      = new List<GameObject>();
+        private List<GameObject> _avatarShapes       = new List<GameObject>();
+        // White outline quads behind each avatar for instant player identification.
+        private List<GameObject> _avatarOutlines     = new List<GameObject>();
         private List<GameObject> _collectibleShapes  = new List<GameObject>();
 
-        private const float AvatarSize       = 0.8f;
-        private const float CollectibleSize  = 0.5f;
+        // Avatar is clearly larger and outlined; collectibles are smaller and plain.
+        private const float AvatarInner      = 1.0f;
+        private const float AvatarOuter      = 1.35f;
+        private const float CollectibleSize  = 0.45f;
 
         private static readonly Color GoodColor = Color.green;
         private static readonly Color BadColor  = Color.red;
@@ -71,16 +75,18 @@ namespace Barcade.Framework
         {
             DestroyShapes();
 
-            // Player avatars.
+            // Player avatars — outlined so they stand out from collectibles.
             for (int i = 0; i < _players.Length; i++)
             {
                 PlayerSlot slot = _players[i];
-                var go = ShapeFactory.MakeSquare(slot,
-                    new Vector3(_game.GetAvatarX(slot), _game.GetAvatarY(slot), 0f),
-                    AvatarSize,
-                    transform);
-                go.name = $"Avatar_{slot}";
+                Vector3 pos = new Vector3(_game.GetAvatarX(slot), _game.GetAvatarY(slot), 0f);
+                GameObject outline;
+                var go = ShapeFactory.MakeOutlinedSquare(
+                    slot, pos, AvatarInner, AvatarOuter, transform, out outline);
+                go.name      = $"Avatar_{slot}";
+                outline.name = $"AvatarOutline_{slot}";
                 _avatarShapes.Add(go);
+                _avatarOutlines.Add(outline);
             }
 
             // Collectibles.
@@ -102,12 +108,15 @@ namespace Barcade.Framework
 
         private void RefreshShapes()
         {
-            // Update avatar positions.
+            // Update avatar positions (and outlines with them).
             for (int i = 0; i < _players.Length; i++)
             {
                 PlayerSlot slot = _players[i];
-                _avatarShapes[i].transform.position =
-                    new Vector3(_game.GetAvatarX(slot), _game.GetAvatarY(slot), 0f);
+                Vector3 pos = new Vector3(_game.GetAvatarX(slot), _game.GetAvatarY(slot), 0f);
+                _avatarShapes[i].transform.position = pos;
+                if (i < _avatarOutlines.Count && _avatarOutlines[i] != null)
+                    _avatarOutlines[i].transform.position =
+                        new Vector3(pos.x, pos.y, pos.z + 0.01f);
             }
 
             // Hide collected items. We detect collection via proximity:
@@ -137,9 +146,11 @@ namespace Barcade.Framework
 
         private void DestroyShapes()
         {
-            foreach (var go in _avatarShapes)      if (go != null) Destroy(go);
+            foreach (var go in _avatarShapes)       if (go != null) Destroy(go);
+            foreach (var go in _avatarOutlines)     if (go != null) Destroy(go);
             foreach (var go in _collectibleShapes)  if (go != null) Destroy(go);
             _avatarShapes.Clear();
+            _avatarOutlines.Clear();
             _collectibleShapes.Clear();
         }
     }

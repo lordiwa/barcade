@@ -118,6 +118,35 @@ namespace Barcade.Framework
         }
 
         /// <summary>
+        /// Creates a player-coloured square with a white outline square behind it.
+        /// The outline square is <paramref name="outlineSize"/> world units, the
+        /// coloured square is <paramref name="innerSize"/> world units.
+        ///
+        /// Both GameObjects are returned so the caller can destroy them together.
+        /// The outline is positioned at z+0.01 relative to the inner square so it
+        /// renders behind in the same draw layer (orthographic, no depth fighting).
+        ///
+        /// The returned <paramref name="outline"/> should be destroyed alongside the
+        /// returned inner GameObject.
+        /// </summary>
+        public static GameObject MakeOutlinedSquare(
+            PlayerSlot slot,
+            Vector3    position,
+            float      innerSize,
+            float      outlineSize,
+            Transform  parent,
+            out GameObject outline)
+        {
+            // Outline: white, slightly behind (+z so orthographic cam draws it first).
+            Vector3 outlinePos = new Vector3(position.x, position.y, position.z + 0.01f);
+            outline = MakeQuad(Color.white, outlinePos, new Vector2(outlineSize, outlineSize), parent);
+
+            // Inner: player colour, in front.
+            GameObject inner = MakeQuad(PlayerColor(slot), position, new Vector2(innerSize, innerSize), parent);
+            return inner;
+        }
+
+        /// <summary>
         /// Creates a circle (SpriteRenderer with white sprite scaled to circle-like appearance)
         /// tinted to the player colour.
         /// </summary>
