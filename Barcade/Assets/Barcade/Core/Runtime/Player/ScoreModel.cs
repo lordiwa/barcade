@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Barcade.Core
@@ -37,6 +38,15 @@ namespace Barcade.Core
         /// </param>
         public void RecordRound(bool[] results)
         {
+            if (results == null)
+                throw new ArgumentNullException("results",
+                    "RecordRound requires a non-null bool[4] array (4-player contract).");
+
+            if (results.Length != SlotCount)
+                throw new ArgumentException(
+                    $"RecordRound requires exactly {SlotCount} results (one per PlayerSlot). Got {results.Length}.",
+                    "results");
+
             for (int i = 0; i < SlotCount; i++)
             {
                 _gamesPlayed[i]++;
