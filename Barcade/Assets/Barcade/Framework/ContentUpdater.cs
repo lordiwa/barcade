@@ -140,7 +140,7 @@ namespace Barcade.Framework
 
             // ── Step 3: UpdateCatalogs ────────────────────────────────────────────
 
-            var updateHandle = Addressables.UpdateCatalogs(stale, autoCleanBundleCache: true);
+            var updateHandle = Addressables.UpdateCatalogs(autoCleanBundleCache: true, catalogs: stale);
 
             while (!updateHandle.IsDone)
             {
