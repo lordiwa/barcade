@@ -304,7 +304,7 @@ namespace Barcade.Framework
 
             // ── apunta ────────────────────────────────────────────────────────────
             reg.Register("apunta", new MicrogameEntry(
-                createLogic: () => new ApuntaMicrogame(angleTolerance: 15f),
+                createLogic: () => new ApuntaMicrogame(angleTolerance: 25f),
                 attachView:  (game, players, root) =>
                 {
                     var view = root.AddComponent<ApuntaView>();
