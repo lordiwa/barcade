@@ -242,6 +242,12 @@ namespace Barcade.Core
         /// <summary>The win quota.</summary>
         public int Quota => _quota;
 
+        /// <summary>
+        /// The collectible layout seeded during Prepare().
+        /// Returns the live array — do not mutate.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<RecolectaCollectible> Collectibles => _collectibles;
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private static float Clamp(float v, float min, float max)

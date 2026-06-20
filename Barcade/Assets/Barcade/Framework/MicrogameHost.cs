@@ -328,19 +328,17 @@ namespace Barcade.Framework
                     quota:             3,
                     collectRadius:     1.0f,
                     avatarSpeed:       5f,
-                    playAreaHalfExtent: 8f),
+                    playAreaHalfExtent: 4.5f),   // reduced so avatars stay within camera orthoSize=5
                 attachView: (game, players, root) =>
                 {
                     var recolecta = (RecolectaMicrogame)game;
 
-                    // Capture the collectibles that were seeded during Prepare()
-                    // by reading the game's layout via a helper collectible array.
-                    // We supply a fixed forced layout here so views get positions.
-                    // For the view binding we use the snapshot of initial positions
-                    // from GetAvatarX/Y — collectibles are inferred from proximity.
-                    // Supply null collectibles; view will handle gracefully.
+                    // Pass the collectibles seeded during Prepare() so the view
+                    // can render them.  Bind is called after Prepare, so the array
+                    // is already populated.
+                    var collectibles = System.Linq.Enumerable.ToArray(recolecta.Collectibles);
                     var view = root.AddComponent<RecolectaView>();
-                    view.Bind(recolecta, players, null);
+                    view.Bind(recolecta, players, collectibles);
                 }
             ));
 
