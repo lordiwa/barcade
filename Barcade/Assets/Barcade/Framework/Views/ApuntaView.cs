@@ -31,10 +31,6 @@ namespace Barcade.Framework
         private List<GameObject> _targetShapes   = new List<GameObject>();
         private List<GameObject> _aimLines       = new List<GameObject>();
 
-        // Latest aim directions per-player (stick input passed in from the host).
-        private float[] _aimX;
-        private float[] _aimY;
-
         // Avatar is larger than the target so it reads as "this is ME, that is the goal".
         private const float AvatarInner = 1.0f;
         private const float AvatarOuter = 1.35f;
@@ -59,22 +55,7 @@ namespace Barcade.Framework
         {
             _game    = game;
             _players = players;
-            _aimX    = new float[players.Length];
-            _aimY    = new float[players.Length];
             BuildShapes();
-        }
-
-        /// <summary>
-        /// Called each frame by MicrogameHost to supply the current aim direction
-        /// for each player (derived from stick input).
-        /// </summary>
-        public void UpdateInput(int playerIndex, float stickX, float stickY)
-        {
-            if (playerIndex >= 0 && playerIndex < _players.Length)
-            {
-                _aimX[playerIndex] = stickX;
-                _aimY[playerIndex] = stickY;
-            }
         }
 
         // ── Unity lifecycle ───────────────────────────────────────────────────────
@@ -110,10 +91,10 @@ namespace Barcade.Framework
                 _avatarShapes.Add(avatarGo);
                 _avatarOutlines.Add(outline);
 
-                // Target indicator.
+                // Target indicator — drawn at 2 units so bottom-row targets don't fall off-screen.
                 float tx = _game.GetTargetDirX(slot);
                 float ty = _game.GetTargetDirY(slot);
-                Vector3 targetPos = avatarPos + new Vector3(tx, ty, 0f) * 3f;
+                Vector3 targetPos = avatarPos + new Vector3(tx, ty, 0f) * 2f;
                 var targetGo = ShapeFactory.MakeSquare(TargetColor, targetPos, TargetSize, transform);
                 targetGo.name = $"Target_{slot}";
                 _targetShapes.Add(targetGo);
@@ -142,9 +123,9 @@ namespace Barcade.Framework
                 if (mr != null && latch.HasValue)
                     mr.material.color = latch.Value ? HitColor : MissColor;
 
-                // Update aim line direction.
-                float ax = _aimX[i];
-                float ay = _aimY[i];
+                // Update aim line direction — read live stick from the game each frame.
+                float ax = _game.GetAimX(slot);
+                float ay = _game.GetAimY(slot);
                 float mag = Mathf.Sqrt(ax * ax + ay * ay);
                 if (mag > 0.1f)
                 {

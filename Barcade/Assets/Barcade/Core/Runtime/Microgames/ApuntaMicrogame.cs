@@ -39,6 +39,10 @@ namespace Barcade.Core
         // Per-player outcome latch: null = not yet decided, true = win, false = miss.
         private Dictionary<PlayerSlot, bool?> _latch;
 
+        // Per-player latest stick aim direction (updated every Tick, even after latch).
+        private Dictionary<PlayerSlot, float> _aimDirX;
+        private Dictionary<PlayerSlot, float> _aimDirY;
+
         // ── Constructor ──────────────────────────────────────────────────────────
 
         /// <summary>Creates an ApuntaMicrogame.</summary>
@@ -81,6 +85,8 @@ namespace Barcade.Core
             _targetDirX = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
             _targetDirY = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
             _latch      = new Dictionary<PlayerSlot, bool?>(ctx.Players.Length);
+            _aimDirX    = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
+            _aimDirY    = new Dictionary<PlayerSlot, float>(ctx.Players.Length);
 
             for (int i = 0; i < ctx.Players.Length; i++)
             {
@@ -101,7 +107,9 @@ namespace Barcade.Core
                     _targetDirY[slot] = dir.Y;
                 }
 
-                _latch[slot] = null; // undecided
+                _latch[slot]   = null; // undecided
+                _aimDirX[slot] = 0f;
+                _aimDirY[slot] = 0f;
             }
         }
 
@@ -110,10 +118,14 @@ namespace Barcade.Core
         {
             foreach (PlayerSlot slot in _ctx.Players)
             {
+                InputSnapshot snap = inputs.For(slot);
+
+                // Record live stick aim every frame so the view can track it.
+                _aimDirX[slot] = snap.StickX;
+                _aimDirY[slot] = snap.StickY;
+
                 // Already decided — ignore further input.
                 if (_latch[slot].HasValue) continue;
-
-                InputSnapshot snap = inputs.For(slot);
                 if (snap.Button != ButtonState.Pressed) continue;
 
                 // Compute aim direction from stick.
@@ -165,6 +177,8 @@ namespace Barcade.Core
             _targetDirX     = null;
             _targetDirY     = null;
             _latch          = null;
+            _aimDirX        = null;
+            _aimDirY        = null;
             _angleTolerance = 0f;
         }
 
@@ -184,5 +198,29 @@ namespace Barcade.Core
 
         /// <summary>Effective angle tolerance in degrees after difficulty scaling.</summary>
         public float EffectiveAngleTolerance => _angleTolerance;
+
+        /// <summary>
+        /// Returns the latest stick X for <paramref name="slot"/> recorded this Tick.
+        /// Updated every frame before the latch early-out so the view always tracks movement.
+        /// Returns 0 if not yet ticked or after Cleanup.
+        /// </summary>
+        public float GetAimX(PlayerSlot slot)
+        {
+            if (_aimDirX == null) return 0f;
+            float v;
+            return _aimDirX.TryGetValue(slot, out v) ? v : 0f;
+        }
+
+        /// <summary>
+        /// Returns the latest stick Y for <paramref name="slot"/> recorded this Tick.
+        /// Updated every frame before the latch early-out so the view always tracks movement.
+        /// Returns 0 if not yet ticked or after Cleanup.
+        /// </summary>
+        public float GetAimY(PlayerSlot slot)
+        {
+            if (_aimDirY == null) return 0f;
+            float v;
+            return _aimDirY.TryGetValue(slot, out v) ? v : 0f;
+        }
     }
 }
