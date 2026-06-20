@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mcp-unity": {
+      "command": "node",
+      "args": [
+        "D:/barcade/Barcade/Library/PackageCache/com.gamelovers.mcp-unity@cce8b57de9cb/Server~/build/index.js"
+      ],
+      "env": {
+        "UNITY_PORT": "8090"
+      }
+    }
+  }
+}
