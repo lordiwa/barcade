@@ -12,9 +12,11 @@ namespace Barcade.Framework
     ///   - One target indicator (small white square) per player drawn at distance
     ///     from the avatar in the target direction.
     ///   - An aim-direction line (player colour, thin) extends from each avatar
-    ///     in the direction the stick is pointing. Updated from input snapshot
-    ///     passed via UpdateInput each frame.
-    ///   - After latch: green fill = hit, red fill = miss on the avatar square.
+    ///     in the direction the stick is pointing.
+    ///   - On fire: a bright shot flash line (thick white/yellow) appears along the
+    ///     aim direction and fades after ~0.2 s.
+    ///   - After latch: target square turns green (HIT, scaled up) or dim red (MISS).
+    ///     Avatar colour is never changed — it stays player colour for identification.
     ///
     /// Read-only view: never mutates microgame state.
     /// Lives in Barcade.Framework (UnityEngine allowed).
@@ -31,19 +33,30 @@ namespace Barcade.Framework
         private List<GameObject> _targetShapes   = new List<GameObject>();
         private List<GameObject> _aimLines       = new List<GameObject>();
 
+        // Previous-frame latch state per player — used to detect the shot frame.
+        private bool?[] _prevLatch;
+
+        // Active shot-flash GOs and their remaining lifetime (seconds).
+        private List<GameObject> _shotFlashes     = new List<GameObject>();
+        private List<float>      _shotFlashTimers = new List<float>();
+
         // Avatar is larger than the target so it reads as "this is ME, that is the goal".
-        private const float AvatarInner = 1.0f;
-        private const float AvatarOuter = 1.35f;
-        private const float TargetSize  = 0.45f;
-        private const float AimLength   = 2.5f;
-        private const float AimThick    = 0.08f;
+        private const float AvatarInner   = 1.0f;
+        private const float AvatarOuter   = 1.35f;
+        private const float TargetSize    = 0.45f;
+        private const float TargetHitScale = 1.6f; // scale-up pop on hit
+        private const float AimLength     = 2.5f;
+        private const float AimThick      = 0.08f;
+        private const float FlashThick    = 0.25f;
+        private const float FlashDuration = 0.2f;
 
         private static readonly float[] AvatarOffsetX = { -3f, 3f, -3f,  3f };
         private static readonly float[] AvatarOffsetY = {  2f, 2f, -2f, -2f };
 
-        private static readonly Color TargetColor = Color.white;
-        private static readonly Color HitColor    = Color.green;
-        private static readonly Color MissColor   = Color.red;
+        private static readonly Color TargetColor  = Color.white;
+        private static readonly Color HitColor     = Color.green;
+        private static readonly Color MissColor    = new Color(0.7f, 0.1f, 0.1f); // dim red
+        private static readonly Color FlashColor   = new Color(1f, 0.95f, 0.3f);  // bright yellow-white
 
         // ── Initialise ────────────────────────────────────────────────────────────
 
@@ -53,8 +66,9 @@ namespace Barcade.Framework
         /// </summary>
         public void Bind(ApuntaMicrogame game, PlayerSlot[] players)
         {
-            _game    = game;
-            _players = players;
+            _game      = game;
+            _players   = players;
+            _prevLatch = new bool?[players.Length];
             BuildShapes();
         }
 
@@ -63,6 +77,7 @@ namespace Barcade.Framework
         private void Update()
         {
             if (_game == null) return;
+            TickFlashes();
             RefreshShapes();
         }
 
@@ -118,10 +133,18 @@ namespace Barcade.Framework
                 Vector3 avatarPos = GetAvatarPos(i);
                 bool? latch = _game.GetLatch(slot);
 
-                // Update avatar colour based on latch state.
-                var mr = _avatarShapes[i].GetComponent<MeshRenderer>();
-                if (mr != null && latch.HasValue)
-                    mr.material.color = latch.Value ? HitColor : MissColor;
+                // Detect the shot frame: latch just transitioned from null to a value.
+                bool shotThisFrame = !_prevLatch[i].HasValue && latch.HasValue;
+                _prevLatch[i] = latch;
+
+                if (shotThisFrame)
+                    SpawnShotFlash(avatarPos, slot);
+
+                // Apply persistent outcome to the TARGET square (neutral white, so
+                // green/red read clearly regardless of player colour).
+                // Avatar colour is intentionally left unchanged — it stays player colour.
+                if (latch.HasValue && i < _targetShapes.Count && _targetShapes[i] != null)
+                    ApplyOutcomeToTarget(i, latch.Value);
 
                 // Update aim line direction — read live stick from the game each frame.
                 float ax = _game.GetAimX(slot);
@@ -130,9 +153,64 @@ namespace Barcade.Framework
                 if (mag > 0.1f)
                 {
                     ax /= mag; ay /= mag;
-                    var aimLine = _aimLines[i];
-                    if (aimLine != null)
+                    if (_aimLines[i] != null)
                         DestroyAndRebuildAimLine(i, avatarPos, ax, ay, slot);
+                }
+            }
+        }
+
+        // Colour the target square green (hit) or dim red (miss) and scale it on hit.
+        private void ApplyOutcomeToTarget(int i, bool hit)
+        {
+            var targetGo = _targetShapes[i];
+            if (targetGo == null) return;
+
+            var mr = targetGo.GetComponent<MeshRenderer>();
+            if (mr != null)
+                mr.material.color = hit ? HitColor : MissColor;
+
+            // Scale up for a satisfying "pop" on hit; leave size unchanged on miss.
+            float s = hit ? TargetHitScale : 1f;
+            targetGo.transform.localScale = new Vector3(s, s, 1f);
+        }
+
+        // Spawn a bright shot flash along the current aim direction (or fallback to
+        // target direction if the stick is at rest at the fire moment).
+        private void SpawnShotFlash(Vector3 avatarPos, PlayerSlot slot)
+        {
+            float ax = _game.GetAimX(slot);
+            float ay = _game.GetAimY(slot);
+            float mag = Mathf.Sqrt(ax * ax + ay * ay);
+
+            // If stick at rest fall back to target direction so the flash is still visible.
+            if (mag < 0.1f)
+            {
+                ax = _game.GetTargetDirX(slot);
+                ay = _game.GetTargetDirY(slot);
+                mag = Mathf.Sqrt(ax * ax + ay * ay);
+            }
+
+            if (mag > 1e-6f) { ax /= mag; ay /= mag; }
+
+            Vector3 end = avatarPos + new Vector3(ax, ay, 0f) * AimLength;
+            var flash = ShapeFactory.MakeLine(FlashColor, avatarPos, end, FlashThick, transform);
+            flash.name = $"ShotFlash_{slot}";
+
+            _shotFlashes.Add(flash);
+            _shotFlashTimers.Add(FlashDuration);
+        }
+
+        // Age and destroy shot flashes each frame.
+        private void TickFlashes()
+        {
+            for (int i = _shotFlashes.Count - 1; i >= 0; i--)
+            {
+                _shotFlashTimers[i] -= Time.deltaTime;
+                if (_shotFlashTimers[i] <= 0f)
+                {
+                    if (_shotFlashes[i] != null) Destroy(_shotFlashes[i]);
+                    _shotFlashes.RemoveAt(i);
+                    _shotFlashTimers.RemoveAt(i);
                 }
             }
         }
@@ -160,10 +238,13 @@ namespace Barcade.Framework
             foreach (var go in _avatarOutlines)  if (go != null) Destroy(go);
             foreach (var go in _targetShapes)   if (go != null) Destroy(go);
             foreach (var go in _aimLines)       if (go != null) Destroy(go);
+            foreach (var go in _shotFlashes)    if (go != null) Destroy(go);
             _avatarShapes.Clear();
             _avatarOutlines.Clear();
             _targetShapes.Clear();
             _aimLines.Clear();
+            _shotFlashes.Clear();
+            _shotFlashTimers.Clear();
         }
     }
 }
