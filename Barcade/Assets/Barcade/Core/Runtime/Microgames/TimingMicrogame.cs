@@ -140,6 +140,18 @@ namespace Barcade.Core
         /// <summary>Returns the effective zone maximum after difficulty scaling.</summary>
         public float EffectiveZoneMax => _zoneMax;
 
+        /// <summary>
+        /// Returns the per-player press latch for <paramref name="slot"/>:
+        /// null = not yet pressed, true = hit, false = missed.
+        /// </summary>
+        public bool? GetLatch(PlayerSlot slot)
+        {
+            if (_latch == null) return null;
+            bool? v;
+            // Use TryGetValue so we return null cleanly if the slot is absent.
+            return _latch.TryGetValue(slot, out v) ? v : null;
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private float MarkerPosition(float elapsed)

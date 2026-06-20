@@ -135,16 +135,26 @@ namespace Barcade.Framework
             if (_marker != null)
                 _marker.transform.position = new Vector3(markerX, TrackY, 0f);
 
-            // Update outcome squares.
+            // Update outcome squares from live latch state each frame.
             for (int i = 0; i < _players.Length; i++)
             {
                 PlayerSlot slot = _players[i];
+                bool? latch = _game.GetLatch(slot);
 
-                // TimingMicrogame.GetLatch is not public — outcome is not directly
-                // readable; we rely on the visual default (player colour = undecided).
-                // To show hit/miss we need the result — the host sets a flag after Evaluate.
-                // For live feedback: the square stays player colour while undecided.
-                // (A future enhancement could expose GetLatch on TimingMicrogame.)
+                if (_outcomeSquares == null || i >= _outcomeSquares.Length) continue;
+                var mr = _outcomeSquares[i] != null
+                    ? _outcomeSquares[i].GetComponent<MeshRenderer>()
+                    : null;
+                if (mr == null) continue;
+
+                if (!latch.HasValue)
+                {
+                    // Undecided — leave the player colour set at build time; do nothing.
+                }
+                else
+                {
+                    mr.material.color = latch.Value ? HitColor : MissColor;
+                }
             }
         }
 
