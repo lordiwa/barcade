@@ -47,3 +47,6 @@ Barcade/.cache/
 # fast-tests build artifacts (dotnet)
 fast-tests/**/bin/
 fast-tests/**/obj/
+
+# Root-level transient build/setup logs (e.g. MCP server build)
+/*.log
