@@ -8,16 +8,28 @@
     "ISeededRandom interface plus SeededRandom implementation wrapping System.Random; identical seed yields identical sequence.",
     "EditMode tests cover slot/color mapping, snapshot immutability/derived helpers, and RNG determinism (same seed equals same sequence; different seeds differ)."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "critical",
-  "labels": ["milestone-1", "core", "unity"],
+  "labels": [
+    "milestone-1",
+    "core",
+    "unity"
+  ],
   "verification_tier": "tdd",
   "assignee": null,
-  "depends_on": ["TASK-001"],
+  "depends_on": [
+    "TASK-001"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T01:58:11.917Z",
+      "body": "Done. Developer (tdd, test-first) added Barcade.Core player slots (Rojo/Azul/Amarillo/Verde 0-3), immutable InputSnapshot struct (engine-free, with Magnitude/Normalized/WithDeadZone/CardinalDirection), and ISeededRandom/SeededRandom. 45/45 EditMode tests green headless. Test commit d9f78f4, impl commit 3f08ac8. Reviewer APPROVED, no HIGH. LOW follow-ups (non-blocking): pin deadzone==threshold and exact-diagonal tie-break edge cases; one redundant immutability test."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T01:58:15.713Z",
   "jira_key": null
 }

@@ -8,16 +8,28 @@
     "The center of the screen is kept clear for gameplay; HUD elements are contextual (e.g. transient where appropriate).",
     "Feedback hooks are reusable by microgames and the sequencer."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "medium",
-  "labels": ["milestone-1", "ui", "unity"],
+  "labels": [
+    "milestone-1",
+    "ui",
+    "unity"
+  ],
   "verification_tier": "uat-only",
   "assignee": null,
-  "depends_on": ["TASK-005"],
+  "depends_on": [
+    "TASK-005"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T18:25:42.919Z",
+      "body": "UAT PASS (human, 2026-06-19). After fixing the scene render bug (camera was at z=0; fixed to (0,0,-10) in SceneBuilder, commit be578aa), the human ran Game.unity and confirmed the HUD: 4 corner panels, color-coded per player, are visible. FeedbackController (Low/Mid/High screen-shake + flash) is present in the build and covered by automated tests. AC met. NOTE: separate UAT feedback raised that the microgame VIEWS themselves are hard to read (objective unclear, too fast, own figure/4 players not distinguishable) — that is microgame readability/game-feel, tracked separately as new work, NOT part of the 008 HUD ACs."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T18:25:53.828Z",
   "jira_key": null
 }

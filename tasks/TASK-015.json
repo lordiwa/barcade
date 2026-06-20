@@ -8,16 +8,30 @@
     "An end-of-round results screen shows final standings.",
     "From launch, a new player can be playing within ~60 seconds with zero instructions (zero-setup goal)."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "critical",
-  "labels": ["milestone-1", "integration", "unity"],
+  "labels": [
+    "milestone-1",
+    "integration",
+    "unity"
+  ],
   "verification_tier": "uat-only",
   "assignee": null,
-  "depends_on": ["TASK-007", "TASK-008", "TASK-014"],
+  "depends_on": [
+    "TASK-007",
+    "TASK-008",
+    "TASK-014"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T18:25:47.020Z",
+      "body": "UAT PASS (human, 2026-06-19). Human ran the playable Game.unity and confirmed the end-to-end session flow: microgames cycle (intermission -> verb -> play -> result), the session progresses across rounds, and the RESULTS screen appears at the end with a restart button. AC met. Render-blocking bug found during this UAT (camera at z=0) was fixed in SceneBuilder (commits be578aa + 61aa558 for the smoke-test API fix). OUTSTANDING REPO HYGIENE: the regenerated Game.unity asset (with corrected camera transform + MicrogameRoot) was rebuilt in the human's open Editor but is NOT yet committed — batchmode commit is blocked while the Editor holds the project lock. Commit Game.unity when the Editor is free or via MCP. Microgame readability feedback from this session is tracked separately as new work."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T18:25:53.909Z",
   "jira_key": null
 }

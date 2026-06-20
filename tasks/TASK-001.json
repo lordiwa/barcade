@@ -10,7 +10,7 @@
     "One trivial EditMode smoke test runs via the documented Unity CLI headless command and the run exits 0.",
     "A Unity-appropriate .gitignore is present and the repo is initialized with an initial commit."
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "critical",
   "labels": [
     "milestone-1",
@@ -22,8 +22,14 @@
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-18T23:58:24.582Z",
+      "body": "Done. Developer (IMPL, tests-after) scaffolded the Unity 6000.0.38f1 project at D:\\barcade\\Barcade with Barcade.Core / Barcade.Framework / Barcade.Core.Tests asmdefs; packages resolved (inputsystem 1.13.0, test-framework 1.4.6, addressables 2.3.1); headless EditMode smoke tests pass (exit 0). Reviewer APPROVED, no HIGH findings. Headless Unity batchmode confirmed working on this machine (no licensing block) — the loop gate is cleared. Commit f7c2b8a. LOW follow-ups (non-blocking): migrate test asmdef off legacy optionalUnityReferences; prune default URP SampleScene/TutorialInfo/Readme cruft later."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T23:35:10.216Z",
+  "updated_at": "2026-06-18T23:58:28.025Z",
   "jira_key": null
 }

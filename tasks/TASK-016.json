@@ -8,16 +8,28 @@
     "Build-and-host steps are documented (CCD or static HTTP), with versioning/rollback notes.",
     "The data-vs-binary boundary is documented: which microgame changes ship as remote content vs require a binary rebuild."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "medium",
-  "labels": ["milestone-1", "remote-update", "unity"],
+  "labels": [
+    "milestone-1",
+    "remote-update",
+    "unity"
+  ],
   "verification_tier": "tests-after",
   "assignee": null,
-  "depends_on": ["TASK-014"],
+  "depends_on": [
+    "TASK-014"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T17:18:35.547Z",
+      "body": "CLOSED — all 4 ACs satisfied; verified green. Commits 8252206→91d9c1f (base 37d6bb1).\n\nDeliverables:\n- AC#1 (remote/local split): `AddressablesGroupConfigurator` (-executeMethod) builds `Barcade-Core` (local/StreamingAssets, StaticContent) + `Barcade-Microgames` (remote/Production profile, StaticContent), marks 13 assets (12 MicrogameDefinitions + pool) Addressable with `microgame` label. Verified via Unity batchmode (exit 0): groups + Production profile + 13 marked + remote catalog enabled, confirmed in generated .asset files.\n- AC#2 (boot routine + timeout + offline fallback): engine-free `ContentUpdatePolicy` state machine (24 fast-tests) + `ContentUpdater` MonoBehaviour coroutine (Init→CheckForCatalogUpdates→UpdateCatalogs, per-stage 8s timeout, silent fallback to cached/local on any timeout/error). Uses `Time.unscaledDeltaTime` so timeScale=0 cannot stall the timeout (review MEDIUM fixed).\n- AC#3 (build/host docs): docs/remote-content.md — CCD + S3 + static-HTTP hosting, versioning, rollback.\n- AC#4 (data-vs-binary boundary): docs/remote-content.md table — accurate/conservative for IL2CPP (new C# types or changed serialized fields → binary rebuild; data/asset/prefab-rewire/scene/texture/audio → remote).\n\nVerification (orchestrator-run; subagents can't run Unity.exe):\n- Unity batchmode AddressablesGroupConfigurator.Configure: GREEN (exit 0, no exceptions).\n- Fast suite: 229/229 (205 pre-existing + 24 new).\n- Fresh-context reviewer: APPROVE-WITH-NITS, NO HIGH findings. All 4 ACs PASS. MEDIUM (unscaled time) fixed; remaining LOW/NITs accepted for thin proof-path.\n\nBugs caught by the batchmode gate (not visible to fast-tests or the diff review), all fixed: (1) UpdateCatalogs arg-binding CS1744, (2) GetSettings param-name CS1739, (3) AddressableAssetSettings committed with empty runtime provider types (would break remote loads at runtime).\n\nKnown limitation (accepted): full Addressables bundle build (BuildPlayerContent) is interactive-Editor-only — not run in batchmode. Documented in runbook Step 3. Acceptable per ticket scope (\"architecture proven with a thin path, not full fleet management\")."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T17:18:37.936Z",
   "jira_key": null
 }

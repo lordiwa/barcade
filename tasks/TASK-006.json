@@ -9,16 +9,28 @@
     "A keyboard fallback lets a single developer drive all 4 players for testing.",
     "Regression locks plus a documented PlayMode/manual check confirm simulated inputs route to the correct slots."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "high",
-  "labels": ["milestone-1", "input", "unity"],
+  "labels": [
+    "milestone-1",
+    "input",
+    "unity"
+  ],
   "verification_tier": "tests-after",
   "assignee": null,
-  "depends_on": ["TASK-002"],
+  "depends_on": [
+    "TASK-002"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T04:46:50.885Z",
+      "body": "Done after a review-driven fix saga. Delivered: ArcadeControls.inputactions (Move Vector2 + Action button), ArcadeInputBridge (Barcade.Framework) implementing IReadOnlyPlayerInputs with deterministic device->slot assignment and keyboard dev-fallback (WASD/Arrows/IJKL/Numpad). Also the integration compile checkpoint: whole project compiles in Unity 6000.0.38f1; .meta files for Core/Framework generated+committed. Verification (orchestrator-run headless): EditMode 114/114, PlayMode 19/19, fast dotnet 113/113.\nReview found 2 HIGH: (1) device isolation used bindingMask (by group) but never pinned device INSTANCES -> all joysticks drove all slots on the real cabinet; (2) PlayMode 'locks' never exercised the bridge end-to-end. Fixes: pin map.devices per slot (HIGH-1, fa30b5a base); added a public Initialize(asset, orderedDevices) seam so tests inject explicit devices, and 5 real PlayMode tests incl. a genuine device-isolation assert (HIGH-2). MEDIUMs: stable device sort by serial/product/deviceId (per-cabinet serial->slot map is future work); briefly mis-set includePlatforms:Editor on the PlayMode asmdef which broke EditMode, then reverted. Commits: f7aa0d9 (metas), d597f0b (input), 84551c8 (HIGH fixes), 0e34d42 (asmdef revert), fa30b5a (Initialize seam + real tests). Carry-forward: keyboard slots share Keyboard.current (isolated only by bindingMask) - dev fallback only; e2e scene (TASK-015) must assign _actionsAsset and ensure a single bootstrapped bridge."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T04:46:55.719Z",
   "jira_key": null
 }

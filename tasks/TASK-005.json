@@ -8,16 +8,29 @@
     "After each microgame, per-player results are fed into the ScoreModel.",
     "Selection, ramp, and score-update logic are pure C# and covered by deterministic EditMode tests (fixed seed yields a fixed, asserted sequence)."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "critical",
-  "labels": ["milestone-1", "framework", "unity"],
+  "labels": [
+    "milestone-1",
+    "framework",
+    "unity"
+  ],
   "verification_tier": "tdd",
   "assignee": null,
-  "depends_on": ["TASK-003", "TASK-004"],
+  "depends_on": [
+    "TASK-003",
+    "TASK-004"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T03:29:11.194Z",
+      "body": "Done. SequencerDirector in Barcade.Core: anti-repeat selection via seeded RNG (pool-size-1 bypass, no infinite loop), deterministic ramp (EffectiveDuration = max(minDuration, base*decay^round), default decay 0.95/floor 1s), AdvanceRound feeds ScoreModel. Pure descriptors (MicrogameDescriptor) decouple Core from the Framework ScriptableObject. Also added ScoreModel.RecordRound null/length-4 guard (TASK-003 carry-forward). Test 4ef4ab0, impl 1f96a03. 113/113 fast tests green. Reviewer APPROVED no HIGH/MEDIUM. LOW (deferred): AdvanceRound/PickNext pairing not enforced; one redundant long-run test. Adapter notes for integration: map MicrogameDefinition->MicrogameDescriptor at Awake; per-round context seeded as masterSeed^roundIndex; HUD reads director.Score; extract MicrogameResult.IsWin per slot into bool[4] for AdvanceRound. New Core .cs files still need Unity .meta generation (do at TASK-006 integration compile)."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T03:29:21.277Z",
   "jira_key": null
 }

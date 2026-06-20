@@ -8,16 +8,34 @@
     "A MicrogameDefinition asset registers it (verb e.g. '¡APORREA!') and it runs through the sequencer.",
     "Uses only simple geometric shapes."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "high",
-  "labels": ["milestone-1", "microgame", "unity"],
+  "labels": [
+    "milestone-1",
+    "microgame",
+    "unity"
+  ],
   "verification_tier": "tdd",
   "assignee": null,
-  "depends_on": ["TASK-005", "TASK-006"],
+  "depends_on": [
+    "TASK-005",
+    "TASK-006"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T05:14:43.736Z",
+      "body": "Pure Aporrea (Mash) logic done (AporreaMicrogame): rising-edge press count>=threshold; Held does not recount. dotnet-tested, threshold boundary pinned. Reviewer APPROVED (batch, no HIGH/MEDIUM). Commits: tests d77177c, impl 3b0ec50. REMAINING (integration pass): Framework view MonoBehaviour rendering simple shapes, a MicrogameDefinition .asset, and sequencer-pool wiring + Unity compile. Ticket stays in_progress until that lands."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T16:28:26.521Z",
+      "body": "CLOSED. Aporrea fully delivered: logic + AporreaView + aporrea-d1/d3 assets; difficulty scales press threshold. Runs through loop. Suites green."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T16:28:26.521Z",
   "jira_key": null
 }

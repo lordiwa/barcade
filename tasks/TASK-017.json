@@ -1,0 +1,36 @@
+{
+  "key": "TASK-017",
+  "title": "Fast dotnet test runner over Barcade.Core (TDD inner loop)",
+  "description": "Stand up a standalone dotnet/NUnit test project that compiles the engine-free Barcade.Core sources and the pure-logic EditMode test files, so the TDD inner loop for logic tickets runs in seconds instead of multi-minute Unity batchmode. Unity batchmode remains the verifier for engine-dependent code (input, scenes, HUD, Addressables) and a final integration pass. Single source of truth: the dotnet project LINKS the existing test .cs files (no duplicate tests). Installs the .NET SDK user-scoped (no admin).",
+  "acceptance_criteria": [
+    "A .NET SDK is available (install user-scoped via the official dotnet-install script into a user-local dir if none is present; do NOT require admin).",
+    "A test project under D:/barcade/fast-tests/ compiles the Barcade.Core sources (via linked Compile includes from Barcade/Assets/Barcade/Core) and the pure-logic test files (InputSnapshotTests, PlayerSlotTests, SeededRandomTests; exclude any file that references UnityEngine or UnityEngine.TestTools).",
+    "`dotnet test` runs green and completes in seconds, covering the same pure-logic assertions that pass under Unity (player slots, InputSnapshot, SeededRandom).",
+    "The fast-tests project lives OUTSIDE the Unity project (so Unity does not compile it) and its bin/obj are gitignored.",
+    "A short note documents the fast test command and when to use it vs Unity batchmode (in .claude/skills/unity-testing or a fast-tests/README)."
+  ],
+  "status": "done",
+  "priority": "high",
+  "labels": [
+    "milestone-1",
+    "tooling",
+    "tests"
+  ],
+  "verification_tier": "tests-after",
+  "assignee": null,
+  "depends_on": [
+    "TASK-002"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T02:31:48.346Z",
+      "body": "Done. Fast dotnet/NUnit runner at fast-tests/Barcade.Core.FastTests links (not copies) the Barcade.Core sources + pure EditMode test files; 44 tests pass in <5s (vs ~2h via Unity). .NET SDK 8.0.422 installed user-scoped at ~/.dotnet (no admin). gitignore excludes bin/obj; project sits outside the Unity project so Unity never compiles it. Orchestrator-verified directly (links + green run + isolation). Commit 0470eef. This is now the TDD inner loop for pure Barcade.Core tickets; Unity batchmode reserved for engine-dependent code + a final integration pass. Pre-existing NUnit2007 warning in SmokeTests left for its owning ticket."
+    }
+  ],
+  "created_at": "2026-06-18T23:05:00.000Z",
+  "updated_at": "2026-06-19T02:31:51.836Z",
+  "jira_key": null
+}

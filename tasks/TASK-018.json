@@ -1,0 +1,30 @@
+{
+  "key": "TASK-018",
+  "title": "Microgame readability pass (player color-coding, pacing, clarity)",
+  "description": "First human UAT of the playable build (Milestone 1) confirmed the HUD and session flow work, but the microgames themselves are not understandable. Human reported all four: (1) doesn't know what to do, (2) games go too fast, (3) can't tell which figure is their own, (4) can't distinguish the 4 players on the play field. This is game-feel/readability polish on the per-mechanic View classes and the round pacing — NOT a regression of the closed mechanic tickets (009-013) or the HUD/session tickets (008/015). Goal: make each microgame instantly readable in the WarioWare sense. Scope is the View classes (EsquivaView, AporreaView, ApuntaView, TimingView, RecolectaView), the command-display/verb presentation, and the round/ramp durations. Constraint: the human keeps the Unity Editor open, so the orchestrator cannot run batchmode verification while it is locked — changes must be compile-safe (correct UnityEngine/UnityEditor API) and verified by the human recompiling in-editor and play-testing, plus the dotnet fast suite for any logic touched. Pacing/verb changes that are serialized into Game.unity must also be applied in SceneBuilder so a 'Barcade/Build Game Scene' rebuild picks them up.",
+  "acceptance_criteria": [
+    "Each player's on-field figure/avatar is drawn in that player's slot color (Rojo=red, Azul=blue, Amarillo=yellow, Verde=green), matching the HUD corner colors, across all 5 mechanic views.",
+    "The player's own controllable avatar is visually distinct from obstacles/targets (e.g. larger, outlined, or a distinct shape) so it is identifiable at a glance.",
+    "Round pacing is slowed for readability: the command/verb display duration is increased from 1s to a readable value and base play durations / the early difficulty ramp are softened; values are set in SceneBuilder (and component defaults) so a scene rebuild applies them.",
+    "The on-screen instruction is clearer: the verb is prominent and legible, optionally with a short hint or icon, so a new player understands the objective within the command-show window.",
+    "dotnet fast suite stays green for any non-view logic touched; changes compile cleanly in the Unity Editor (no API errors blocking play mode).",
+    "Human re-tests in the open Editor and confirms the four reported problems are materially improved."
+  ],
+  "status": "in_progress",
+  "priority": "high",
+  "labels": [
+    "milestone-1-followup",
+    "ux",
+    "readability",
+    "unity"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-19T20:57:16.247Z",
+  "updated_at": "2026-06-19T20:57:24.105Z",
+  "jira_key": null,
+  "verification_tier": "uat-only"
+}

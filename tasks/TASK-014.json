@@ -8,16 +8,32 @@
     "Running the loop plays varied microgames back-to-back without code changes per variant.",
     "Adding a variant requires only a new asset (and shapes/params), demonstrating the data-driven design."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "medium",
-  "labels": ["milestone-1", "content", "unity"],
+  "labels": [
+    "milestone-1",
+    "content",
+    "unity"
+  ],
   "verification_tier": "tests-after",
   "assignee": null,
-  "depends_on": ["TASK-009", "TASK-010", "TASK-011", "TASK-012", "TASK-013"],
+  "depends_on": [
+    "TASK-009",
+    "TASK-010",
+    "TASK-011",
+    "TASK-012",
+    "TASK-013"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T16:28:26.521Z",
+      "body": "CLOSED. 12 MicrogameDefinition variant assets across all 5 mechanics (varied difficulty/duration/verb) + DefaultMicrogamePool; all selectable by SequencerDirector and runnable by MicrogameHost (MicrogamePoolIntegrationTests). Adding a variant = one new .asset (Editor generator demonstrates data-driven design). Commits dfa905a (parameterize+difficulty tests), 4ff0735 (pool+generator), 0620d47 (assets), 7e9358b (metas). EditMode 206, PlayMode 27, dotnet 205 green."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T16:28:26.521Z",
   "jira_key": null
 }

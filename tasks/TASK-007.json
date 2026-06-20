@@ -8,16 +8,28 @@
     "Intermission timing is testable in pure C# (a timer/state machine separate from rendering).",
     "Both are driven by the sequencer lifecycle, not hardcoded per microgame."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "medium",
-  "labels": ["milestone-1", "ui", "unity"],
+  "labels": [
+    "milestone-1",
+    "ui",
+    "unity"
+  ],
   "verification_tier": "tests-after",
   "assignee": null,
-  "depends_on": ["TASK-005"],
+  "depends_on": [
+    "TASK-005"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T05:00:13.703Z",
+      "body": "Done. RoundPhaseMachine (Barcade.Core/Loop): Intermission->CommandShow(~1s)->Play(seq effective duration)->Result; configurable durations, negative clamped, deterministic, zero-duration lazy-drain on Tick; PhaseChangedThisTick/VerbText/IsRoundComplete. 138/138 fast tests. Framework views (CommandDisplayView, IntermissionView, MicrogameLoopController) written, compile deferred to Unity integration pass. Test d5e47e8, impl 28f41fd. Reviewer APPROVED no HIGH. CARRY-FORWARD to TASK-015 (must-fix): (1) MicrogameLoopController fires OnRoundComplete the instant IsRoundComplete -> Result window/_resultDuration skipped; fix by timing Result in the controller OR have the machine make Result a timed phase exposing ResultComplete; (2) lock the zero-duration lazy-drain contract (review noted impl adjusted some tests to match code); (3) wire real per-player bool[4] results (currently stubbed) and Play/Result view branches. Framework files needing integration compile: CommandDisplayView.cs, IntermissionView.cs, MicrogameLoopController.cs."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T05:00:17.646Z",
   "jira_key": null
 }

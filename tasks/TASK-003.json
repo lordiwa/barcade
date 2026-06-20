@@ -8,16 +8,28 @@
     "No layered randomness or hidden score multipliers are applied — accumulation is transparent.",
     "EditMode tests cover accumulation, leader selection, tie handling, and empty/initial state."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "high",
-  "labels": ["milestone-1", "core", "unity"],
+  "labels": [
+    "milestone-1",
+    "core",
+    "unity"
+  ],
   "verification_tier": "tdd",
   "assignee": null,
-  "depends_on": ["TASK-001"],
+  "depends_on": [
+    "TASK-001"
+  ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-19T02:55:29.611Z",
+      "body": "Done. ScoreModel (Barcade.Core) with per-player wins/losses/games, WinRate (zero-games guarded), GetLeaders (all tied) + GetSingleLeader (deterministic lowest-index). Raw accumulation, no RNG/multipliers. 71/71 fast tests green (~93ms). Test commit 564dbdc, impl a71ed8b. Reviewer APPROVED, no HIGH. Carry-forward (non-blocking): [MEDIUM] add null/length-4 guard to RecordRound — fold into TASK-005 (first real caller); [LOW] pin the lowest-index tie-break rule explicitly in a test; [LOW] avoid List alloc in GetSingleLeader if called per-frame."
+    }
+  ],
   "created_at": "2026-06-18T22:30:00.000Z",
-  "updated_at": "2026-06-18T22:30:00.000Z",
+  "updated_at": "2026-06-19T02:55:33.832Z",
   "jira_key": null
 }
