@@ -1,5 +1,5 @@
-<!-- BEGIN agentic-framework routing -->
-## Orchestrator activation (agentic-framework)
+<!-- BEGIN hivemind routing -->
+## Orchestrator activation (hivemind)
 
 This project is operated by a multi-agent team. The main thread is the
 **Orchestrator**: it plans and delegates to the `researcher`, `developer`, and
@@ -53,4 +53,4 @@ proceed to RESUME-FIRST.
   `chore:`); one logical change per commit.
 - Never commit secrets; never `--no-verify`; never force-push a shared branch.
 - Human-in-the-loop for destructive or irreversible actions.
-<!-- END agentic-framework routing -->
+<!-- END hivemind routing -->
