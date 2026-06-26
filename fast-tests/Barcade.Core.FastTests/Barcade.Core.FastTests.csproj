@@ -44,6 +44,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\TimingMicrogameTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RecolectaMicrogameTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ContentUpdatePolicyTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\GridArenaTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\DodgeSimTests.cs" />
   </ItemGroup>
 
 </Project>
