@@ -11,7 +11,7 @@
     "Fast dotnet suite stays green (Core rules unchanged)",
     "reference-assets-chars/ reference-assets-enemy/ reference-assets-stage/ are committed to the repo as the asset source of truth"
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "high",
   "labels": [
     "demo",
@@ -23,11 +23,18 @@
   ],
   "assignee": null,
   "depends_on": [],
-  "linked_commits": [],
+  "linked_commits": [
+    "9883a19",
+    "f4bf253",
+    "580267b",
+    "693644d"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {"at": "2026-06-27T03:30:00.000Z", "body": "Closed on human UAT PASS (jump + floor crumble look good) + fresh-context reviewer APPROVE-WITH-NITS (rev-dodge, zero HIGH; 267/267 fast suite). Kenney models (fox hero, character-a/b/c enemies, Mini Dungeon floor) loaded via Resources.Load with primitive-cube fallback; tile crumble (tumble+gravity) and movement-heading facing added. Non-gating nits folded into TASK-020."}
+  ],
   "created_at": "2026-06-27T01:30:00.000Z",
-  "updated_at": "2026-06-27T01:30:00.000Z",
+  "updated_at": "2026-06-27T03:30:00.000Z",
   "jira_key": null,
   "verification_tier": "uat-only",
   "marker": "[HUMAN]",

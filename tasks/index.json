@@ -124,7 +124,13 @@
     {
       "key": "TASK-021",
       "title": "Esquiva 3D — swap procedural cubes for Kenney CC0 models (hero, enemies, dungeon floor)",
-      "status": "todo",
+      "status": "done",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-022",
+      "title": "Esquiva 3D — player jump (hop over enemies + recover onto arena from collapsing edge)",
+      "status": "done",
       "priority": "high"
     }
   ]

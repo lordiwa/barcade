@@ -1,0 +1,39 @@
+{
+  "key": "TASK-022",
+  "title": "Esquiva 3D — player jump (hop over enemies + recover onto arena from collapsing edge)",
+  "description": "Add a jump button to the Esquiva 3D demo. While airborne the player is immune to being caught by chaser obstacles (jump OVER enemies) and immune to falling into the void; XZ air-control stays enabled so the player can steer back over solid ground. On landing the grounded cell is evaluated: solid -> survive (recover 'back inside' from a collapsing edge), void -> fall/lose; an enemy on the landing cell still catches. No double-jump (cannot jump while already airborne) to prevent infinite hover. Rules change lives in Barcade.Core.Dodge.DodgeSim (tests-first, fast suite). View layer (DodgeGameBootstrap) adds the input button (Space + gamepad South) and a parabolic hop arc driven by sim jump progress; primitive-cube fallback unaffected; Core stays engine-free.",
+  "acceptance_criteria": [
+    "DodgeSim exposes RequestJump(), IsAirborne (bool), and JumpProgress01 (0 at takeoff, 1 at land); jumpDuration is a constructor param with a sensible default and appended so existing call sites compile unchanged",
+    "While airborne, CheckPlayerFell and CheckPlayerCaught are suppressed; the player keeps moving in XZ from input (air control)",
+    "On the landing frame, ground checks run: landing on a non-solid cell -> Lost(Fell); landing on/under an enemy within contactRadius -> Lost(Caught); landing on a clear solid cell -> still Playing",
+    "RequestJump while already airborne is ignored (no double-jump, no timer refresh/extension)",
+    "Tests-first: failing fast-suite tests encode each rule above (airborne fall-immunity, land-back-on-solid survival, hop-over-enemy immunity, no-double-jump, catch-on-landing) before implementation; all green after",
+    "Existing fast suite stays green (no regression to the prior 261 tests; total grows by the new jump tests)",
+    "DodgeGameBootstrap reads a jump input (Space + <Gamepad>/buttonSouth -> RequestJump) and renders a parabolic hop arc (serialized jumpApex) using IsAirborne/JumpProgress01, independent of the death-fall animation; primitive-cube fallback path still works headless"
+  ],
+  "status": "done",
+  "priority": "high",
+  "labels": [
+    "demo",
+    "3d",
+    "dodge",
+    "gameplay",
+    "jump",
+    "core"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [
+    "d9c7c34"
+  ],
+  "linked_prs": [],
+  "comments": [
+    {"at": "2026-06-27T03:30:00.000Z", "body": "Closed on human UAT PASS (jump plays well) + fresh-context reviewer APPROVE-WITH-NITS (rev-dodge, zero HIGH). Tests-first: 6 new DodgeSim jump tests authored before implementation; fast suite 267/267 (was 261). Airborne immune to Fell+Caught with XZ air-control; landing-frame ground checks (solid=survive, void=Fell, enemy=Caught); no double-jump. View: Space/<Gamepad>/buttonSouth -> RequestJump + parabolic hop arc (jumpApex). Non-gating nits (weak recover test, no Lost/Won jump test, jumpDuration not Inspector-serialized) folded into TASK-020."}
+  ],
+  "created_at": "2026-06-27T03:10:00.000Z",
+  "updated_at": "2026-06-27T03:30:00.000Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[HUMAN]",
+  "source_tier": "T2"
+}

@@ -6,6 +6,9 @@
     "DodgeGameBootstrap guards against fallSpeed <= 0 (clamp in Start or race the death-fall WaitUntil with a max-time WaitForSeconds) so a bad Inspector value cannot hang the restart coroutine",
     "Add a DodgeSim test asserting diagonal-input normalization: inputX=1,inputZ=1 over 1s advances exactly playerSpeed along the diagonal (not playerSpeed*sqrt(2))",
     "Optional NIT cleanup: fix stale 'grace=0' comment (DodgeSimTests.cs:81), add epsilon note to the float-boundary catch test (DodgeSimTests.cs:138), and consider snapping a dying obstacle's fall to its last grid cell XZ",
+    "From TASK-021/022 review (rev-dodge, LOW-1): DodgeGameBootstrap._obstacleBaselineY is a single shared field set to modelGroundY when ANY enemy prefab loads — under a partial/mixed model load, primitive-fallback obstacles inherit modelGroundY (0) instead of 0.35f and sit half-buried. Resolve baseline per-obstacle. Latent edge only (all-or-nothing load is the real case)",
+    "From TASK-022 review (NIT-1): strengthen Jump_RecoverBackInside_LandOnSolidSurvives — a single Tick(0.6,1,1) does takeoff+landing in one frame so it passes even without jump immunity; step it with smaller dt so the genuine fly-over-void immunity is exercised by this test, not only Jump_AirborneFallImmunity",
+    "From TASK-022 review (NIT-2): add a DodgeSim test that RequestJump() while State==Lost/Won is a no-op; optionally expose jumpDuration as a serialized Bootstrap field so designers can tune airtime from the Inspector (currently only jumpApex is)",
     "Fast dotnet suite stays green after changes"
   ],
   "status": "todo",
