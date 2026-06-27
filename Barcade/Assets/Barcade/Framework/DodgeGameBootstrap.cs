@@ -10,10 +10,14 @@ namespace Barcade.Framework
     ///
     /// Responsibilities (thin-MonoBehaviour principle — NO game rules live here):
     ///   - Procedurally builds the 3D scene: grid tiles, player cube, obstacle cubes.
-    ///   - Each Update: reads Input System move vector, calls <see cref="DodgeSim.Tick"/>,
+    ///   - Each Update: reads Input System move vector, calls <see cref="DodgeSim.Tick"/>
     ///     and <see cref="GridArena.Tick"/>, then syncs Transforms to sim state.
     ///   - Animates tile collapses (lerp Y downward, then deactivate).
-    ///   - On Won/Lost: logs result and auto-restarts after <see cref="restartDelay"/> seconds.
+    ///   - Obstacles also get a fall animation when the grid beneath them collapses.
+    ///   - On LostReason.Fell: player cube drops into the void (same animation as tiles)
+    ///     and tile-collapse animation keeps running until the player is out of view,
+    ///     then the scene auto-restarts.
+    ///   - On LostReason.Caught or Won: brief pause then auto-restart.
     ///
     /// All rules (fall detection, catch detection, win/lose) live in Core.
     /// </summary>
@@ -38,13 +42,13 @@ namespace Barcade.Framework
 
         [Header("Win / Loss")]
         [SerializeField] private float survivalDuration = 20f;
-        [SerializeField] private float restartDelay     = 3f;
+        [SerializeField] private float restartDelay     = 3f;   // pause after Won/Caught before rebuild
 
         [Header("Tile visuals")]
         [SerializeField] private Color tileColorA = new Color(0.30f, 0.30f, 0.35f);
         [SerializeField] private Color tileColorB = new Color(0.25f, 0.25f, 0.28f);
-        [SerializeField] private float fallDepth  = -6f;   // Y target for a fallen tile
-        [SerializeField] private float fallSpeed  = 4f;    // world units per second
+        [SerializeField] private float fallDepth  = -6f;   // Y target for anything that falls
+        [SerializeField] private float fallSpeed  = 4f;    // world units per second (tiles, player, obstacles)
 
         // ── Core simulation ───────────────────────────────────────────────────────
 
@@ -53,22 +57,29 @@ namespace Barcade.Framework
 
         // ── Visual objects ────────────────────────────────────────────────────────
 
-        private GameObject[,] _tiles;       // [x, z]
-        private bool[,]       _tileFalling; // animating downward
-        private float[,]      _tileY;       // current Y for fallen animation
+        private GameObject[,] _tiles;        // [x, z]
+        private bool[,]       _tileFalling;  // tile is animating downward
+        private float[,]      _tileY;        // current Y for tile fall animation
 
-        private GameObject   _playerGO;
+        private GameObject _playerGO;
+        private float      _playerY;         // current Y for player fall animation
+        private bool       _playerFalling;   // player death-fall in progress
+
         private GameObject[] _obstacleGOs;
+        private float[]      _obsY;          // current Y for obstacle fall animation
+        private bool[]       _obsFalling;    // obstacle is animating downward (off-grid death)
 
         // ── Input ─────────────────────────────────────────────────────────────────
 
-        // Using legacy Input fallback so the demo works without a full InputActionAsset
-        // wired to a PlayerInput. Override _inputAction in an InputActions asset for
-        // production use.  The thin-MonoBehaviour principle: reads input, passes to sim.
+        // Minimal local InputAction (WASD + gamepad left-stick); no full asset required.
+        // The thin-MonoBehaviour principle: reads input here, all rules stay in Core.
         private InputAction _moveAction;
 
-        // ── Restart flag ──────────────────────────────────────────────────────────
+        // ── Frame-state flags ─────────────────────────────────────────────────────
 
+        // _simFrozen: sim + input are stopped; visuals (SyncVisuals) still run each frame.
+        // _restarting: scene rebuild in progress; Update skips entirely.
+        private bool _simFrozen;
         private bool _restarting;
 
         // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -99,17 +110,27 @@ namespace Barcade.Framework
         {
             if (_sim == null || _restarting) return;
 
-            Vector2 move = _moveAction.ReadValue<Vector2>();
             float dt = Time.deltaTime;
 
-            // Tick Core (all rules inside).
-            _arena.Tick(dt);
-            _sim.Tick(dt, move.x, move.y); // y maps to Z in the 3D world
+            // Tick sim + arena only while rules are still active.
+            // Once _simFrozen, we stop processing input/rules but keep animating.
+            if (!_simFrozen)
+            {
+                Vector2 move = _moveAction.ReadValue<Vector2>();
 
+                _arena.Tick(dt);
+                _sim.Tick(dt, move.x, move.y); // move.y → Z in 3D world
+
+                if (_sim.State != DodgeState.Playing)
+                {
+                    _simFrozen = true;
+                    StartCoroutine(HandleTerminal());
+                }
+            }
+
+            // SyncVisuals always runs while not rebuilding — this drives all fall
+            // animations (tiles, obstacles, and the player-fell death sequence).
             SyncVisuals();
-
-            if (_sim.State != DodgeState.Playing && !_restarting)
-                StartCoroutine(HandleTerminal());
         }
 
         // ── Camera auto-fit ───────────────────────────────────────────────────────
@@ -118,9 +139,8 @@ namespace Barcade.Framework
         /// Repositions Camera.main so the full N×N arena is always in frame,
         /// keeping the diagonal top-down angle (pitch 50°, yaw 45°).
         ///
-        /// Formula: the arena half-diagonal = N * sqrt(2) / 2.
-        /// Required pull-back distance = halfDiag / tan(halfFov) * margin.
-        /// A 25% margin keeps tiles comfortably inside the frustum edges.
+        /// Formula: arena half-diagonal = N × √2 / 2.
+        /// Required pull-back = halfDiag / tan(halfFov) × 1.25 margin.
         /// </summary>
         private void FitCamera()
         {
@@ -171,9 +191,8 @@ namespace Barcade.Framework
                     tile.name = $"Tile_{x}_{z}";
                     tile.transform.SetParent(arenaRoot.transform, false);
                     tile.transform.position = new Vector3(x - offset, -0.5f, z - offset);
-                    tile.transform.localScale = new Vector3(0.95f, 0.2f, 0.95f); // flat tile, small gap
+                    tile.transform.localScale = new Vector3(0.95f, 0.2f, 0.95f);
 
-                    // Checkerboard tint.
                     Color c = (x + z) % 2 == 0 ? tileColorA : tileColorB;
                     tile.GetComponent<Renderer>().material.color = c;
 
@@ -190,11 +209,17 @@ namespace Barcade.Framework
             _playerGO.transform.SetParent(transform, false);
             _playerGO.transform.localScale = Vector3.one * 0.7f;
             _playerGO.GetComponent<Renderer>().material.color = playerColor;
+
+            _playerY       = 0.35f;
+            _playerFalling = false;
         }
 
         private void BuildObstacles()
         {
             _obstacleGOs = new GameObject[obstacleCount];
+            _obsY        = new float[obstacleCount];
+            _obsFalling  = new bool[obstacleCount];
+
             for (int i = 0; i < obstacleCount; i++)
             {
                 var obs = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -202,7 +227,10 @@ namespace Barcade.Framework
                 obs.transform.SetParent(transform, false);
                 obs.transform.localScale = Vector3.one * 0.7f;
                 obs.GetComponent<Renderer>().material.color = obstacleColor;
+
                 _obstacleGOs[i] = obs;
+                _obsY[i]        = 0.35f;
+                _obsFalling[i]  = false;
             }
         }
 
@@ -211,26 +239,53 @@ namespace Barcade.Framework
         private void SyncVisuals()
         {
             float offset = gridN * 0.5f - 0.5f;
+            float dt     = Time.deltaTime;
 
-            // Player position: Core uses (posX, posZ) in tile-space; world Y = 0.
-            _playerGO.transform.position = new Vector3(
-                _sim.PlayerX - offset, 0.35f, _sim.PlayerZ - offset);
+            // ── Player ────────────────────────────────────────────────────────────
+            if (_playerFalling)
+            {
+                // Animate player cube dropping into the void; XZ stays fixed at last
+                // sim position (sim is frozen so PlayerX/Z don't change).
+                _playerY = Mathf.MoveTowards(_playerY, fallDepth, fallSpeed * dt);
+                var pp = _playerGO.transform.position;
+                _playerGO.transform.position = new Vector3(pp.x, _playerY, pp.z);
+            }
+            else
+            {
+                // Normal play: snap to sim position.
+                _playerGO.transform.position = new Vector3(
+                    _sim.PlayerX - offset, 0.35f, _sim.PlayerZ - offset);
+                _playerY = 0.35f; // keep in sync so fall animation starts from correct Y
+            }
 
-            // Obstacles.
+            // ── Obstacles ─────────────────────────────────────────────────────────
             for (int i = 0; i < obstacleCount; i++)
             {
-                if (!_sim.IsObstacleAlive(i))
+                var obs = _obstacleGOs[i];
+                if (obs == null || !obs.activeSelf) continue;
+
+                // Transition to fall animation the frame the sim marks an obstacle dead.
+                if (!_sim.IsObstacleAlive(i) && !_obsFalling[i])
+                    _obsFalling[i] = true;
+
+                if (_obsFalling[i])
                 {
-                    _obstacleGOs[i].SetActive(false);
+                    _obsY[i] = Mathf.MoveTowards(_obsY[i], fallDepth, fallSpeed * dt);
+                    var op = obs.transform.position;
+                    obs.transform.position = new Vector3(op.x, _obsY[i], op.z);
+
+                    if (Mathf.Approximately(_obsY[i], fallDepth))
+                        obs.SetActive(false);
+
                     continue;
                 }
-                _obstacleGOs[i].SetActive(true);
-                _obstacleGOs[i].transform.position = new Vector3(
+
+                // Normal play: snap to sim position.
+                obs.transform.position = new Vector3(
                     _sim.GetObstacleX(i) - offset, 0.35f, _sim.GetObstacleZ(i) - offset);
             }
 
-            // Tiles: start falling animation when a tile becomes non-solid.
-            float dt = Time.deltaTime;
+            // ── Tiles ─────────────────────────────────────────────────────────────
             for (int x = 0; x < gridN; x++)
             {
                 for (int z = 0; z < gridN; z++)
@@ -239,13 +294,13 @@ namespace Barcade.Framework
                     if (tile == null || !tile.activeSelf) continue;
 
                     if (!_arena.IsSolid(x, z) && !_tileFalling[x, z])
-                        _tileFalling[x, z] = true; // start fall
+                        _tileFalling[x, z] = true;
 
                     if (_tileFalling[x, z])
                     {
                         _tileY[x, z] = Mathf.MoveTowards(_tileY[x, z], fallDepth, fallSpeed * dt);
-                        var p = tile.transform.position;
-                        tile.transform.position = new Vector3(p.x, _tileY[x, z], p.z);
+                        var tp = tile.transform.position;
+                        tile.transform.position = new Vector3(tp.x, _tileY[x, z], tp.z);
 
                         if (Mathf.Approximately(_tileY[x, z], fallDepth))
                             tile.SetActive(false);
@@ -258,18 +313,38 @@ namespace Barcade.Framework
 
         private IEnumerator HandleTerminal()
         {
-            _restarting = true;
-
             string outcome = _sim.State == DodgeState.Won
                 ? "WIN"
                 : $"LOSS ({_sim.LostReason})";
-            Debug.Log($"[DodgeGameBootstrap] Game over: {outcome}. Restarting in {restartDelay}s.");
+            Debug.Log($"[DodgeGameBootstrap] Game over: {outcome}.");
 
-            yield return new WaitForSeconds(restartDelay);
+            if (_sim.LostReason == LostReason.Fell)
+            {
+                // Trigger player fall animation. SyncVisuals drives the Y interpolation
+                // each frame; we wait here until the cube has dropped out of view.
+                _playerFalling = true;
+                yield return new WaitUntil(() => _playerY <= fallDepth + 0.05f);
+                // Brief beat at the bottom before the scene rebuilds.
+                yield return new WaitForSeconds(0.5f);
+            }
+            else
+            {
+                // Won or Caught: no dramatic fall — just a readable pause.
+                yield return new WaitForSeconds(restartDelay);
+            }
 
-            // Destroy visual children and rebuild.
+            Debug.Log("[DodgeGameBootstrap] Restarting...");
+
+            // Block Update during the scene rebuild (SyncVisuals would reference stale objects).
+            _restarting = true;
+
             foreach (Transform child in transform)
                 Destroy(child.gameObject);
+
+            // Reset visual-state flags before BuildScene recreates the objects.
+            _simFrozen     = false;
+            _playerFalling = false;
+            _playerY       = 0.35f;
 
             InitSim();
             BuildScene();
