@@ -147,8 +147,8 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c93f04d43139d1f439731a5b45b4e2b2, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
-  gridN: 13
+  m_EditorClassIdentifier:
+  gridN: 21
   graceDelay: 3
   collapseInterval: 3
   playerSpeed: 5
