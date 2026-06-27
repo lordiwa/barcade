@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-26T21:10:39.553Z",
+  "generated_at": "2026-06-27T01:09:55.978Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -112,8 +112,14 @@
     {
       "key": "TASK-019",
       "title": "Esquiva 3D — standalone cube dodge/shrinking-floor demo scene",
-      "status": "todo",
+      "status": "done",
       "priority": "high"
+    },
+    {
+      "key": "TASK-020",
+      "title": "Esquiva 3D — hardening follow-ups from TASK-019 review (LOW)",
+      "status": "todo",
+      "priority": "low"
     }
   ]
 }

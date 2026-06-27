@@ -10,7 +10,7 @@
     "Project compiles clean in the Unity Editor (verified by orchestrator via MCP/recompile); scene opens and is visibly playable with cubes (human UAT)",
     "Fully additive: existing 2D microgame view code and sequencer untouched"
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "high",
   "labels": [
     "demo",
@@ -23,9 +23,15 @@
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-06-27T01:09:30.067Z",
+      "body": "CLOSED on green review + human UAT pass (\"perfecto\", 2026-06-27).\n\nHuman UAT: Esquiva 3D scene plays; iterated to map 21x21, runtime camera auto-fit, wider enemy spawn (radius 0.45), and player visibly falls into the void on death (no freeze). Controls WASD/left-stick.\n\nVerification: fast dotnet suite 261/261 green (32 new Dodge tests, 0 regressions). Independent reviewer (fresh context) verdict APPROVE-WITH-NITS, NO HIGH findings. Confirmed Core purity (no UnityEngine), thin-MonoBehaviour adherence, correct ring-collapse math + fall/caught/win logic, idempotent SceneBuilder, and fully additive (no 2D microgame/sequencer file touched).\n\nCommits (master, pushed to origin https://github.com/lordiwa/barcade.git): eaff947, f10a9b1, 191a986, 2bb3f62, 454a263, 3c0bf29, 864cc12.\n\nNon-gating follow-ups (LOW, deferred): (1) guard fallSpeed>0 (or timeout the death WaitUntil) so a bad Inspector value can't hang the restart; (2) add a test asserting diagonal-input normalization (DodgeSim.cs:201). Plus minor NITs: stale test comment (DodgeSimTests.cs:81), fragile float-boundary test (DodgeSimTests.cs:138), obstacle fall starts from prev-frame XZ (cosmetic)."
+    }
+  ],
   "created_at": "2026-06-26T21:10:39.553Z",
-  "updated_at": "2026-06-26T21:10:39.553Z",
+  "updated_at": "2026-06-27T01:09:34.056Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
