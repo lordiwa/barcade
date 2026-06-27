@@ -22,7 +22,7 @@ namespace Barcade.Framework
         // ── Inspector-tunable parameters ─────────────────────────────────────────
 
         [Header("Grid")]
-        [SerializeField] private int   gridN            = 9;
+        [SerializeField] private int   gridN            = 13;
         [SerializeField] private float graceDelay       = 3f;
         [SerializeField] private float collapseInterval = 3f;
 
@@ -87,6 +87,7 @@ namespace Barcade.Framework
 
             InitSim();
             BuildScene();
+            FitCamera();
         }
 
         private void OnDestroy()
@@ -109,6 +110,28 @@ namespace Barcade.Framework
 
             if (_sim.State != DodgeState.Playing && !_restarting)
                 StartCoroutine(HandleTerminal());
+        }
+
+        // ── Camera auto-fit ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Repositions Camera.main so the full N×N arena is always in frame,
+        /// keeping the diagonal top-down angle (pitch 50°, yaw 45°).
+        ///
+        /// Formula: the arena half-diagonal = N * sqrt(2) / 2.
+        /// Required pull-back distance = halfDiag / tan(halfFov) * margin.
+        /// A 25% margin keeps tiles comfortably inside the frustum edges.
+        /// </summary>
+        private void FitCamera()
+        {
+            Camera cam = Camera.main;
+            if (cam == null) return;
+
+            float halfFovRad = cam.fieldOfView * 0.5f * Mathf.Deg2Rad;
+            float halfDiag   = gridN * Mathf.Sqrt(2f) * 0.5f;
+            float distance   = halfDiag / Mathf.Tan(halfFovRad) * 1.25f;
+
+            cam.transform.position = cam.transform.rotation * Vector3.back * distance;
         }
 
         // ── Init ──────────────────────────────────────────────────────────────────
@@ -250,6 +273,7 @@ namespace Barcade.Framework
 
             InitSim();
             BuildScene();
+            FitCamera();
 
             _restarting = false;
         }

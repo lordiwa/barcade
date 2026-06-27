@@ -41,21 +41,28 @@ namespace Barcade.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             // ── Camera ───────────────────────────────────────────────────────────
-            // Diagonal top-down view: x≈50° pitch, y≈45° yaw, positioned to frame a
-            // 9×9 grid centred at origin.  Distance ~14 units keeps the full grid in frame
-            // with default FOV 60°.
+            // Diagonal top-down view: x≈50° pitch, y≈45° yaw.
+            // Distance is derived from the default gridN and FOV so the full arena fits
+            // in frame with a 25% margin.  DodgeGameBootstrap re-runs this formula at
+            // runtime (FitCamera), so the edit-mode preview and play mode agree.
+            const float kFov      = 60f;
+            const int   kDefaultN = 13;
+            float halfFovRad      = kFov * 0.5f * Mathf.Deg2Rad;
+            float halfDiag        = kDefaultN * Mathf.Sqrt(2f) * 0.5f;
+            float camDistance     = halfDiag / Mathf.Tan(halfFovRad) * 1.25f;
+
             var cameraGO = new GameObject("Main Camera");
             cameraGO.tag = "MainCamera";
             cameraGO.transform.rotation = Quaternion.Euler(50f, 45f, 0f);
 
-            // Position: back-up along the inverse of the forward direction so the grid
+            // Position: back up along the inverse of the forward direction so the grid
             // centre (world origin) sits inside the frustum.
             cameraGO.transform.position =
-                cameraGO.transform.rotation * Vector3.back * 14f;
+                cameraGO.transform.rotation * Vector3.back * camDistance;
 
             var cam = cameraGO.AddComponent<Camera>();
             cam.orthographic   = false;
-            cam.fieldOfView    = 60f;
+            cam.fieldOfView    = kFov;
             cam.nearClipPlane  = 0.1f;
             cam.farClipPlane   = 100f;
             cam.clearFlags     = CameraClearFlags.SolidColor;

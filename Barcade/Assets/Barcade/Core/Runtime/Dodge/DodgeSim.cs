@@ -148,9 +148,9 @@ namespace Barcade.Core.Dodge
                 }
                 else
                 {
-                    // Evenly space obstacles in a circle at radius N*0.35 from centre.
+                    // Evenly space obstacles in a circle at radius N*0.45 from centre.
                     double angle = i * (2.0 * Math.PI / _obstacleCount);
-                    float  r     = _arena.N * 0.35f;
+                    float  r     = _arena.N * 0.45f;
                     _obsX[i] = center + (float)Math.Cos(angle) * r;
                     _obsZ[i] = center + (float)Math.Sin(angle) * r;
                 }
