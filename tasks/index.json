@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-19T20:57:24.105Z",
+  "generated_at": "2026-06-26T21:10:39.553Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -107,6 +107,12 @@
       "key": "TASK-018",
       "title": "Microgame readability pass (player color-coding, pacing, clarity)",
       "status": "in_progress",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-019",
+      "title": "Esquiva 3D — standalone cube dodge/shrinking-floor demo scene",
+      "status": "todo",
       "priority": "high"
     }
   ]
