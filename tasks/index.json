@@ -120,6 +120,12 @@
       "title": "Esquiva 3D — hardening follow-ups from TASK-019 review (LOW)",
       "status": "todo",
       "priority": "low"
+    },
+    {
+      "key": "TASK-021",
+      "title": "Esquiva 3D — swap procedural cubes for Kenney CC0 models (hero, enemies, dungeon floor)",
+      "status": "todo",
+      "priority": "high"
     }
   ]
 }

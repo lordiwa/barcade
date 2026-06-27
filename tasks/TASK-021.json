@@ -1,0 +1,35 @@
+{
+  "key": "TASK-021",
+  "title": "Esquiva 3D — swap procedural cubes for Kenney CC0 models (hero, enemies, dungeon floor)",
+  "description": "Integrate the reference-assets Kenney packs (CC0) into the Esquiva 3D demo, replacing the procedurally-generated primitive cubes with real low-poly models: an animal-cube hero for the player, character-cube models for the chaser obstacles, and Mini Dungeon floor tiles for the collapsing arena. Visual-only change — the Core dodge rules (GridArena/DodgeSim) are untouched; the swap happens in the View/Bootstrap layer. Integration MUST be GUID-free and headless-safe: load models via Resources.Load by path with a primitive-cube fallback when a model is missing, so the fast suite and any headless build keep working. Packs: reference-assets-chars (Cube Pets, players), reference-assets-enemy (character-a..r, enemies), reference-assets-stage (Mini Dungeon, level). All CC0 (commercial OK, credit Kenney optional).",
+  "acceptance_criteria": [
+    "Selected FBX models + shared colormap.png are copied under a Resources/ folder in the Unity project (e.g. Assets/Barcade/Art/DodgeModels/Resources/...) so they load by path at runtime with no scene/GUID wiring",
+    "DodgeGameBootstrap instantiates a hero model for the player, distinct character models for the obstacle/chaser cubes, and a Mini Dungeon floor model for arena tiles — each loaded via Resources.Load",
+    "If a model fails to load (null), the original GameObject.CreatePrimitive(Cube) path is used as fallback so headless/test runs never break",
+    "Model instances are scaled/rotated to fit one grid tile and centered correctly; the existing collapse/fall/sync animations still drive the root transform unchanged",
+    "Player, enemies, and floor are visually distinguishable from each other",
+    "Fast dotnet suite stays green (Core rules unchanged)",
+    "reference-assets-chars/ reference-assets-enemy/ reference-assets-stage/ are committed to the repo as the asset source of truth"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "demo",
+    "3d",
+    "dodge",
+    "art",
+    "assets",
+    "kenney"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-06-27T01:30:00.000Z",
+  "updated_at": "2026-06-27T01:30:00.000Z",
+  "jira_key": null,
+  "verification_tier": "uat-only",
+  "marker": "[HUMAN]",
+  "source_tier": "T2"
+}
