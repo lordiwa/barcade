@@ -12,8 +12,9 @@ namespace Barcade.Framework
     ///   - Procedurally builds the 3D scene: grid tiles, player cube, obstacle cubes.
     ///   - Each Update: reads Input System move vector, calls <see cref="DodgeSim.Tick"/>
     ///     and <see cref="GridArena.Tick"/>, then syncs Transforms to sim state.
-    ///   - Animates tile collapses (lerp Y downward, then deactivate).
+    ///   - Animates tile collapses: gravity-accelerated fall + random tumble spin.
     ///   - Obstacles also get a fall animation when the grid beneath them collapses.
+    ///   - Player and obstacles rotate to face their movement heading each frame.
     ///   - On LostReason.Fell: player cube drops into the void (same animation as tiles)
     ///     and tile-collapse animation keeps running until the player is out of view,
     ///     then the scene auto-restarts.
@@ -52,7 +53,16 @@ namespace Barcade.Framework
         [SerializeField] private Color tileColorA = new Color(0.30f, 0.30f, 0.35f);
         [SerializeField] private Color tileColorB = new Color(0.25f, 0.25f, 0.28f);
         [SerializeField] private float fallDepth  = -6f;   // Y target for anything that falls
-        [SerializeField] private float fallSpeed  = 4f;    // world units per second (tiles, player, obstacles)
+        [SerializeField] private float fallSpeed  = 4f;    // world units/sec for player/obstacle falls
+
+        [Header("Tile crumble")]
+        // Tiles use gravity-accelerated fall + random tumble instead of constant-speed drop.
+        [SerializeField] private float tileTumbleSpeed = 180f;  // baseline deg/sec spin; per-tile is ±40 % randomised
+        [SerializeField] private float tileFallGravity = 18f;   // world units/sec² downward acceleration
+
+        [Header("Character facing")]
+        // Player and obstacles Slerp-rotate toward their movement heading each frame.
+        [SerializeField] private float turnSpeed = 12f;     // Slerp rate (higher = snappier)
 
         [Header("Models")]
         // Resources paths (no extension) used by Resources.Load<GameObject>.
@@ -65,9 +75,11 @@ namespace Barcade.Framework
             "Dodge/Enemy/character-c",
         };
         // UAT tuning knobs — adjust in the Inspector if a model sits too high/low or faces the wrong way.
+        // modelYaw is an INTRINSIC forward-correction offset applied to the model child's localRotation;
+        // the root transform's rotation is used for the heading-based facing so the two don't fight.
         [SerializeField] private float modelScale   = 1f;   // uniform scale applied to every spawned model
         [SerializeField] private float modelGroundY = 0f;   // resting Y for player/obstacles when a model is used
-        [SerializeField] private float modelYaw     = 0f;   // Y-axis rotation (degrees) so models face forward
+        [SerializeField] private float modelYaw     = 0f;   // Y-axis correction (degrees) for the model's intrinsic forward
 
         // ── Core simulation ───────────────────────────────────────────────────────
 
@@ -80,6 +92,11 @@ namespace Barcade.Framework
         private bool[,]       _tileFalling;  // tile is animating downward
         private float[,]      _tileY;        // current Y for tile fall animation
 
+        // Per-tile crumble state — assigned the frame a tile starts falling.
+        private Vector3[,] _tileSpinAxis;   // random world-space tumble axis
+        private float[,]   _tileSpinSpeed;  // deg/sec spin for this tile
+        private float[,]   _tileFallVel;    // current downward velocity (grows via gravity)
+
         private GameObject _playerGO;
         private float      _playerY;         // current Y for player fall animation
         private bool       _playerFalling;   // player death-fall in progress
@@ -91,6 +108,18 @@ namespace Barcade.Framework
         // Resolved resting-Y per entity type (modelGroundY when a model loads; 0.35f for primitives).
         private float _playerBaselineY;
         private float _obstacleBaselineY;
+
+        // ── Facing state ──────────────────────────────────────────────────────────
+
+        // Player: previous sim-grid XZ used to compute heading, plus smoothed rotation.
+        private float      _playerPrevX;
+        private float      _playerPrevZ;
+        private Quaternion _playerFacing;
+
+        // Obstacles: same, per-obstacle.
+        private float[]      _obsPrevX;
+        private float[]      _obsPrevZ;
+        private Quaternion[] _obsFacing;
 
         // ── Input ─────────────────────────────────────────────────────────────────
 
@@ -201,6 +230,11 @@ namespace Barcade.Framework
             _tileFalling = new bool[gridN, gridN];
             _tileY       = new float[gridN, gridN];
 
+            // Crumble state — populated on the frame each tile starts falling.
+            _tileSpinAxis  = new Vector3[gridN, gridN];
+            _tileSpinSpeed = new float[gridN, gridN];
+            _tileFallVel   = new float[gridN, gridN];
+
             var arenaRoot = new GameObject("Arena");
             arenaRoot.transform.SetParent(transform, false);
 
@@ -218,7 +252,7 @@ namespace Barcade.Framework
 
                     if (floorPrefab != null)
                     {
-                        // Empty root drives the fall animation; the model is a child.
+                        // Empty root drives the fall/tumble animation; the model is a child.
                         tile = new GameObject($"Tile_{x}_{z}");
                         tile.transform.SetParent(arenaRoot.transform, false);
                         tile.transform.position = tilePos;
@@ -253,7 +287,8 @@ namespace Barcade.Framework
 
             if (heroPrefab != null)
             {
-                // Empty root lets SyncVisuals drive position; model is a child.
+                // Empty root lets SyncVisuals drive position and heading rotation;
+                // model child carries modelYaw as the intrinsic forward correction.
                 _playerGO = new GameObject("Player");
                 _playerGO.transform.SetParent(transform, false);
 
@@ -278,6 +313,11 @@ namespace Barcade.Framework
 
             _playerY       = _playerBaselineY;
             _playerFalling = false;
+
+            // Seed facing state at the sim's initial position so first-frame heading is zero.
+            _playerPrevX  = _sim.PlayerX;
+            _playerPrevZ  = _sim.PlayerZ;
+            _playerFacing = Quaternion.identity;
         }
 
         private void BuildObstacles()
@@ -285,6 +325,9 @@ namespace Barcade.Framework
             _obstacleGOs = new GameObject[obstacleCount];
             _obsY        = new float[obstacleCount];
             _obsFalling  = new bool[obstacleCount];
+            _obsPrevX    = new float[obstacleCount];
+            _obsPrevZ    = new float[obstacleCount];
+            _obsFacing   = new Quaternion[obstacleCount];
 
             // Resolve enemy prefabs once; cycle by index if fewer paths than obstacles.
             bool anyEnemyModel = enemyModelPaths != null && enemyModelPaths.Length > 0;
@@ -302,7 +345,7 @@ namespace Barcade.Framework
 
                 if (enemyPrefab != null)
                 {
-                    // Empty root; model is a child.
+                    // Empty root; model child carries the intrinsic modelYaw correction.
                     obs = new GameObject($"Obstacle_{i}");
                     obs.transform.SetParent(transform, false);
 
@@ -327,6 +370,11 @@ namespace Barcade.Framework
                 _obstacleGOs[i] = obs;
                 _obsY[i]        = _obstacleBaselineY;
                 _obsFalling[i]  = false;
+
+                // Seed facing state.
+                _obsPrevX[i]  = _sim.GetObstacleX(i);
+                _obsPrevZ[i]  = _sim.GetObstacleZ(i);
+                _obsFacing[i] = Quaternion.identity;
             }
         }
 
@@ -342,16 +390,31 @@ namespace Barcade.Framework
             {
                 // Animate player dropping into the void; XZ stays fixed at last
                 // sim position (sim is frozen so PlayerX/Z don't change).
+                // No facing update while falling.
                 _playerY = Mathf.MoveTowards(_playerY, fallDepth, fallSpeed * dt);
                 var pp = _playerGO.transform.position;
                 _playerGO.transform.position = new Vector3(pp.x, _playerY, pp.z);
             }
             else
             {
-                // Normal play: snap to sim position.
-                _playerGO.transform.position = new Vector3(
-                    _sim.PlayerX - offset, _playerBaselineY, _sim.PlayerZ - offset);
+                // Normal play: snap to sim position, then smooth-rotate to heading.
+                float px = _sim.PlayerX - offset;
+                float pz = _sim.PlayerZ - offset;
+                _playerGO.transform.position = new Vector3(px, _playerBaselineY, pz);
                 _playerY = _playerBaselineY; // keep in sync so fall animation starts from correct Y
+
+                // Heading based on sim-grid delta; ignore tiny values (stationary).
+                float hdx = _sim.PlayerX - _playerPrevX;
+                float hdz = _sim.PlayerZ - _playerPrevZ;
+                if (hdx * hdx + hdz * hdz > 0.0001f)
+                {
+                    var target   = Quaternion.LookRotation(new Vector3(hdx, 0f, hdz), Vector3.up);
+                    _playerFacing = Quaternion.Slerp(_playerFacing, target, turnSpeed * dt);
+                }
+                _playerGO.transform.rotation = _playerFacing;
+
+                _playerPrevX = _sim.PlayerX;
+                _playerPrevZ = _sim.PlayerZ;
             }
 
             // ── Obstacles ─────────────────────────────────────────────────────────
@@ -366,6 +429,7 @@ namespace Barcade.Framework
 
                 if (_obsFalling[i])
                 {
+                    // Constant-speed drop into the void; no facing update while falling.
                     _obsY[i] = Mathf.MoveTowards(_obsY[i], fallDepth, fallSpeed * dt);
                     var op = obs.transform.position;
                     obs.transform.position = new Vector3(op.x, _obsY[i], op.z);
@@ -376,9 +440,22 @@ namespace Barcade.Framework
                     continue;
                 }
 
-                // Normal play: snap to sim position.
-                obs.transform.position = new Vector3(
-                    _sim.GetObstacleX(i) - offset, _obstacleBaselineY, _sim.GetObstacleZ(i) - offset);
+                // Normal play: snap to sim position, then smooth-rotate to heading.
+                float ox = _sim.GetObstacleX(i) - offset;
+                float oz = _sim.GetObstacleZ(i) - offset;
+                obs.transform.position = new Vector3(ox, _obstacleBaselineY, oz);
+
+                float ohdx = _sim.GetObstacleX(i) - _obsPrevX[i];
+                float ohdz = _sim.GetObstacleZ(i) - _obsPrevZ[i];
+                if (ohdx * ohdx + ohdz * ohdz > 0.0001f)
+                {
+                    var target   = Quaternion.LookRotation(new Vector3(ohdx, 0f, ohdz), Vector3.up);
+                    _obsFacing[i] = Quaternion.Slerp(_obsFacing[i], target, turnSpeed * dt);
+                }
+                obs.transform.rotation = _obsFacing[i];
+
+                _obsPrevX[i] = _sim.GetObstacleX(i);
+                _obsPrevZ[i] = _sim.GetObstacleZ(i);
             }
 
             // ── Tiles ─────────────────────────────────────────────────────────────
@@ -390,16 +467,36 @@ namespace Barcade.Framework
                     if (tile == null || !tile.activeSelf) continue;
 
                     if (!_arena.IsSolid(x, z) && !_tileFalling[x, z])
-                        _tileFalling[x, z] = true;
+                    {
+                        // Tile breaks away: assign a random tumble and start gravity.
+                        _tileSpinAxis[x, z]  = new Vector3(
+                            Random.Range(-1f, 1f),
+                            Random.Range(-1f, 1f),
+                            Random.Range(-1f, 1f)).normalized;
+                        _tileSpinSpeed[x, z] = Random.Range(tileTumbleSpeed * 0.6f,
+                                                             tileTumbleSpeed * 1.4f);
+                        _tileFallVel[x, z]   = 0f; // starts from rest; gravity accelerates it
+                        _tileFalling[x, z]   = true;
+                    }
 
                     if (_tileFalling[x, z])
                     {
-                        _tileY[x, z] = Mathf.MoveTowards(_tileY[x, z], fallDepth, fallSpeed * dt);
+                        // Gravity-accelerated fall.
+                        _tileFallVel[x, z] += tileFallGravity * dt;
+                        _tileY[x, z]       -= _tileFallVel[x, z] * dt;
+
+                        if (_tileY[x, z] <= fallDepth)
+                        {
+                            tile.SetActive(false);
+                            continue;
+                        }
+
+                        // Tumble rotation in world space.
+                        tile.transform.Rotate(
+                            _tileSpinAxis[x, z], _tileSpinSpeed[x, z] * dt, Space.World);
+
                         var tp = tile.transform.position;
                         tile.transform.position = new Vector3(tp.x, _tileY[x, z], tp.z);
-
-                        if (Mathf.Approximately(_tileY[x, z], fallDepth))
-                            tile.SetActive(false);
                     }
                 }
             }
