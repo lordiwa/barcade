@@ -359,5 +359,160 @@ namespace Barcade.Core.Tests
             sim.Tick(2.01f, 0f, 0f);
             Assert.That(sim.State, Is.EqualTo(DodgeState.Won));
         }
+
+        // ── Jump: airborne fall-immunity ──────────────────────────────────────────
+
+        [Test]
+        public void Jump_AirborneFallImmunity_GroundedFallsAirborneDoesNot()
+        {
+            // Baseline: grounded player on a void cell → Lost(Fell).
+            var arenaA = new GridArena(n: 9, graceDelay: 0.1f, collapseInterval: 9999f);
+            arenaA.Tick(0.5f); // ring 0 collapses
+
+            var simA = new DodgeSim(arenaA,
+                obstacleCount: 0, playerSpeed: 0f, survivalDuration: 9999f);
+            simA.SetForcedPlayerStart(0.5f, 0.5f); // cell (0,0) — ring 0, void after collapse
+            simA.Restart();
+
+            simA.Tick(0.016f, 0f, 0f);
+            Assert.That(simA.State, Is.EqualTo(DodgeState.Lost), "grounded on void tile → Lost(Fell)");
+
+            // Same setup, but RequestJump() before the tick → airborne → immune to fall.
+            var arenaB = new GridArena(n: 9, graceDelay: 0.1f, collapseInterval: 9999f);
+            arenaB.Tick(0.5f);
+
+            var simB = new DodgeSim(arenaB,
+                obstacleCount: 0, playerSpeed: 0f, survivalDuration: 9999f);
+            simB.SetForcedPlayerStart(0.5f, 0.5f);
+            simB.Restart();
+
+            simB.RequestJump();
+            simB.Tick(0.016f, 0f, 0f); // 0.016s < 0.6s → still mid-air
+            Assert.That(simB.State,          Is.EqualTo(DodgeState.Playing),
+                "airborne over void → immune, still Playing");
+            Assert.That(simB.IsAirborne,     Is.True);
+            Assert.That(simB.JumpProgress01, Is.GreaterThan(0f).And.LessThan(1f));
+        }
+
+        // ── Jump: recover back inside — land on solid after steering over void ────
+
+        [Test]
+        public void Jump_RecoverBackInside_LandOnSolidSurvives()
+        {
+            var arena = new GridArena(n: 9, graceDelay: 0.1f, collapseInterval: 9999f);
+            arena.Tick(0.5f); // ring 0 collapses
+
+            // Player on ring-0 void cell; speed high enough to reach ring-2 in 0.6 s.
+            var sim = new DodgeSim(arena,
+                obstacleCount: 0, playerSpeed: 4f, survivalDuration: 9999f);
+            sim.SetForcedPlayerStart(0.5f, 0.5f);
+            sim.Restart();
+
+            sim.RequestJump();
+            // Steer diagonally toward centre; 4 * 0.6 / √2 ≈ 1.7 units each axis
+            // → lands at ~(2.2, 2.2), cell (2, 2), ring 2 for n=9 — solid.
+            sim.Tick(0.6f, 1f, 1f);
+
+            Assert.That(sim.State, Is.EqualTo(DodgeState.Playing),
+                "land on solid after flying over void edge → survive");
+        }
+
+        // ── Jump: landing on void still triggers fall ─────────────────────────────
+
+        [Test]
+        public void Jump_LandOnVoid_LostFell()
+        {
+            var arena = new GridArena(n: 9, graceDelay: 0.1f, collapseInterval: 9999f);
+            arena.Tick(0.5f); // ring 0 collapses
+
+            // Player on void cell, no movement → still on void at the landing frame.
+            var sim = new DodgeSim(arena,
+                obstacleCount: 0, playerSpeed: 0f, survivalDuration: 9999f);
+            sim.SetForcedPlayerStart(0.5f, 0.5f);
+            sim.Restart();
+
+            sim.RequestJump();
+            sim.Tick(0.6f, 0f, 0f); // full jump duration → landing frame on void cell
+
+            Assert.That(sim.State,      Is.EqualTo(DodgeState.Lost));
+            Assert.That(sim.LostReason, Is.EqualTo(LostReason.Fell));
+        }
+
+        // ── Jump: hop over enemy while airborne ───────────────────────────────────
+
+        [Test]
+        public void Jump_HopOverEnemy_AirborneImmuneToCatch()
+        {
+            // Baseline: grounded at contactRadius distance → Lost(Caught).
+            var arena = SolidArena();
+            var sim1 = OneObstacleSim(arena,
+                px: 4.5f, pz: 4.5f,
+                ox: 5.1f, oz: 4.5f,   // dist = 0.6 = contactRadius
+                contactRadius: 0.6f);
+
+            sim1.Tick(0.016f, 0f, 0f);
+            Assert.That(sim1.State,      Is.EqualTo(DodgeState.Lost));
+            Assert.That(sim1.LostReason, Is.EqualTo(LostReason.Caught));
+
+            // Airborne: same setup, RequestJump → not caught.
+            var sim2 = OneObstacleSim(arena,
+                px: 4.5f, pz: 4.5f,
+                ox: 5.1f, oz: 4.5f,
+                contactRadius: 0.6f);
+
+            sim2.RequestJump();
+            sim2.Tick(0.016f, 0f, 0f); // 0.016s < 0.6s → still mid-air
+
+            Assert.That(sim2.State, Is.EqualTo(DodgeState.Playing),
+                "airborne → hop over enemy, not caught");
+        }
+
+        // ── Jump: catch on the landing frame ─────────────────────────────────────
+
+        [Test]
+        public void Jump_CatchOnLanding_LostCaught()
+        {
+            var arena = SolidArena();
+            // Enemy at exact contactRadius; player stationary → within radius on landing.
+            var sim = OneObstacleSim(arena,
+                px: 4.5f, pz: 4.5f,
+                ox: 5.1f, oz: 4.5f,   // dist = 0.6 = contactRadius
+                contactRadius: 0.6f);
+
+            sim.RequestJump();
+            sim.Tick(0.6f, 0f, 0f); // full jump → landing frame triggers catch check
+
+            Assert.That(sim.State,      Is.EqualTo(DodgeState.Lost));
+            Assert.That(sim.LostReason, Is.EqualTo(LostReason.Caught));
+        }
+
+        // ── Jump: no double-jump while airborne ───────────────────────────────────
+
+        [Test]
+        public void Jump_NoDoubleJump_SecondRequestIgnored()
+        {
+            var arena = SolidArena();
+            var sim = new DodgeSim(arena,
+                obstacleCount: 0, playerSpeed: 0f, survivalDuration: 9999f);
+            sim.SetForcedPlayerStart(4.5f, 4.5f);
+            sim.Restart();
+
+            sim.RequestJump();
+            // Pending flag set but not consumed yet — not airborne before first Tick.
+            Assert.That(sim.IsAirborne, Is.False,
+                "pending jump not yet consumed — not airborne until Tick");
+
+            sim.Tick(0.3f, 0f, 0f); // timer: 0.6 → 0.3, mid-air
+            Assert.That(sim.IsAirborne, Is.True, "mid-jump — still airborne");
+
+            sim.RequestJump(); // second request while airborne — must be ignored
+
+            sim.Tick(0.3f, 0f, 0f); // timer: 0.3 → 0.0 — landing frame
+            Assert.That(sim.IsAirborne, Is.False,
+                "landed after exactly 0.6 s; second jump did NOT extend flight time");
+            Assert.That(sim.JumpProgress01, Is.EqualTo(0f).Within(1e-5f),
+                "grounded → JumpProgress01 returns 0");
+            Assert.That(sim.State, Is.EqualTo(DodgeState.Playing));
+        }
     }
 }

@@ -20,6 +20,7 @@ namespace Barcade.Core.Dodge
         private readonly float     _obstacleSpeed;
         private readonly float     _contactRadius;
         private readonly float     _survivalDuration;
+        private readonly float     _jumpDuration;
         private readonly int       _obstacleCount;
 
         // ── Obstacle state ────────────────────────────────────────────────────────
@@ -32,6 +33,10 @@ namespace Barcade.Core.Dodge
 
         private float _playerX;
         private float _playerZ;
+
+        // Jump sub-state.
+        private float _jumpTimer;   // seconds remaining in current jump (0 = grounded)
+        private bool  _jumpPending; // RequestJump() was called; consumed at next Tick if grounded
 
         // ── Simulation clock ──────────────────────────────────────────────────────
 
@@ -65,6 +70,18 @@ namespace Barcade.Core.Dodge
         /// <summary>Seconds elapsed since last Restart.</summary>
         public float SurvivalElapsed => _elapsed;
 
+        /// <summary>
+        /// True while a jump is in progress; fall and catch checks are suppressed.
+        /// Becomes false on the landing frame so ground checks run immediately on landing.
+        /// </summary>
+        public bool IsAirborne => _jumpTimer > 0f;
+
+        /// <summary>
+        /// Jump arc progress: 0 at takeoff, approaching 1 at landing.
+        /// Returns 0 when grounded. Intended use: Mathf.Sin(JumpProgress01 * PI) for a parabola.
+        /// </summary>
+        public float JumpProgress01 => IsAirborne ? 1f - _jumpTimer / _jumpDuration : 0f;
+
         // ── Construction ──────────────────────────────────────────────────────────
 
         /// <param name="arena">Grid arena (shared; its Tick is NOT called here — caller drives it).</param>
@@ -73,13 +90,18 @@ namespace Barcade.Core.Dodge
         /// <param name="obstacleSpeed">Obstacle chase speed in world units/second.</param>
         /// <param name="contactRadius">Distance at which an obstacle is considered touching the player.</param>
         /// <param name="survivalDuration">Seconds the player must survive to win.</param>
+        /// <param name="jumpDuration">
+        /// Seconds a jump keeps the player airborne (immune to fall/catch checks).
+        /// Appended last so existing call sites compile unchanged.
+        /// </param>
         public DodgeSim(
             GridArena arena,
             int   obstacleCount    = 3,
             float playerSpeed      = 5f,
             float obstacleSpeed    = 2f,
             float contactRadius    = 0.6f,
-            float survivalDuration = 20f)
+            float survivalDuration = 20f,
+            float jumpDuration     = 0.6f)
         {
             _arena            = arena ?? throw new ArgumentNullException(nameof(arena));
             _obstacleCount    = obstacleCount;
@@ -87,6 +109,7 @@ namespace Barcade.Core.Dodge
             _obstacleSpeed    = obstacleSpeed;
             _contactRadius    = contactRadius;
             _survivalDuration = survivalDuration;
+            _jumpDuration     = jumpDuration;
 
             _obsX     = new float[obstacleCount];
             _obsZ     = new float[obstacleCount];
@@ -112,6 +135,18 @@ namespace Barcade.Core.Dodge
         public void SetForcedObstacleStarts((float x, float z)[] starts)
             => _forcedObstacleStarts = starts;
 
+        // ── Jump ──────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Queue a jump for the next <see cref="Tick"/>.
+        /// Ignored if the player is already airborne (no double-jump or timer extension).
+        /// </summary>
+        public void RequestJump()
+        {
+            if (State == DodgeState.Playing)
+                _jumpPending = true;
+        }
+
         // ── Lifecycle ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -123,6 +158,8 @@ namespace Barcade.Core.Dodge
             State      = DodgeState.Playing;
             LostReason = LostReason.None;
             _elapsed   = 0f;
+            _jumpTimer   = 0f;
+            _jumpPending = false;
 
             float center = _arena.N * 0.5f;
 
@@ -173,12 +210,34 @@ namespace Barcade.Core.Dodge
 
             _elapsed += dt;
 
+            // Consume a pending jump only if the player is grounded; airborne → ignore
+            // (no double-jump, no timer refresh).
+            if (_jumpPending)
+            {
+                if (_jumpTimer <= 0f)
+                    _jumpTimer = _jumpDuration;
+                _jumpPending = false;
+            }
+
+            bool wasAirborne = _jumpTimer > 0f;
+            if (wasAirborne)
+                _jumpTimer = MathF.Max(0f, _jumpTimer - dt);
+            bool airborneNow = _jumpTimer > 0f;
+
             MovePlayer(dt, inputX, inputZ);
             MoveObstacles(dt);
-            CheckPlayerFell();
-            if (State != DodgeState.Playing) return;
-            CheckPlayerCaught();
-            if (State != DodgeState.Playing) return;
+
+            // While airborne all mid-air frames skip fall/catch checks.
+            // The landing frame (wasAirborne && !airborneNow) and all grounded frames
+            // run checks as usual — landing on a void cell or into an enemy still counts.
+            if (!airborneNow)
+            {
+                CheckPlayerFell();
+                if (State != DodgeState.Playing) return;
+                CheckPlayerCaught();
+                if (State != DodgeState.Playing) return;
+            }
+
             CheckWin();
         }
 

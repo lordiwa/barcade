@@ -15,6 +15,7 @@ namespace Barcade.Framework
     ///   - Animates tile collapses: gravity-accelerated fall + random tumble spin.
     ///   - Obstacles also get a fall animation when the grid beneath them collapses.
     ///   - Player and obstacles rotate to face their movement heading each frame.
+    ///   - Space / gamepad-South triggers a hop (parabolic arc driven by DodgeSim.JumpProgress01).
     ///   - On LostReason.Fell: player cube drops into the void (same animation as tiles)
     ///     and tile-collapse animation keeps running until the player is out of view,
     ///     then the scene auto-restarts.
@@ -63,6 +64,10 @@ namespace Barcade.Framework
         [Header("Character facing")]
         // Player and obstacles Slerp-rotate toward their movement heading each frame.
         [SerializeField] private float turnSpeed = 12f;     // Slerp rate (higher = snappier)
+
+        [Header("Jump")]
+        // Height (world units) at the peak of the hop arc; parabola driven by DodgeSim.JumpProgress01.
+        [SerializeField] private float jumpApex = 1.5f;
 
         [Header("Models")]
         // Resources paths (no extension) used by Resources.Load<GameObject>.
@@ -126,6 +131,7 @@ namespace Barcade.Framework
         // Minimal local InputAction (WASD + gamepad left-stick); no full asset required.
         // The thin-MonoBehaviour principle: reads input here, all rules stay in Core.
         private InputAction _moveAction;
+        private InputAction _jumpAction; // Space / gamepad South → DodgeSim.RequestJump()
 
         // ── Frame-state flags ─────────────────────────────────────────────────────
 
@@ -148,6 +154,12 @@ namespace Barcade.Framework
                 .With("Right", "<Keyboard>/d");
             _moveAction.Enable();
 
+            _jumpAction = new InputAction("Jump", InputActionType.Button);
+            _jumpAction.AddBinding("<Keyboard>/space");
+            _jumpAction.AddBinding("<Gamepad>/buttonSouth");
+            _jumpAction.performed += _ => _sim?.RequestJump();
+            _jumpAction.Enable();
+
             InitSim();
             BuildScene();
             FitCamera();
@@ -156,6 +168,7 @@ namespace Barcade.Framework
         private void OnDestroy()
         {
             _moveAction?.Dispose();
+            _jumpAction?.Dispose();
         }
 
         private void Update()
@@ -397,10 +410,17 @@ namespace Barcade.Framework
             }
             else
             {
-                // Normal play: snap to sim position, then smooth-rotate to heading.
+                // Normal play: snap to sim position + hop arc, then smooth-rotate to heading.
                 float px = _sim.PlayerX - offset;
                 float pz = _sim.PlayerZ - offset;
-                _playerGO.transform.position = new Vector3(px, _playerBaselineY, pz);
+
+                // Parabolic hop arc: baseline + apex * sin(progress * PI) rises from 0
+                // at takeoff (progress=0) to jumpApex at mid-jump and back to 0 at landing.
+                // Independent of the death-fall (_playerFalling) branch.
+                float jumpY = _sim.IsAirborne
+                    ? jumpApex * Mathf.Sin(_sim.JumpProgress01 * Mathf.PI)
+                    : 0f;
+                _playerGO.transform.position = new Vector3(px, _playerBaselineY + jumpY, pz);
                 _playerY = _playerBaselineY; // keep in sync so fall animation starts from correct Y
 
                 // Heading based on sim-grid delta; ignore tiny values (stationary).
