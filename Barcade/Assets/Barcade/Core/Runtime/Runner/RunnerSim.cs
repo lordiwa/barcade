@@ -192,6 +192,7 @@ namespace Barcade.Core.Runner
         {
             if (laneCount        <  1)           throw new ArgumentOutOfRangeException(nameof(laneCount));
             if (baseSpeed        <= 0f)          throw new ArgumentOutOfRangeException(nameof(baseSpeed));
+            if (speedAccel       <  0f)          throw new ArgumentOutOfRangeException(nameof(speedAccel));
             if (maxSpeed         <  baseSpeed)   throw new ArgumentOutOfRangeException(nameof(maxSpeed));
             if (jumpDuration     <= 0f)          throw new ArgumentOutOfRangeException(nameof(jumpDuration));
             if (slideDuration    <= 0f)          throw new ArgumentOutOfRangeException(nameof(slideDuration));

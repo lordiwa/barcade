@@ -60,9 +60,11 @@ namespace Barcade.Framework
         // Camera pitch (look slightly down toward the track).
         [SerializeField] private float cameraPitch        = 20f;
 
-        [Header("Jump")]
+        [Header("Jump / Slide")]
         // World-unit height at the peak of the parabolic hop arc.
         [SerializeField] private float jumpApex           = 2.0f;
+        // Minimum Y-scale fraction at peak squash (0 = flat, 1 = no squash, default 0.5).
+        [SerializeField] private float slideSquashMin     = 0.5f;
 
         [Header("Lane lerp")]
         // Speed at which the runner's Z lerps to the target lane (world units / second).
@@ -105,8 +107,9 @@ namespace Barcade.Framework
         // ── Avatar visuals ────────────────────────────────────────────────────────
 
         private GameObject _avatarGO;
-        private float      _avatarBaselineY; // resting Y (0 for model, 0.35 for cube fallback)
-        private float      _avatarCurrentZ;  // smoothly lerped toward target lane Z each frame
+        private float      _avatarBaselineY;    // resting Y (0 for model, 0.5f for cube fallback)
+        private Vector3    _avatarBaselineScale; // localScale set at build time; squash is computed from this, never compounded
+        private float      _avatarCurrentZ;     // smoothly lerped toward target lane Z each frame
 
         // ── Spawn visuals ─────────────────────────────────────────────────────────
 
@@ -290,7 +293,9 @@ namespace Barcade.Framework
                 model.transform.localScale    = Vector3.one * modelScale;
                 model.transform.localRotation = Quaternion.Euler(0f, modelYaw, 0f);
 
-                _avatarBaselineY = modelGroundY;
+                _avatarBaselineY    = modelGroundY;
+                // Root starts at (1,1,1); model child carries its own modelScale.
+                _avatarBaselineScale = Vector3.one;
             }
             else
             {
@@ -303,7 +308,8 @@ namespace Barcade.Framework
                 var rend = _avatarGO.GetComponent<Renderer>();
                 if (rend != null) rend.material.color = avatarColor;
 
-                _avatarBaselineY = 0.5f; // half of Y scale: cube bottom at Y=0
+                _avatarBaselineY    = 0.5f;  // half of Y scale: cube bottom at Y=0
+                _avatarBaselineScale = new Vector3(0.5f, 1.0f, 0.5f);
             }
 
             // Seed the current Z at the starting lane position.
@@ -338,21 +344,23 @@ namespace Barcade.Framework
                 ? jumpApex * Mathf.Sin(_sim.JumpProgress01 * Mathf.PI)
                 : 0f;
 
-            // Slide: squash Y scale toward 0.4× while sliding, using SlideProgress01.
-            // Sin envelope gives a smooth duck-and-return feel.
+            // Slide: squash Y scale while sliding; restore fully when not sliding.
+            // squashFactor is 1 at slide start/end and drops to slideSquashMin at peak.
+            // IMPORTANT: always computed from _avatarBaselineScale (never read live scale)
+            // so the squash cannot compound across frames or during the Lost freeze.
             float squashFactor = _sim.IsSliding
-                ? 1f - 0.6f * Mathf.Sin(_sim.SlideProgress01 * Mathf.PI)
+                ? 1f - (1f - slideSquashMin) * Mathf.Sin(_sim.SlideProgress01 * Mathf.PI)
                 : 1f;
 
-            _avatarGO.transform.position   = new Vector3(worldX, _avatarBaselineY + jumpY, _avatarCurrentZ);
-            _avatarGO.transform.localScale  = new Vector3(
-                _avatarGO.transform.localScale.x,
-                _avatarGO.transform.localScale.y * squashFactor,  // squash during slide
-                _avatarGO.transform.localScale.z);
+            _avatarGO.transform.position  = new Vector3(worldX, _avatarBaselineY + jumpY, _avatarCurrentZ);
+            _avatarGO.transform.localScale = new Vector3(
+                _avatarBaselineScale.x,
+                _avatarBaselineScale.y * squashFactor,
+                _avatarBaselineScale.z);
 
-            // NOTE: if using a model the scale above will affect the root, not just the
-            // model child. A production-quality fix: apply squash to model child only.
-            // This is acceptable for a prototype / primitive-cube fallback.
+            // NOTE: if using a model, squash is applied to the root GameObject, which
+            // also scales the model child.  A production-quality fix: apply squash to
+            // the model child only.  Acceptable for this prototype / cube-fallback path.
         }
 
         private void SyncCamera()
