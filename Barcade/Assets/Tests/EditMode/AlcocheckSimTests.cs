@@ -335,6 +335,61 @@ namespace Barcade.Core.Tests
                 "forced lean must be restored on Restart");
         }
 
+        // ── Entropy across rounds ─────────────────────────────────────────────────
+
+        [Test]
+        public void Restart_DrunkSequence_DiffersFromFirstRound()
+        {
+            // After Restart() the internal RNG must NOT be re-seeded; it continues its
+            // sequence so every round produces a distinct sway pattern — no rote-learning
+            // at the cabinet.
+            //
+            // If re-seeding is in effect, both rounds start from the same RNG state
+            // and produce identical DrunkTorqueNow samples → test FAILS (catches regression).
+            // With a continuing RNG, round 2 picks up a different part of the sequence → PASSES.
+            var sim = new AlcocheckSim(
+                maxLean:             (float)Math.PI,  // 180° — will never topple
+                gravityGain:         0f,              // no drift so lean stays stable
+                drunkTorque:         4f,
+                drunkChangeInterval: 0.1f,            // fast re-rolls — many samples per round
+                damping:             10f,             // heavy damping keeps lean near 0
+                survivalDuration:    9999f,
+                seed:                42);
+
+            const int ticks = 20;
+
+            // Round 1: collect DrunkTorqueNow after each tick.
+            float[] round1 = new float[ticks];
+            for (int i = 0; i < ticks; i++)
+            {
+                sim.Tick(0.1f, 0f);
+                round1[i] = sim.DrunkTorqueNow;
+            }
+
+            sim.Restart();
+
+            // Round 2: same tick pattern.
+            float[] round2 = new float[ticks];
+            for (int i = 0; i < ticks; i++)
+            {
+                sim.Tick(0.1f, 0f);
+                round2[i] = sim.DrunkTorqueNow;
+            }
+
+            // At least one sample must differ — if all are equal the RNG was re-seeded.
+            bool anyDifferent = false;
+            for (int i = 0; i < ticks; i++)
+            {
+                if (Math.Abs(round1[i] - round2[i]) > 1e-4f)
+                {
+                    anyDifferent = true;
+                    break;
+                }
+            }
+            Assert.That(anyDifferent, Is.True,
+                "drunk sway must differ between rounds: RNG continues across Restart, not re-seeded");
+        }
+
         // ── LeanFraction accessor ─────────────────────────────────────────────────
 
         [Test]

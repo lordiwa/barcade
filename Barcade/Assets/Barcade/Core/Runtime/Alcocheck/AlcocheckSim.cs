@@ -132,6 +132,10 @@ namespace Barcade.Core.Alcocheck
             _seed                = seed;
             _injectedRng         = rng;
 
+            // Seed the RNG once at construction time.  Restart() intentionally does NOT
+            // re-seed so every round continues the sequence → distinct sway each play.
+            _rng = _injectedRng ?? new SeededRandom(_seed);
+
             Restart();
         }
 
@@ -150,9 +154,11 @@ namespace Barcade.Core.Alcocheck
         /// Reset the simulation to the initial upright position (or forced lean) and
         /// <see cref="AlcocheckState.Playing"/>.
         ///
-        /// Re-creates the internal RNG from <c>seed</c> so every round uses the same
-        /// drunk-sway sequence (deterministic pick-up barcade feel).  An externally
-        /// injected RNG is left untouched.
+        /// The internal RNG is NOT re-seeded — it continues its sequence from where it
+        /// left off so every subsequent round produces a distinct drunk-sway pattern
+        /// (no rote-learning at the cabinet).  Construction-time determinism is
+        /// preserved: two freshly-constructed sims with the same seed produce identical
+        /// trajectories on their first round.
         /// </summary>
         public void Restart()
         {
@@ -161,7 +167,7 @@ namespace Barcade.Core.Alcocheck
 
             _survivalElapsed   = 0f;
             _drunkTorqueNow    = 0f;
-            // Prime phase so the very first Tick triggers a re-roll immediately.
+            // Prime phase so the very first Tick of each round triggers a re-roll.
             _drunkPhaseElapsed = _drunkChangeInterval;
 
             if (_forcedLean.HasValue)
@@ -175,9 +181,7 @@ namespace Barcade.Core.Alcocheck
                 _leanVelocity = 0f;
             }
 
-            // Re-create from seed so each Restart yields the same drunk sequence.
-            // An injected RNG is left as-is (the caller controls its state).
-            _rng = _injectedRng ?? new SeededRandom(_seed);
+            // _rng is intentionally NOT reset here; see ctor comment.
         }
 
         // ── Per-frame update ──────────────────────────────────────────────────────
