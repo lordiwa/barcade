@@ -73,8 +73,9 @@ namespace Barcade.Framework
         // Warning: tiles flash this colour ~warningLead seconds before their ring collapses.
         [SerializeField] private Color warningColor = new Color(1f, 0.45f, 0f);   // orange
         [SerializeField] private float warningLead  = 1.5f;                        // seconds
-        [SerializeField] private float fallDepth    = -6f;   // Y target for anything that falls
-        [SerializeField] private float fallSpeed    = 4f;    // world units/sec for player/obstacle falls
+        [SerializeField] private float fallDepth      = -6f;   // Y target for anything that falls
+        [SerializeField] private float fallSpeed      = 4f;    // world units/sec for player/obstacle death-falls
+        [SerializeField] private float spawnDropSpeed = 12f;   // world units/sec for sky drop-in (distinct from death-fall)
 
         [Header("Tile crumble")]
         // Tiles use gravity-accelerated fall + random tumble instead of constant-speed drop.
@@ -123,9 +124,9 @@ namespace Barcade.Framework
         private float[,]   _tileFallVel;    // current downward velocity (grows via gravity)
 
         // Warning-colour state per tile — set once when we enter/leave the warning window.
-        private Renderer[,] _tileRenderer;  // main renderer (child for models, self for cubes)
-        private Color[,]    _tileOrigColor; // original material colour cached at build time
-        private bool[,]     _tileWarning;   // true while the warning colour is currently applied
+        private Renderer[,][] _tileRenderers;  // all renderers on the tile (children for models, self for cubes)
+        private Color[,][]    _tileOrigColors; // original material colours cached at build time (parallel to _tileRenderers)
+        private bool[,]       _tileWarning;    // true while the warning colour is currently applied
 
         private GameObject _playerGO;
         private float      _playerY;         // current Y for player fall animation
@@ -286,9 +287,9 @@ namespace Barcade.Framework
             _tileFallVel   = new float[gridN, gridN];
 
             // Warning-colour state.
-            _tileRenderer  = new Renderer[gridN, gridN];
-            _tileOrigColor = new Color[gridN, gridN];
-            _tileWarning   = new bool[gridN, gridN];
+            _tileRenderers  = new Renderer[gridN, gridN][];
+            _tileOrigColors = new Color[gridN, gridN][];
+            _tileWarning    = new bool[gridN, gridN];
 
             var arenaRoot = new GameObject("Arena");
             arenaRoot.transform.SetParent(transform, false);
@@ -317,8 +318,8 @@ namespace Barcade.Framework
                         modelInstance.transform.localScale    = Vector3.one * modelScale;
                         modelInstance.transform.localRotation = Quaternion.Euler(0f, modelYaw, 0f);
 
-                        // Cache the child model's renderer for warning colour swaps.
-                        _tileRenderer[x, z] = modelInstance.GetComponentInChildren<Renderer>();
+                        // Cache all child renderers for warning colour swaps (models may have several).
+                        _tileRenderers[x, z] = modelInstance.GetComponentsInChildren<Renderer>();
                     }
                     else
                     {
@@ -332,16 +333,19 @@ namespace Barcade.Framework
                         Color c = (x + z) % 2 == 0 ? tileColorA : tileColorB;
                         tile.GetComponent<Renderer>().material.color = c;
 
-                        _tileRenderer[x, z] = tile.GetComponent<Renderer>();
+                        _tileRenderers[x, z] = new[] { tile.GetComponent<Renderer>() };
                     }
 
                     _tiles[x, z] = tile;
                     _tileY[x, z] = tile.transform.position.y;
 
-                    // Cache the original colour (used to revert after the warning window).
-                    _tileOrigColor[x, z] = _tileRenderer[x, z] != null
-                        ? _tileRenderer[x, z].material.color
-                        : Color.white;
+                    // Cache each renderer's original colour (used to revert after warning window).
+                    var rsList = _tileRenderers[x, z];
+                    _tileOrigColors[x, z] = new Color[rsList != null ? rsList.Length : 0];
+                    for (int r = 0; r < _tileOrigColors[x, z].Length; r++)
+                        _tileOrigColors[x, z][r] = rsList[r] != null
+                            ? rsList[r].material.color
+                            : Color.white;
                 }
             }
         }
@@ -503,11 +507,15 @@ namespace Barcade.Framework
 
                 // Detect the frame an obstacle transitions from NotSpawned → Spawned.
                 // Show the GO and begin the sky drop-in animation.
+                // Re-seed the facing "previous position" so the first heading delta is computed
+                // from the actual frontier spawn point, not the Restart() baked position.
                 if (_sim.IsObstacleSpawned(i) && !_obsWasSpawned[i])
                 {
                     _obsWasSpawned[i] = true;
                     _obsDropping[i]   = true;
                     _obsDropY[i]      = spawnDropHeight;
+                    _obsPrevX[i]      = _sim.GetObstacleX(i);
+                    _obsPrevZ[i]      = _sim.GetObstacleZ(i);
                     obs.SetActive(true);
                 }
 
@@ -537,7 +545,7 @@ namespace Barcade.Framework
                     // but the drop-in lands at baseline rather than fallDepth).
                     float ox = _sim.GetObstacleX(i) - offset;
                     float oz = _sim.GetObstacleZ(i) - offset;
-                    _obsDropY[i] = Mathf.MoveTowards(_obsDropY[i], _obstacleBaselineY, fallSpeed * dt);
+                    _obsDropY[i] = Mathf.MoveTowards(_obsDropY[i], _obstacleBaselineY, spawnDropSpeed * dt);
                     obs.transform.position = new Vector3(ox, _obsDropY[i], oz);
 
                     if (Mathf.Approximately(_obsDropY[i], _obstacleBaselineY))
@@ -585,9 +593,11 @@ namespace Barcade.Framework
                         _tileFalling[x, z]   = true;
 
                         // Revert any warning colour that was showing when the tile breaks.
-                        if (_tileWarning[x, z] && _tileRenderer[x, z] != null)
+                        if (_tileWarning[x, z] && _tileRenderers[x, z] != null)
                         {
-                            _tileRenderer[x, z].material.color = _tileOrigColor[x, z];
+                            var rrs = _tileRenderers[x, z];
+                            for (int r = 0; r < rrs.Length; r++)
+                                if (rrs[r] != null) rrs[r].material.color = _tileOrigColors[x, z][r];
                             _tileWarning[x, z] = false;
                         }
                     }
@@ -619,10 +629,15 @@ namespace Barcade.Framework
                         float timeLeft   = _arena.TimeUntilFall(x, z);
                         bool  shouldWarn = timeLeft > 0f && timeLeft <= warningLead;
 
-                        if (shouldWarn != _tileWarning[x, z] && _tileRenderer[x, z] != null)
+                        if (shouldWarn != _tileWarning[x, z] && _tileRenderers[x, z] != null)
                         {
-                            _tileRenderer[x, z].material.color =
-                                shouldWarn ? warningColor : _tileOrigColor[x, z];
+                            var rrs = _tileRenderers[x, z];
+                            for (int r = 0; r < rrs.Length; r++)
+                            {
+                                if (rrs[r] == null) continue;
+                                rrs[r].material.color =
+                                    shouldWarn ? warningColor : _tileOrigColors[x, z][r];
+                            }
                             _tileWarning[x, z] = shouldWarn;
                         }
                     }
