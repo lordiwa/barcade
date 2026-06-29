@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Barcade.Core.Dodge;
 
@@ -843,6 +844,112 @@ namespace Barcade.Core.Tests
             Assert.That(sim.PlayerX, Is.EqualTo(startX).Within(1e-4f),
                 "airborne player must not be displaced by knockback");
             Assert.That(sim.State, Is.EqualTo(DodgeState.Playing));
+        }
+
+        // ── Obstacle spawn placement: solid frontier ──────────────────────────────
+        //
+        // Obstacles activate on a circle at the SOLID FRONTIER (outermost still-solid
+        // ring) rather than at the outer circle baked at Restart() time, which may
+        // have already collapsed when late enemies activate.
+
+        [Test]
+        public void ObstacleSpawnPlacement_OnSolidFrontier_AfterCollapses()
+        {
+            // Ring 0 of a 9×9 arena collapses at t=1 (graceDelay=1, interval=2).
+            // We tick the arena to t=1.5 → FallenRingCount=1.
+            // An obstacle with spawnStartDelay=1.4 activates inside that same sim.Tick(1.5).
+            // The spawn cell must still be solid and at ring >= FallenRingCount (=1).
+            var arena = new GridArena(n: 9, graceDelay: 1f, collapseInterval: 2f);
+            arena.Tick(1.5f); // FallenRingCount → 1
+
+            var sim = new DodgeSim(arena,
+                obstacleCount:    1,
+                playerSpeed:      0f,
+                obstacleSpeed:    0f,  // stationary so position is stable after spawn
+                contactRadius:    0.01f,
+                survivalDuration: 9999f,
+                spawnStartDelay:  1.4f); // spawns after ring 0 has already collapsed
+
+            sim.SetForcedPlayerStart(4.5f, 4.5f);
+            sim.Restart();
+
+            sim.Tick(1.5f, 0f, 0f); // elapsed=1.5 >= 1.4 → activates obstacle
+
+            Assert.That(sim.IsObstacleSpawned(0), Is.True,  "obstacle must have spawned");
+            Assert.That(sim.IsObstacleAlive(0),   Is.True,  "must be alive (not on void)");
+
+            int cx   = (int)Math.Floor((double)sim.GetObstacleX(0));
+            int cz   = (int)Math.Floor((double)sim.GetObstacleZ(0));
+            Assert.That(arena.IsSolid(cx, cz), Is.True,
+                $"spawn cell ({cx},{cz}) must be solid at activation time");
+
+            int ring = Math.Min(Math.Min(cx, cz), Math.Min(arena.N - 1 - cx, arena.N - 1 - cz));
+            Assert.That(ring, Is.GreaterThanOrEqualTo(arena.FallenRingCount),
+                "spawn ring must be on/inside the solid frontier (ring >= FallenRingCount)");
+        }
+
+        [Test]
+        public void ObstacleSpawnPlacement_LateActivation_AliveAndMovingNextTick()
+        {
+            // An obstacle that activates after several ring collapses must be alive
+            // and able to move on the very next tick (i.e. NOT dead on arrival).
+            var arena = new GridArena(n: 9, graceDelay: 1f, collapseInterval: 2f);
+            arena.Tick(1.5f); // FallenRingCount=1
+
+            var sim = new DodgeSim(arena,
+                obstacleCount:    1,
+                playerSpeed:      0f,
+                obstacleSpeed:    2f,
+                contactRadius:    0.01f,
+                survivalDuration: 9999f,
+                spawnStartDelay:  1.4f);
+            sim.SetForcedPlayerStart(4.5f, 4.5f);
+            sim.Restart();
+
+            // Use a very small dt so the obstacle barely moves during the spawn tick itself.
+            sim.Tick(1.41f, 0f, 0f); // elapsed=1.41 >= 1.4 → spawns
+            Assert.That(sim.IsObstacleAlive(0), Is.True, "late-spawned obstacle must survive spawn frame");
+
+            float x0 = sim.GetObstacleX(0);
+            float z0 = sim.GetObstacleZ(0);
+
+            sim.Tick(0.1f, 0f, 0f); // obstacle chases player
+            float dx = sim.GetObstacleX(0) - x0;
+            float dz = sim.GetObstacleZ(0) - z0;
+            Assert.That(dx * dx + dz * dz, Is.GreaterThan(0.001f),
+                "late-activated obstacle must move (alive and chasing, not dead-on-arrival)");
+        }
+
+        [Test]
+        public void ObstacleSpawnPlacement_Deterministic_SameArenaStateSamePosition()
+        {
+            // Two identical sims + arenas ticked the same way must place obstacles
+            // at exactly the same XZ coordinates (frontier placement is deterministic).
+            var arena1 = new GridArena(n: 9, graceDelay: 1f, collapseInterval: 2f);
+            var arena2 = new GridArena(n: 9, graceDelay: 1f, collapseInterval: 2f);
+            arena1.Tick(1.5f);
+            arena2.Tick(1.5f);
+
+            var sim1 = new DodgeSim(arena1,
+                obstacleCount: 2, playerSpeed: 0f, obstacleSpeed: 0f,
+                contactRadius: 0.01f, survivalDuration: 9999f, spawnStartDelay: 1.4f);
+            var sim2 = new DodgeSim(arena2,
+                obstacleCount: 2, playerSpeed: 0f, obstacleSpeed: 0f,
+                contactRadius: 0.01f, survivalDuration: 9999f, spawnStartDelay: 1.4f);
+            sim1.Restart();
+            sim2.Restart();
+
+            sim1.Tick(1.5f, 0f, 0f);
+            sim2.Tick(1.5f, 0f, 0f);
+
+            Assert.That(sim1.GetObstacleX(0), Is.EqualTo(sim2.GetObstacleX(0)).Within(1e-4f),
+                "obstacle 0 X must be identical (deterministic)");
+            Assert.That(sim1.GetObstacleZ(0), Is.EqualTo(sim2.GetObstacleZ(0)).Within(1e-4f),
+                "obstacle 0 Z must be identical");
+            Assert.That(sim1.GetObstacleX(1), Is.EqualTo(sim2.GetObstacleX(1)).Within(1e-4f),
+                "obstacle 1 X must be identical");
+            Assert.That(sim1.GetObstacleZ(1), Is.EqualTo(sim2.GetObstacleZ(1)).Within(1e-4f),
+                "obstacle 1 Z must be identical");
         }
     }
 }
