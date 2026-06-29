@@ -67,7 +67,7 @@ namespace Barcade.Framework
         // ── Avatar ────────────────────────────────────────────────────────────────
 
         private GameObject _avatarGO;
-        private float      _avatarBaselineY; // resting Y (modelGroundY for models, 0.35 for cubes)
+        private float      _avatarBaselineY; // resting Y (0f for models, 0.6f for cubes — half of localScale.y=1.2)
 
         // Visual-only lean angle: normally mirrors sim.Lean, overridden during topple animation.
         private float _visualLean;
