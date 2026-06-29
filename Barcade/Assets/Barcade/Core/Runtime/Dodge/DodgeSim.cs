@@ -334,10 +334,56 @@ namespace Barcade.Core.Dodge
             {
                 if (!_obsSpawned[i] && _elapsed >= _obsSpawnTimes[i])
                 {
+                    PlaceObstacleOnFrontier(i); // relocate to solid frontier at activation time
                     _obsSpawned[i] = true;
                     _obsAlive[i]   = true;
                 }
             }
+        }
+
+        /// <summary>
+        /// Relocates obstacle <paramref name="i"/> to a position on the current solid frontier
+        /// so it cannot spawn on a ring that has already collapsed.
+        ///
+        /// Skipped when a forced start is set for this index (test-injection path — the caller
+        /// has explicitly chosen a position; honour it as-is).
+        ///
+        /// Formula: obstacles are evenly distributed on a circle at the solid-frontier ring
+        /// (<c>FallenRingCount</c> clamped to at most the last ring), then the radius is
+        /// shrunk by 1 tile at a time until the target cell is solid; if no solid cell is
+        /// found the obstacle falls back to the arena centre.
+        /// </summary>
+        private void PlaceObstacleOnFrontier(int i)
+        {
+            // Forced start → honour it; don't move the obstacle.
+            if (_forcedObstacleStarts != null && i < _forcedObstacleStarts.Length)
+                return;
+
+            float center   = _arena.N * 0.5f;
+            int   frontier = Math.Min(_arena.FallenRingCount, _arena.TotalRings - 1);
+            float radius   = MathF.Max(0f, center - frontier - 1.0f);
+            double angle   = i * (2.0 * Math.PI / MathF.Max(1, _obstacleCount));
+
+            float x  = center + (float)Math.Cos(angle) * radius;
+            float z  = center + (float)Math.Sin(angle) * radius;
+            int   cx = (int)MathF.Floor(x);
+            int   cz = (int)MathF.Floor(z);
+
+            // Walk inward one tile at a time until we land on a solid cell.
+            while (!_arena.IsSolid(cx, cz) && radius > 0f)
+            {
+                radius -= 1f;
+                x  = center + (float)Math.Cos(angle) * radius;
+                z  = center + (float)Math.Sin(angle) * radius;
+                cx = (int)MathF.Floor(x);
+                cz = (int)MathF.Floor(z);
+            }
+
+            // Last-resort fallback: centre is always the deepest solid cell.
+            if (!_arena.IsSolid(cx, cz)) { x = center; z = center; }
+
+            _obsX[i] = x;
+            _obsZ[i] = z;
         }
 
         private void MovePlayer(float dt, float inputX, float inputZ)
