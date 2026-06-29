@@ -5,7 +5,7 @@ namespace Barcade.Core.Tests
 {
     /// <summary>
     /// Tests for <see cref="GridArena"/>: ring collapse ordering, timing, IsSolid boundary,
-    /// and centre edge case.
+    /// centre edge case, and TimeUntilFall query.
     /// </summary>
     [TestFixture]
     public class GridArenaTests
@@ -180,6 +180,52 @@ namespace Barcade.Core.Tests
         {
             var arena = new GridArena(n: n);
             Assert.That(arena.TotalRings, Is.EqualTo(expectedRings));
+        }
+
+        // ── TimeUntilFall query ───────────────────────────────────────────────────
+
+        [Test]
+        public void TimeUntilFall_BeforeGrace_ReturnsFullRemainingTime()
+        {
+            // N=5, grace=3, interval=2.  Ring 0 collapses at t=3.
+            // Before any tick: elapsed=0, so TimeUntilFall for ring-0 tile = 3 - 0 = 3.
+            var arena = new GridArena(n: 5, graceDelay: 3f, collapseInterval: 2f);
+            // Tile (0,0) is ring min(0,0,4,4)=0 → collapses at 3 + 0*2 = 3.
+            Assert.That(arena.TimeUntilFall(0, 0), Is.EqualTo(3f).Within(1e-4f),
+                "ring-0 tile before any tick: 3 s remaining");
+        }
+
+        [Test]
+        public void TimeUntilFall_MidSchedule_InnerRingShowsRemainingTime()
+        {
+            // N=5, grace=3, interval=2. Tick to t=1 (ring 0 not yet collapsed).
+            // Ring 1 collapses at 3 + 1*2 = 5. At t=1: remaining = 5 - 1 = 4.
+            var arena = new GridArena(n: 5, graceDelay: 3f, collapseInterval: 2f);
+            arena.Tick(1f); // elapsed = 1
+            // Tile (1,1) is ring min(1,1,3,3)=1.
+            Assert.That(arena.TimeUntilFall(1, 1), Is.EqualTo(4f).Within(1e-4f),
+                "ring-1 tile at t=1: 4 s remaining until collapse");
+        }
+
+        [Test]
+        public void TimeUntilFall_AlreadyCollapsed_ReturnsSentinel()
+        {
+            // Ring 0 collapses at grace=0.5. After Tick(1f), ring 0 has fallen.
+            var arena = new GridArena(n: 3, graceDelay: 0.5f, collapseInterval: 9999f);
+            arena.Tick(1f); // ring 0 collapses at 0.5 s
+            // Tile (0,0) is ring 0 — already not solid.
+            Assert.That(arena.TimeUntilFall(0, 0), Is.EqualTo(float.NegativeInfinity),
+                "already-collapsed tile must return sentinel (NegativeInfinity)");
+        }
+
+        [Test]
+        public void TimeUntilFall_OutOfBounds_ReturnsSentinel()
+        {
+            var arena = new GridArena(n: 3);
+            Assert.That(arena.TimeUntilFall(-1, 0), Is.EqualTo(float.NegativeInfinity), "x < 0");
+            Assert.That(arena.TimeUntilFall( 0,-1), Is.EqualTo(float.NegativeInfinity), "z < 0");
+            Assert.That(arena.TimeUntilFall( 3, 0), Is.EqualTo(float.NegativeInfinity), "x >= N");
+            Assert.That(arena.TimeUntilFall( 0, 3), Is.EqualTo(float.NegativeInfinity), "z >= N");
         }
     }
 }
