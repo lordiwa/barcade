@@ -13,15 +13,18 @@ namespace Barcade.Framework
     ///   - Each Update: reads Input System move vector, calls <see cref="DodgeSim.Tick"/>
     ///     and <see cref="GridArena.Tick"/>, then syncs Transforms to sim state.
     ///   - Animates tile collapses: gravity-accelerated fall + random tumble spin.
+    ///   - Tiles flash a warning colour ~warningLead seconds before their ring collapses.
+    ///   - Obstacles drop from <see cref="spawnDropHeight"/> when they activate (escalating cadence).
     ///   - Obstacles also get a fall animation when the grid beneath them collapses.
     ///   - Player and obstacles rotate to face their movement heading each frame.
     ///   - Space / gamepad-South triggers a hop (parabolic arc driven by DodgeSim.JumpProgress01).
+    ///   - Contact with an active obstacle applies knockback (rule is in Core); only Fell causes loss.
     ///   - On LostReason.Fell: player cube drops into the void (same animation as tiles)
     ///     and tile-collapse animation keeps running until the player is out of view,
     ///     then the scene auto-restarts.
-    ///   - On LostReason.Caught or Won: brief pause then auto-restart.
+    ///   - On Won: brief pause then auto-restart.
     ///
-    /// All rules (fall detection, catch detection, win/lose) live in Core.
+    /// All rules (fall detection, knockback, win/lose) live in Core.
     ///
     /// Model loading: hero, obstacles, and floor tiles are loaded via Resources.Load by path.
     /// If a model cannot be found (null return), the original CreatePrimitive(Cube) path is
@@ -32,29 +35,46 @@ namespace Barcade.Framework
         // ── Inspector-tunable parameters ─────────────────────────────────────────
 
         [Header("Grid")]
-        [SerializeField] private int   gridN            = 13;
-        [SerializeField] private float graceDelay       = 3f;
-        [SerializeField] private float collapseInterval = 3f;
+        [SerializeField] private int   gridN            = 21;
+        [SerializeField] private float graceDelay       = 4f;
+        [SerializeField] private float collapseInterval = 3.5f;
 
         [Header("Player")]
         [SerializeField] private float playerSpeed    = 5f;
         [SerializeField] private Color playerColor    = new Color(0.20f, 0.80f, 0.20f); // bright green
 
         [Header("Obstacles")]
-        [SerializeField] private int   obstacleCount   = 3;
+        [SerializeField] private int   obstacleCount   = 8;
         [SerializeField] private float obstacleSpeed   = 2f;
         [SerializeField] private float contactRadius   = 0.6f;
         [SerializeField] private Color obstacleColor   = new Color(0.80f, 0.10f, 0.10f); // dark red
 
+        [Header("Obstacle Spawning")]
+        // Enemies trickle in with escalating cadence across the round.
+        // gap[k] = max(spawnMinGap, spawnBaseGap - k * spawnGapDecay)
+        [SerializeField] private float spawnStartDelay = 3f;
+        [SerializeField] private float spawnBaseGap    = 5f;
+        [SerializeField] private float spawnGapDecay   = 0.6f;
+        [SerializeField] private float spawnMinGap     = 1.5f;
+        // Y above the grid from which a newly spawned obstacle drops into place.
+        [SerializeField] private float spawnDropHeight = 8f;
+
+        [Header("Knockback")]
+        [SerializeField] private float knockbackSpeed   = 8f;
+        [SerializeField] private float knockbackDamping = 6f;
+
         [Header("Win / Loss")]
-        [SerializeField] private float survivalDuration = 20f;
-        [SerializeField] private float restartDelay     = 3f;   // pause after Won/Caught before rebuild
+        [SerializeField] private float survivalDuration = 40f;
+        [SerializeField] private float restartDelay     = 3f;   // pause after Won before rebuild
 
         [Header("Tile visuals")]
-        [SerializeField] private Color tileColorA = new Color(0.30f, 0.30f, 0.35f);
-        [SerializeField] private Color tileColorB = new Color(0.25f, 0.25f, 0.28f);
-        [SerializeField] private float fallDepth  = -6f;   // Y target for anything that falls
-        [SerializeField] private float fallSpeed  = 4f;    // world units/sec for player/obstacle falls
+        [SerializeField] private Color tileColorA   = new Color(0.30f, 0.30f, 0.35f);
+        [SerializeField] private Color tileColorB   = new Color(0.25f, 0.25f, 0.28f);
+        // Warning: tiles flash this colour ~warningLead seconds before their ring collapses.
+        [SerializeField] private Color warningColor = new Color(1f, 0.45f, 0f);   // orange
+        [SerializeField] private float warningLead  = 1.5f;                        // seconds
+        [SerializeField] private float fallDepth    = -6f;   // Y target for anything that falls
+        [SerializeField] private float fallSpeed    = 4f;    // world units/sec for player/obstacle falls
 
         [Header("Tile crumble")]
         // Tiles use gravity-accelerated fall + random tumble instead of constant-speed drop.
@@ -82,9 +102,9 @@ namespace Barcade.Framework
         // UAT tuning knobs — adjust in the Inspector if a model sits too high/low or faces the wrong way.
         // modelYaw is an INTRINSIC forward-correction offset applied to the model child's localRotation;
         // the root transform's rotation is used for the heading-based facing so the two don't fight.
-        [SerializeField] private float modelScale   = 1f;   // uniform scale applied to every spawned model
-        [SerializeField] private float modelGroundY = 0f;   // resting Y for player/obstacles when a model is used
-        [SerializeField] private float modelYaw     = 0f;   // Y-axis correction (degrees) for the model's intrinsic forward
+        [SerializeField] private float modelScale   = 0.6f;  // uniform scale applied to every spawned model
+        [SerializeField] private float modelGroundY = 0f;    // resting Y for player/obstacles when a model is used
+        [SerializeField] private float modelYaw     = 0f;    // Y-axis correction (degrees) for the model's intrinsic forward
 
         // ── Core simulation ───────────────────────────────────────────────────────
 
@@ -102,6 +122,11 @@ namespace Barcade.Framework
         private float[,]   _tileSpinSpeed;  // deg/sec spin for this tile
         private float[,]   _tileFallVel;    // current downward velocity (grows via gravity)
 
+        // Warning-colour state per tile — set once when we enter/leave the warning window.
+        private Renderer[,] _tileRenderer;  // main renderer (child for models, self for cubes)
+        private Color[,]    _tileOrigColor; // original material colour cached at build time
+        private bool[,]     _tileWarning;   // true while the warning colour is currently applied
+
         private GameObject _playerGO;
         private float      _playerY;         // current Y for player fall animation
         private bool       _playerFalling;   // player death-fall in progress
@@ -109,6 +134,11 @@ namespace Barcade.Framework
         private GameObject[] _obstacleGOs;
         private float[]      _obsY;          // current Y for obstacle fall animation
         private bool[]       _obsFalling;    // obstacle is animating downward (off-grid death)
+
+        // Sky drop-in animation state per obstacle.
+        private bool[]  _obsWasSpawned; // tracks previous-frame spawn state for transition detection
+        private bool[]  _obsDropping;   // true while the drop-in animation is running
+        private float[] _obsDropY;      // current Y during drop-in
 
         // Resolved resting-Y per entity type (modelGroundY when a model loads; 0.35f for primitives).
         private float _playerBaselineY;
@@ -204,8 +234,9 @@ namespace Barcade.Framework
         /// Repositions Camera.main so the full N×N arena is always in frame,
         /// keeping the diagonal top-down angle (pitch 50°, yaw 45°).
         ///
-        /// Formula: arena half-diagonal = N × √2 / 2.
+        /// Formula: arena half-diagonal = gridN × √2 / 2.
         /// Required pull-back = halfDiag / tan(halfFov) × 1.25 margin.
+        /// Already derives from gridN so it auto-scales to the 21×21 arena.
         /// </summary>
         private void FitCamera()
         {
@@ -225,7 +256,13 @@ namespace Barcade.Framework
         {
             _arena = new GridArena(gridN, graceDelay, collapseInterval);
             _sim   = new DodgeSim(_arena, obstacleCount, playerSpeed,
-                                  obstacleSpeed, contactRadius, survivalDuration);
+                                  obstacleSpeed, contactRadius, survivalDuration,
+                                  spawnStartDelay: spawnStartDelay,
+                                  baseGap:         spawnBaseGap,
+                                  gapDecay:        spawnGapDecay,
+                                  minGap:          spawnMinGap,
+                                  knockbackSpeed:  knockbackSpeed,
+                                  knockbackDamping: knockbackDamping);
         }
 
         // ── Scene construction ────────────────────────────────────────────────────
@@ -247,6 +284,11 @@ namespace Barcade.Framework
             _tileSpinAxis  = new Vector3[gridN, gridN];
             _tileSpinSpeed = new float[gridN, gridN];
             _tileFallVel   = new float[gridN, gridN];
+
+            // Warning-colour state.
+            _tileRenderer  = new Renderer[gridN, gridN];
+            _tileOrigColor = new Color[gridN, gridN];
+            _tileWarning   = new bool[gridN, gridN];
 
             var arenaRoot = new GameObject("Arena");
             arenaRoot.transform.SetParent(transform, false);
@@ -274,6 +316,9 @@ namespace Barcade.Framework
                         modelInstance.transform.localPosition = Vector3.zero;
                         modelInstance.transform.localScale    = Vector3.one * modelScale;
                         modelInstance.transform.localRotation = Quaternion.Euler(0f, modelYaw, 0f);
+
+                        // Cache the child model's renderer for warning colour swaps.
+                        _tileRenderer[x, z] = modelInstance.GetComponentInChildren<Renderer>();
                     }
                     else
                     {
@@ -286,10 +331,17 @@ namespace Barcade.Framework
 
                         Color c = (x + z) % 2 == 0 ? tileColorA : tileColorB;
                         tile.GetComponent<Renderer>().material.color = c;
+
+                        _tileRenderer[x, z] = tile.GetComponent<Renderer>();
                     }
 
                     _tiles[x, z] = tile;
                     _tileY[x, z] = tile.transform.position.y;
+
+                    // Cache the original colour (used to revert after the warning window).
+                    _tileOrigColor[x, z] = _tileRenderer[x, z] != null
+                        ? _tileRenderer[x, z].material.color
+                        : Color.white;
                 }
             }
         }
@@ -335,12 +387,15 @@ namespace Barcade.Framework
 
         private void BuildObstacles()
         {
-            _obstacleGOs = new GameObject[obstacleCount];
-            _obsY        = new float[obstacleCount];
-            _obsFalling  = new bool[obstacleCount];
-            _obsPrevX    = new float[obstacleCount];
-            _obsPrevZ    = new float[obstacleCount];
-            _obsFacing   = new Quaternion[obstacleCount];
+            _obstacleGOs  = new GameObject[obstacleCount];
+            _obsY         = new float[obstacleCount];
+            _obsFalling   = new bool[obstacleCount];
+            _obsWasSpawned = new bool[obstacleCount]; // all false — none spawned at build time
+            _obsDropping  = new bool[obstacleCount];
+            _obsDropY     = new float[obstacleCount];
+            _obsPrevX     = new float[obstacleCount];
+            _obsPrevZ     = new float[obstacleCount];
+            _obsFacing    = new Quaternion[obstacleCount];
 
             // Resolve enemy prefabs once; cycle by index if fewer paths than obstacles.
             bool anyEnemyModel = enemyModelPaths != null && enemyModelPaths.Length > 0;
@@ -379,6 +434,9 @@ namespace Barcade.Framework
                     obs.GetComponent<Renderer>().material.color = obstacleColor;
                     // _obstacleBaselineY stays 0.35f (set above)
                 }
+
+                // Obstacles start hidden; they drop in when the sim activates them.
+                obs.SetActive(false);
 
                 _obstacleGOs[i] = obs;
                 _obsY[i]        = _obstacleBaselineY;
@@ -441,10 +499,22 @@ namespace Barcade.Framework
             for (int i = 0; i < obstacleCount; i++)
             {
                 var obs = _obstacleGOs[i];
-                if (obs == null || !obs.activeSelf) continue;
+                if (obs == null) continue;
+
+                // Detect the frame an obstacle transitions from NotSpawned → Spawned.
+                // Show the GO and begin the sky drop-in animation.
+                if (_sim.IsObstacleSpawned(i) && !_obsWasSpawned[i])
+                {
+                    _obsWasSpawned[i] = true;
+                    _obsDropping[i]   = true;
+                    _obsDropY[i]      = spawnDropHeight;
+                    obs.SetActive(true);
+                }
+
+                if (!obs.activeSelf) continue; // still hidden (not yet spawned)
 
                 // Transition to fall animation the frame the sim marks an obstacle dead.
-                if (!_sim.IsObstacleAlive(i) && !_obsFalling[i])
+                if (!_sim.IsObstacleAlive(i) && !_obsFalling[i] && !_obsDropping[i])
                     _obsFalling[i] = true;
 
                 if (_obsFalling[i])
@@ -460,10 +530,26 @@ namespace Barcade.Framework
                     continue;
                 }
 
+                if (_obsDropping[i])
+                {
+                    // Sky drop-in: move from spawnDropHeight down to baseline Y.
+                    // Distinct from the death-fall animation (constant speed used for both,
+                    // but the drop-in lands at baseline rather than fallDepth).
+                    float ox = _sim.GetObstacleX(i) - offset;
+                    float oz = _sim.GetObstacleZ(i) - offset;
+                    _obsDropY[i] = Mathf.MoveTowards(_obsDropY[i], _obstacleBaselineY, fallSpeed * dt);
+                    obs.transform.position = new Vector3(ox, _obsDropY[i], oz);
+
+                    if (Mathf.Approximately(_obsDropY[i], _obstacleBaselineY))
+                        _obsDropping[i] = false;
+
+                    continue; // skip normal position sync while the drop-in plays
+                }
+
                 // Normal play: snap to sim position, then smooth-rotate to heading.
-                float ox = _sim.GetObstacleX(i) - offset;
-                float oz = _sim.GetObstacleZ(i) - offset;
-                obs.transform.position = new Vector3(ox, _obstacleBaselineY, oz);
+                float nox = _sim.GetObstacleX(i) - offset;
+                float noz = _sim.GetObstacleZ(i) - offset;
+                obs.transform.position = new Vector3(nox, _obstacleBaselineY, noz);
 
                 float ohdx = _sim.GetObstacleX(i) - _obsPrevX[i];
                 float ohdz = _sim.GetObstacleZ(i) - _obsPrevZ[i];
@@ -497,6 +583,13 @@ namespace Barcade.Framework
                                                              tileTumbleSpeed * 1.4f);
                         _tileFallVel[x, z]   = 0f; // starts from rest; gravity accelerates it
                         _tileFalling[x, z]   = true;
+
+                        // Revert any warning colour that was showing when the tile breaks.
+                        if (_tileWarning[x, z] && _tileRenderer[x, z] != null)
+                        {
+                            _tileRenderer[x, z].material.color = _tileOrigColor[x, z];
+                            _tileWarning[x, z] = false;
+                        }
                     }
 
                     if (_tileFalling[x, z])
@@ -517,6 +610,21 @@ namespace Barcade.Framework
 
                         var tp = tile.transform.position;
                         tile.transform.position = new Vector3(tp.x, _tileY[x, z], tp.z);
+                    }
+                    else
+                    {
+                        // Warning-colour telegraph: swap colour when the tile's ring is about
+                        // to collapse.  Only set/revert once per transition to avoid per-frame
+                        // material allocation.
+                        float timeLeft   = _arena.TimeUntilFall(x, z);
+                        bool  shouldWarn = timeLeft > 0f && timeLeft <= warningLead;
+
+                        if (shouldWarn != _tileWarning[x, z] && _tileRenderer[x, z] != null)
+                        {
+                            _tileRenderer[x, z].material.color =
+                                shouldWarn ? warningColor : _tileOrigColor[x, z];
+                            _tileWarning[x, z] = shouldWarn;
+                        }
                     }
                 }
             }
@@ -542,7 +650,8 @@ namespace Barcade.Framework
             }
             else
             {
-                // Won or Caught: no dramatic fall — just a readable pause.
+                // Won: no dramatic fall — just a readable pause.
+                // (LostReason.Caught is never produced; contact now triggers knockback only.)
                 yield return new WaitForSeconds(restartDelay);
             }
 
