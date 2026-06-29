@@ -37,12 +37,12 @@ namespace Barcade.Framework
         // ── Inspector-tunable parameters ─────────────────────────────────────────
 
         [Header("Simulation")]
-        [SerializeField] private float maxLean             = 0.7853982f;  // π/4 = 45°
-        [SerializeField] private float gravityGain         = 3.5f;
+        [SerializeField] private float maxLean             = 1.0471976f;  // π/3 = 60°  (wider safety margin)
+        [SerializeField] private float gravityGain         = 2.0f;        // slower self-amplification → less twitchy
         [SerializeField] private float playerTorque        = 8f;
-        [SerializeField] private float drunkTorque         = 4f;
-        [SerializeField] private float drunkChangeInterval = 0.4f;
-        [SerializeField] private float damping             = 1.2f;
+        [SerializeField] private float drunkTorque         = 2.5f;        // gentler random pushes
+        [SerializeField] private float drunkChangeInterval = 0.5f;        // less frequent re-rolls
+        [SerializeField] private float damping             = 2.2f;        // higher velocity damping → easier to correct
         [SerializeField] private float survivalDuration    = 12f;
         [SerializeField] private int   seed                = 42;
 
