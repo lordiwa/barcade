@@ -76,6 +76,26 @@ namespace Barcade.Core.Dodge
             return _solid[x, z];
         }
 
+        /// <summary>
+        /// Seconds remaining until tile (x, z) collapses.
+        ///
+        /// Returns <c>float.NegativeInfinity</c> (sentinel) when:
+        ///   - (x, z) is out of bounds, or
+        ///   - the tile has already fallen (not solid).
+        ///
+        /// Ring index = min(x, z, N-1-x, N-1-z), matching <see cref="CollapseRing"/>.
+        /// Collapse time for ring k = graceDelay + k × collapseInterval.
+        /// </summary>
+        public float TimeUntilFall(int x, int z)
+        {
+            if (x < 0 || x >= N || z < 0 || z >= N) return float.NegativeInfinity;
+            if (!_solid[x, z]) return float.NegativeInfinity;
+
+            int ring = Math.Min(Math.Min(x, z), Math.Min(N - 1 - x, N - 1 - z));
+            float collapseAt = _graceDelay + ring * _collapseInterval;
+            return collapseAt - _elapsed;
+        }
+
         /// <summary>Advance the collapse schedule by <paramref name="dt"/> seconds.</summary>
         public void Tick(float dt)
         {
