@@ -79,6 +79,10 @@ namespace Barcade.Framework
 
         private AlcocheckSim _sim;
 
+        // Incremented on each restart so each round gets a different RNG seed.
+        // Round 0 (initial Start) uses base `seed`; round N uses `seed + _roundCounter`.
+        private int _roundCounter;
+
         // ── Avatar ────────────────────────────────────────────────────────────────
 
         private GameObject _avatarGO;
@@ -176,7 +180,7 @@ namespace Barcade.Framework
                 drunkChangeInterval: drunkChangeInterval,
                 damping:             damping,
                 survivalDuration:    survivalDuration,
-                seed:                seed);
+                seed:                seed + _roundCounter);
         }
 
         // ── Balance-pad construction ──────────────────────────────────────────────
@@ -371,6 +375,7 @@ namespace Barcade.Framework
             _simFrozen  = false;
             _visualLean = 0f;
 
+            _roundCounter++; // each round uses a different seed → distinct drunk sway
             InitSim();
             BuildBalancePad();
             BuildAvatar();
