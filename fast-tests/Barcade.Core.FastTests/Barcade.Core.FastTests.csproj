@@ -46,6 +46,7 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ContentUpdatePolicyTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\GridArenaTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\DodgeSimTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\AlcocheckSimTests.cs" />
   </ItemGroup>
 
 </Project>
