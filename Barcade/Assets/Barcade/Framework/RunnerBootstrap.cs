@@ -45,17 +45,18 @@ namespace Barcade.Framework
         [SerializeField] private int   seed               = 0;
 
         [Header("Lane layout")]
-        // World-Z distance between adjacent lane centres.
-        [SerializeField] private float laneZSpacing       = 1.5f;
+        // World-Z distance between adjacent lane centres (wider = more readable depth cue).
+        [SerializeField] private float laneZSpacing       = 2.0f;
         // World-Z of lane 0 (near lane); higher lanes are at z + laneZSpacing * i.
         [SerializeField] private float lane0Z             = 0f;
 
         [Header("Camera")]
-        // X offset of camera behind the runner (negative = behind).
-        [SerializeField] private float cameraXLead        = -5f;
-        [SerializeField] private float cameraY            = 4f;
-        // Z position of camera (negative = in front of near lane).
-        [SerializeField] private float cameraZ            = -8f;
+        // X offset of camera AHEAD of the runner (positive = leads forward; runner appears left-of-centre).
+        // cam.X = Distance + cameraXLead.  Runner's screen offset = -cameraXLead (left when positive).
+        [SerializeField] private float cameraXLead        = 5f;
+        [SerializeField] private float cameraY            = 6f;
+        // Z position of camera (negative = viewer side, in front of the near lane).
+        [SerializeField] private float cameraZ            = -18f;
         [SerializeField] private float cameraFov          = 60f;
         // Camera pitch (look slightly down toward the track).
         [SerializeField] private float cameraPitch        = 20f;

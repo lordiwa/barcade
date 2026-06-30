@@ -42,26 +42,30 @@ namespace Barcade.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             // ── Camera ───────────────────────────────────────────────────────────
-            // Side-view 2.5D: camera sits to the side-and-below the track, pitching
-            // slightly downward so the ground plane and all 3 lanes are visible.
-            // Matches RunnerBootstrap inspector defaults so edit-mode preview and play
-            // mode start from the same view; the Bootstrap moves the X each frame.
+            // Side-view 2.5D: camera leads the runner in +X and sits back in -Z so
+            // the runner appears left-of-centre and ~17 units of upcoming track are
+            // visible to the right.  Matches RunnerBootstrap inspector defaults so
+            // edit-mode preview and play mode start from the same view; the Bootstrap
+            // updates cam.X each frame.
             //
-            // Camera defaults (mirroring RunnerBootstrap serialized fields):
-            //   cameraXLead = -5   (units behind runner's X)
-            //   cameraY     =  4   (height above track)
-            //   cameraZ     = -8   (in front of near lane — side of the Z axis)
-            //   cameraPitch =  20  (look slightly down toward track)
+            // Camera defaults (mirror RunnerBootstrap serialized fields exactly):
+            //   cameraXLead =  5   (positive = leads ahead; runner sits left-of-centre)
+            //   cameraY     =  6   (height above track)
+            //   cameraZ     = -18  (pulled back for depth + reaction room)
+            //   cameraPitch =  20  (slight downward tilt so track reads)
             //   cameraFov   =  60
+            //   laneZSpacing=  2.0
             //
-            // At start runner is at X=0, lane 1 (middle), lane0Z=0, laneZSpacing=1.5
-            // → middle lane Z = 1.5; camera Z = -8 + 1.5 = -6.5.
+            // Screen-mapping at start (Distance=0, middle lane Z=2.0):
+            //   cam.X = 0 + 5 = 5; runner offset = 0 - 5 = -5 (left of centre).
+            //   Z-depth ≈ 2.0 - (-18) = 20; half-width ≈ 20*tan(30°) ≈ 11.6 units.
+            //   Runner at (11.6-5)/23.1 ≈ 28% from left.  Track ahead ≈ 16.6 units.
             const float kFov        = 60f;
-            const float kCameraX    = 0f  - 5f;   // runner starts at 0; lead offset
-            const float kCameraY    = 4f;
+            const float kCameraX    = 0f  + 5f;   // runner starts at Distance=0; leads by 5
+            const float kCameraY    = 6f;
             const float kCameraPitch= 20f;
-            const float kLaneCentreZ= 0f + 1.5f * 1f; // lane0Z + laneZSpacing * (laneCount-1)*0.5f = 0 + 1.5*1 = 1.5
-            const float kCameraZ    = -8f + kLaneCentreZ;
+            const float kLaneCentreZ= 0f + 2.0f * 1f; // lane0Z + laneZSpacing * (laneCount-1)*0.5f = 0 + 2*1 = 2
+            const float kCameraZ    = -18f + kLaneCentreZ;
 
             var cameraGO = new GameObject("Main Camera");
             cameraGO.tag = "MainCamera";
