@@ -14,6 +14,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Barcade/Scenes/Esquiva3D.unity
     guid: 44091735a0e5ace42a3bfc96c354b328
+  - enabled: 1
+    path: Assets/Barcade/Scenes/Alcocheck.unity
+    guid: 78019b861ad976347a2c2b9f6c3fd7a7
+  - enabled: 1
+    path: Assets/Barcade/Scenes/EndlessRun.unity
+    guid: 2f7f3f0b1cd9e1c479ea390e6b9d4636
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 11db28d7b8c023346b7eb674ce8e297f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
