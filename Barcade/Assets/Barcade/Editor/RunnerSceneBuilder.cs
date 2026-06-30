@@ -42,26 +42,23 @@ namespace Barcade.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             // ── Camera ───────────────────────────────────────────────────────────
-            // Side-view 2.5D: camera leads the runner in +X and sits back in -Z so
-            // the runner appears left-of-centre and ~17 units of upcoming track are
-            // visible to the right.  Matches RunnerBootstrap inspector defaults so
-            // edit-mode preview and play mode start from the same view; the Bootstrap
-            // updates cam.X each frame.
+            // Fixed side-view 2.5D camera — does NOT move during play.
+            // Rendering model: runner is pinned at runnerAnchorX=0; obstacles/coins
+            // scroll right-to-left toward it.  cam.X = runnerAnchorX + cameraXLead.
             //
             // Camera defaults (mirror RunnerBootstrap serialized fields exactly):
-            //   cameraXLead =  5   (positive = leads ahead; runner sits left-of-centre)
+            //   runnerAnchorX=  0   (fixed world-X where runner is pinned)
+            //   cameraXLead =  5   (camera right of anchor; runner appears left-of-centre)
             //   cameraY     =  6   (height above track)
             //   cameraZ     = -18  (pulled back for depth + reaction room)
             //   cameraPitch =  20  (slight downward tilt so track reads)
             //   cameraFov   =  60
             //   laneZSpacing=  2.0
             //
-            // Screen-mapping at start (Distance=0, middle lane Z=2.0):
-            //   cam.X = 0 + 5 = 5; runner offset = 0 - 5 = -5 (left of centre).
-            //   Z-depth ≈ 2.0 - (-18) = 20; half-width ≈ 20*tan(30°) ≈ 11.6 units.
-            //   Runner at (11.6-5)/23.1 ≈ 28% from left.  Track ahead ≈ 16.6 units.
+            // Runner at anchor X=0; cam.X=5; half-width≈11.6 → runner at ~28% from left.
+            // Spawns visible from runnerAnchorX+0 to runnerAnchorX+spawnViewDistance (40).
             const float kFov        = 60f;
-            const float kCameraX    = 0f  + 5f;   // runner starts at Distance=0; leads by 5
+            const float kCameraX    = 0f  + 5f;   // runnerAnchorX + cameraXLead; fixed for whole run
             const float kCameraY    = 6f;
             const float kCameraPitch= 20f;
             const float kLaneCentreZ= 0f + 2.0f * 1f; // lane0Z + laneZSpacing * (laneCount-1)*0.5f = 0 + 2*1 = 2
