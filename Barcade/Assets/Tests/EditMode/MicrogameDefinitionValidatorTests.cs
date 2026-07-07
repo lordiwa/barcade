@@ -1,0 +1,245 @@
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+using Barcade.Core.Content;
+
+namespace Barcade.Core.Tests
+{
+    /// <summary>
+    /// TASK-030 / GDD T-106 (§11.1) AC2/AC3: the validator rejects mechanic params
+    /// outside the mechanic's declared range, duration outside [3, 8], and any
+    /// payoutTable entry that violates the GDD §6.1 minimum-reward invariant (no
+    /// zero payout for any place — including a coop failure payout). Every
+    /// rejection names the offending field so a build-pipeline failure is loud and
+    /// actionable (AC3).
+    ///
+    /// No Unity scene required — pure C#; this is the same code the Editor
+    /// build-pipeline hook (Barcade.EditorTools.MicrogameDefinitionMigrationTool)
+    /// calls.
+    /// </summary>
+    [TestFixture]
+    public class MicrogameDefinitionValidatorTests
+    {
+        private static MicrogameDefinitionV2 ValidApuntaDefinition()
+        {
+            return new MicrogameDefinitionV2
+            {
+                SchemaVersion = 2,
+                Id = "mg_apunta_viento_01",
+                Mechanic = "MECH_04",
+                DisplayVerb = "¡APUNTA!",
+                Dynamics = MicrogameDynamics.Competitive,
+                Duration = 5.0f,
+                DifficultyScaling = new[] { "windAccel" },
+                Params = new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    ["chargeCycleSec"] = 1.2,
+                    ["targetCount"] = 3.0,
+                    ["windAccel"] = 0.05,
+                },
+                PayoutTable = new[] { 6, 4, 2, 1 },
+                Assets = new Dictionary<string, string>(StringComparer.Ordinal),
+                StageProfile = new StageProfile("frontFixed", string.Empty, string.Empty),
+                MinPlayers = 2,
+                Tags = Array.Empty<string>(),
+            };
+        }
+
+        [Test]
+        public void ValidDefinition_Passes()
+        {
+            ValidationResult result = MicrogameDefinitionValidator.Validate(ValidApuntaDefinition());
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        // ── duration [3, 8] (GDD §11.1) ──────────────────────────────────────────
+
+        [TestCase(2.99f)]
+        [TestCase(0f)]
+        [TestCase(-1f)]
+        public void Duration_BelowThree_Rejected(float duration)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Duration = duration;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("duration"));
+        }
+
+        [TestCase(8.01f)]
+        [TestCase(20f)]
+        public void Duration_AboveEight_Rejected(float duration)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Duration = duration;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("duration"));
+        }
+
+        [TestCase(3f)]
+        [TestCase(8f)]
+        public void Duration_AtBoundary_Accepted(float duration)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Duration = duration;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        // ── payoutTable minimum-reward invariant (GDD §6.1) ─────────────────────
+
+        [Test]
+        public void PayoutTable_ZeroForAnyPlace_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.PayoutTable = new[] { 6, 4, 2, 0 }; // 4th place pays nothing
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("payoutTable"));
+        }
+
+        [Test]
+        public void PayoutTable_CoopFailPaysZero_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Dynamics = MicrogameDynamics.Coop;
+            def.PayoutTable = new[] { 4, 0 }; // success=4, fail=0 -- GDD requires fail=1
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("payoutTable"));
+        }
+
+        [Test]
+        public void PayoutTable_CoopFailPaysOne_Accepted()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Dynamics = MicrogameDynamics.Coop;
+            def.PayoutTable = new[] { 4, 1 }; // GDD §6.1 default coop table
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        [Test]
+        public void PayoutTable_Empty_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.PayoutTable = Array.Empty<int>();
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("payoutTable"));
+        }
+
+        // ── params outside the range declared by the mechanic (GDD §11.1) ───────
+
+        [Test]
+        public void Params_ChargeCycleSecOutsideMechanicRange_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Params["chargeCycleSec"] = 10.0; // MECH_04 schema caps at 3.0
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("params.chargeCycleSec"));
+        }
+
+        [Test]
+        public void Params_WindAccelBelowMechanicRange_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Params["windAccel"] = -0.1;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("params.windAccel"));
+        }
+
+        [Test]
+        public void Params_UnknownMechanic_SkipsRangeCheck()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Mechanic = "MECH_99"; // no declared schema
+            def.Params["chargeCycleSec"] = 999.0;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        // ── structural guards ────────────────────────────────────────────────────
+
+        [Test]
+        public void MissingId_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Id = string.Empty;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("id"));
+        }
+
+        [Test]
+        public void MissingMechanic_Rejected()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Mechanic = null;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("mechanic"));
+        }
+
+        // ── MECH_05 reserved (non-numeric) params must not close the door ───────
+        // Mid-flight note (TASK-025 review, relayed during TASK-030): GDD §4
+        // MECH_05 declares signalMode (visual/audio/both) and colorFilter (bool)
+        // as variants. Neither is implemented in ReaccionaMicrogame yet -- these
+        // two tests only prove the v2 schema/validator reserve the names so a
+        // future definition using them validates; no enum/bool validation
+        // semantics are implemented here (none were requested).
+
+        [Test]
+        public void Mech05Schema_ReservesSignalModeAndColorFilterByName()
+        {
+            bool found = MechanicParamSchemas.TryGet("MECH_05", out MechanicParamSchema schema);
+
+            Assert.That(found, Is.True);
+            Assert.That(schema.ReservedParamNames, Does.Contain("signalMode"));
+            Assert.That(schema.ReservedParamNames, Does.Contain("colorFilter"));
+        }
+
+        [Test]
+        public void Mech05ReservedParams_SignalModeAndColorFilter_DoNotFailValidation()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Mechanic = "MECH_05";
+            def.Params = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["signalMode"] = "both",
+                ["colorFilter"] = true,
+            };
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+    }
+}
