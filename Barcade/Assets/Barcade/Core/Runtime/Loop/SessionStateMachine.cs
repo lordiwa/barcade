@@ -103,8 +103,10 @@ namespace Barcade.Core
     /// yet, so this uses the GDD defaults rather than leaving coins permanently at
     /// zero — without SOME accumulation, FINAL_WAGER (AC1) would only ever have a
     /// zero pot to test against. Flagged for reviewer confirmation; the real fix
-    /// (reading the active definition's own table) is a follow-up once content is
-    /// threaded through. Coop's payout counts as a win for every active seat when
+    /// (reading the active definition's own table) is TASK-052's job ("Thread
+    /// per-definition payoutTable through the microgame contract into
+    /// SessionStateMachine payouts") — filed as the named owning follow-up
+    /// (TASK-051 review fix round, M2). Coop's payout counts as a win for every active seat when
     /// it succeeds (no individual place makes sense for a shared outcome);
     /// competitive places 1 count as a win for whoever holds them (ties share the
     /// credit, matching every other competition-ranking convention in this
@@ -207,11 +209,15 @@ namespace Barcade.Core
     /// </para>
     ///
     /// Pure C# — no UnityEngine dependency. C# 9 compatible. Zero heap allocation in
-    /// steady-state <see cref="Tick"/> — the exceptions are the per-seat roster
-    /// array built once at the Join-&gt;BoardMove transition, and the small
-    /// fixed-size arrays <see cref="FinalWager.Resolve"/>/<see cref="BonusStarDraw.Draw"/>/
-    /// <see cref="FinalRanking.Rank"/> allocate once at FinalMg completion — both
-    /// once-per-session events, not a per-tick cost.
+    /// steady-state <see cref="Tick"/> — the exceptions are all once-per-round-or-
+    /// rarer events, never a per-tick cost (L2, TASK-051 review fix round — the
+    /// prior wording only cited the once-per-session cases and undersold this):
+    /// the per-seat roster array built once at the Join-&gt;BoardMove transition;
+    /// <see cref="CaptureResult"/>'s per-seat places array, allocated once at the
+    /// end of EVERY regular ranked round (not just once per session); and the
+    /// small fixed-size arrays <see cref="FinalWager.Resolve"/>/
+    /// <see cref="BonusStarDraw.Draw"/>/<see cref="FinalRanking.Rank"/> allocate
+    /// once at FinalMg completion.
     /// </summary>
     public sealed class SessionStateMachine
     {
@@ -509,6 +515,20 @@ namespace Barcade.Core
                     // Only REACCIONA's Metric is a documented latency-shaped value
                     // today (cumulative tick-latency, see ReaccionaMicrogame.GetResult) —
                     // no other v2 mechanic's Metric has a counters mapping yet.
+                    //
+                    // L1 (TASK-051 review fix round): rank.Metric is CUMULATIVE across
+                    // every tanda this round (including the large FailurePenaltyTicks
+                    // sentinel for any false start/DNF) -- converting it to
+                    // "milliseconds" and feeding it as one latency sample is
+                    // ORDERING-correct (WinnerOf's lower-is-better comparison still
+                    // picks the genuinely best seat), but the stored value itself is
+                    // NOT a meaningful per-tanda mean latency for GDD §15
+                    // telemetry/HUD display. A true mean would need the tanda count
+                    // (ReaccionaParams.Rounds), which isn't exposed through the
+                    // IMicrogame/MicrogameResult contract -- extending that is a
+                    // Microgames/V2 change, outside this fix round's Loop/Scoring
+                    // surface. Documented as a known limitation rather than silently
+                    // presented as a correct mean.
                     if (_activeMicrogame.Id == V2.MicrogameId.Reacciona)
                     {
                         float milliseconds = rank.Metric * (1000f / _config.TicksPerSecond);
