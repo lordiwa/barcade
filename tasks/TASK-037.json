@@ -10,7 +10,7 @@
     "Determinism: same session seed + same counters -> same stars (replay test)",
     "Tests-first; fast suite green after, no regression; existing ScoreModel consumers keep compiling"
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -23,11 +23,22 @@
   "depends_on": [
     "TASK-035"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "04b6aaa",
+    "3037b02",
+    "0f0d662",
+    "26d974f"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer-cloud",
+      "at": "2026-07-07T10:45:00.000Z",
+      "body": "[developer-cloud] TASK-037 delivered on branch claude/gdd-hito1-cloud, tests-first. 04b6aaa test(core): failing spec (red = CS0246/CS0234 on Barcade.Core.Scoring, 18 tests covering all 6 ACs); 3037b02 test helper-arity syntax fix; 0f0d662 test envelope correction (see below); 26d974f feat(core). Suite 492 -> 512 green, zero regressions. DESIGN CALLS for reviewer + human, all [ASSUMED]-tagged in code: (1) ZEN STAR: the GDD 6.3 table row is TRUNCATED AT THE SOURCE ('| Estrella Zen | Menor |') — direction (min) survived, metric name lost. Implemented as a generic min-direction counter (RecordZenMetric) so gameplay supplies the semantic; HUMAN MUST fill in the metric (likely 'menor movimiento/input') and fix the GDD. (2) Wager timeout default = Half (50%) — GDD names none. (3) Star ties -> no holder (-1) — GDD silent on ties. (4) Wager rounding: stakes floor; tied places pool the percentages of spanned positions and split; <4 active players renormalize so the whole pot always redistributes (5.3 no-vanishing invariant); remainders dealt bottom-up. (5) Exclusion rule: at fixed 1-star bonus values a >=3-star flip is STRUCTURALLY IMPOSSIBLE (2 bonus stars close at most 2) — noted §5.6 agrees ('voltear 1 estrella — nunca uno de 3'); implemented as a parameterized defensive filter (threshold arg), proven live by a threshold=2 test, plus 1000-seed fuzz pinning the invariant end-to-end; 2-star flips via coin tiebreak remain allowed (GDD bans only >=3). (6) v1 ScoreModel untouched (new Barcade.Core.Scoring namespace) — same coexistence rationale as v2 IMicrogame; ticket says 'extend' but v1's win/loss shape shares nothing with coins/stars/wager. (7) Test-data fix 0f0d662: my original swing-test envelope wrongly used income (35) as simultaneous holdings for all four players; corrected to the §5.6 post-sink envelope — assertion semantics unchanged, flagged for reviewer audit. (8) GDD internal inconsistency noted: §5.6 says '2-3 de bonificación final' while §6.3 says exactly 2 bonus stars — implemented §6.3 (operative spec). (9) Draw uses SeededRandom.Derive(seed, 0, RngStream.Draws) from TASK-044 — one decision, one tirada."
+    }
+  ],
   "created_at": "2026-07-07T04:21:08.977Z",
-  "updated_at": "2026-07-07T10:20:00.000Z",
+  "updated_at": "2026-07-07T10:45:00.000Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
