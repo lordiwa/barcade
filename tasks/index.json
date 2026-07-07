@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T15:21:25.089Z",
+  "generated_at": "2026-07-07T16:03:16.681Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -346,7 +346,7 @@
     {
       "key": "TASK-058",
       "title": "T-107 Slice 1 — MECH_02 ¡ESQUIVA! on the v2 contract (adapt EsquivaMicrogame)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "high"
     },
     {
