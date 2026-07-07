@@ -5,14 +5,15 @@
 
 ## CRITICAL — surviving agents (do NOT respawn)
 The `/clear` does NOT kill background agents (memory `clear-keeps-background-agents-alive`). Addressable by name via SendMessage:
-- **dev-t101** (blue) — WORKING TASK-046 shared InputBridge on master (briefed msg afd55013, tests-after; surface = Microgames/V2 bridge + both mechanics; excluded from Loop/+Scoring/ while rev-t051 open; a 051 fix round preempts at commit boundary). KNOWN PATTERN: its idle notifications often cross in transit with dispatches — check `git log` for `TASK-046` commits before assuming it's stalled; it has picked up every queued message so far.
-- **rev-t051** (color TBD) — REVIEWING TASK-051 (FULL), pinned detached worktree at 0d1b052. Returns APPROVE/REQUEST-CHANGES; audits 3 flagged dev calls (wager gestures, baseStars=0, default-payout scope addition) + the constructor-draw seed derivation (third derivation idiom — hardest scrutiny) + climax double-payout unspecced path.
-- Idle/free: **rev-t024, rev-t048, rev-t050, rev-c035, rev-c044, rev-c037, rev-t026, rev-t103, rev-t030** — all verdicts recorded in ticket comments; do not reuse for new tickets (fresh-context rule); fix-round re-verifies go to the original reviewer.
+- **dev-t101** (blue) — IDLE ON HOLD (msg 979ab379): no new assignment until rev-t051's verdict; a 051 fix round is its next work if findings arrive; else dispatch next queue item (TASK-045 or TASK-029 — pick by Editor-boundary fit).
+- **rev-t051** — REVIEWING TASK-051 (FULL), pinned at 0d1b052. Audits 3 flagged dev calls (wager gestures, baseStars=0, default-payout scope addition) + constructor-draw seed derivation (third derivation idiom — hardest scrutiny) + climax double-payout unspecced path.
+- **rev-t046** — REVIEWING TASK-046 (FULL), pinned at 347cbae. Audits the normalized-convention call (regression sweep for magnitude-sensitive consumers!) + the DirectionToUnit leave-alone disposition.
+- Idle/free: **rev-t024, rev-t048, rev-t050, rev-c035, rev-c044, rev-c037, rev-t026, rev-t103, rev-t030** — verdicts recorded in tickets; don't reuse for new tickets; fix-round re-verifies go to the original reviewer.
 Before ANY new spawn: `git log --oneline -10`, `git status --short`, try SendMessage to the names above.
 
 ## Active tasks
-- **TASK-051 ScoringV2↔FSM wiring** (`in_review`, rev-t051): delivered 2c44d2a (test, compile-red via production-revert) → 0d1b052 (feat), 538/538. ON CLOSE-worthy verdict → `close_task` linked_commits [2c44d2a, 0d1b052], depth FULL + rubric, chore(state), PUSH. On findings → fix round to dev-t101 (preempts 046), rev-t051 re-verifies.
-- **TASK-046 shared InputBridge** (`in_progress`, dev-t101, tests-after): on hand-off → fresh reviewer (FULL — tdd-lineage mechanics surface, likely small diff but mandatory-FULL).
+- **TASK-051 ScoringV2↔FSM wiring** (`in_review`, rev-t051): 2c44d2a → 0d1b052, 538/538. ON CLOSE-worthy verdict → `close_task` [2c44d2a, 0d1b052], depth FULL + rubric, chore(state), PUSH. On findings → fix round to dev-t101, rev-t051 re-verifies.
+- **TASK-046 shared InputBridge** (`in_review`, rev-t046): e4cfc4b (refactor: shared InputBridge, copies deleted, NORMALIZED convention) → 347cbae (locks: 9-value round-trip + cross-mechanic), 544/544. ON CLOSE-worthy verdict → `close_task` [e4cfc4b, 347cbae], chore(state), PUSH. On findings → fix round to dev-t101, rev-t046 re-verifies.
 
 ## Today's ledger (all pushed; origin in sync at 6214163; suite 538/538)
 **11 closes:** TASK-025, 026, 030 (overnight) + 048, 024 (Editor-free Hito 1 core COMPLETE), 035, 044, 037 (cloud batch integrated per-ticket; T-108 selector + T-109 scoring + PCG32 §13 done), 050 (validator anti-drift sensor). **Cloud episode:** branch `claude/gdd-hito1-cloud`/PR #1 reviewed per-ticket, integrated via cherry-pick, cloud-024 SUPERSEDED by local (decision in bundle). **Filed:** TASK-048(closed)/049 (CI)/050(closed)/051. **Carry-in nits parked:** TASK-032 (SeededRandom.cs:75 unchecked + RngStream.Session doc), TASK-027 (RenderEntity.cs:30 citation), TASK-040 ([6,2,2,2] asym authoring + test-comment fix).

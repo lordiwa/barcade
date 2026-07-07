@@ -8,7 +8,7 @@
     "Zero-alloc steady-state behavior preserved and re-verified through both mechanics' existing allocation sensors",
     "Full fast suite green with no behavioral regression (both mechanics' existing tests pass unchanged)"
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -24,9 +24,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer",
+      "at": "2026-07-07T13:37:38.778Z",
+      "body": "Delivered on master by dev-t101 (tests-after): e4cfc4b refactor(core) — shared Barcade.Core.Microgames.V2.InputBridge extracted, both mechanics' private nested copies DELETED -> 347cbae test(core) — AC2 regression locks (canonical convention pin, 9-value Direction8 round-trip through a REAL InputInterpreter, cross-mechanic check against a real ApuntaMicrogame). Suite 538 -> 544/544 (6 new). Both mechanics' _inputBridge field declarations needed ZERO changes (same type name, now resolving to the shared top-level type); straight before/after run confirms neither mechanic's existing suite — including both zero-alloc sensors (AC3) — needed a single edit (AC4). CONVENTION CALL (documented on the shared type): NORMALIZED unit vectors, not sign-pure — the cabinet stick is digital 8-way (GDD 1.3), so uniform magnitude 1 for every pressed direction is the physically honest representation; sign-pure's diagonal magnitude sqrt(2) has no hardware meaning and would make InputSnapshot's existing Magnitude()/WithDeadZone() read diagonals as 'harder pressed' if a deadzone ever lands — exactly the future magnitude-sensitive hazard rev-t026 flagged. ToDirection8 classifies by sign either way, so behavior is identical today. FOUND + DELIBERATELY LEFT (flagged): ApuntaMicrogame.DirectionToUnit carries the exact same values as the new InputBridge.ToUnitVector (Apunta's old bridge called it for input-bridging too) — judged merging them as scope creep (conceptually different roles: aim geometry vs raw stick reading); clean low-risk follow-up if wanted. SessionStateMachine's Loop/ surface untouched per constraint."
+    }
+  ],
   "created_at": "2026-07-07T05:31:16.070Z",
-  "updated_at": "2026-07-07T13:29:01.626Z",
+  "updated_at": "2026-07-07T13:37:38.933Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
