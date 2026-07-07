@@ -38,30 +38,31 @@ namespace Barcade.EditorTools
         }
 
         /// <summary>
-        /// All 12+ definitions across the 5 mechanics, with meaningfully varied
-        /// difficulty, duration and verbText. Each id matches a MicrogameRegistry key.
+        /// TASK-061 (T-107 slice 4, Unit A): aporrea/timing/apunta-v1 retired --
+        /// none of the three maps to a canonical GDD MECH_01-09 mechanic (Phase A
+        /// disposition, ratified by the orchestrator; grounded in GDD Annex D.1's
+        /// own repo-integration table, which lists no row for any of them). Their
+        /// entries are removed from this array along with the mechanics themselves
+        /// (Barcade.Core.Runtime.Microgames.AporreaMicrogame/TimingMicrogame/
+        /// ApuntaMicrogame[v1] -- NOT the V2/ folder ApuntaMicrogame, which is the
+        /// canonical MECH_04 and is untouched). recolecta's 3 entries stay for now
+        /// -- its disposition is a content decision routed to the human, not an
+        /// engineering call, and is explicitly out of Unit A's scope. esquiva's 3
+        /// entries are also untouched (MECH_02, already GDD-mapped, not part of
+        /// this ticket at all).
+        ///
+        /// All 6 definitions across the 2 remaining mechanics, with meaningfully
+        /// varied difficulty, duration and verbText. Each id matches a
+        /// MicrogameRegistry key.
         ///
         /// TASK-045 (GDD-canonical rule): durations must stay within GDD §11.1's
         /// [<see cref="Barcade.Core.Content.MicrogameDefinitionValidator.MinDurationSeconds"/>,
         /// <see cref="Barcade.Core.Content.MicrogameDefinitionValidator.MaxDurationSeconds"/>]
-        /// bound. An earlier revision of this array carried 7-10 s "deliberately
-        /// generous" values that were never applied to the 12 on-disk assets (which
-        /// already sat at 3-6 s) -- that stale copy would have failed the v2
-        /// validator's duration check the moment
-        /// MicrogameDefinitionMigrationTool.MigrateAll ran against a fresh
-        /// GenerateAll output. Duration, id, verbText and difficulty below were
-        /// verified 1:1 against each entry's corresponding on-disk
+        /// bound. Duration, id, verbText and difficulty below were verified 1:1
+        /// against each entry's corresponding on-disk
         /// Assets/Barcade/Content/Microgames/*.asset (matched by id+difficulty) and
-        /// match exactly -- no diff expected in those four fields.
-        ///
-        /// hintText is a DIFFERENT story (rev-t045 finding): the 12 on-disk assets
-        /// predate the hintText field entirely (added in the same commit that
-        /// introduced the since-fixed 7-10 s durations) and carry no hintText line
-        /// at all today. Re-running GenerateAll therefore WILL touch all 12 assets
-        /// -- it applies the (intended, ~1 line each) Spanish hint copy below for
-        /// the first time, not a no-op confirmation pass. MigrateAll MUST run
-        /// AFTER that regen, not before: migrating the current on-disk assets as-is
-        /// would carry an empty LegacyHintText="" into the v2 JSON.
+        /// match exactly -- no diff expected in those four fields for the two
+        /// mechanics that remain.
         ///
         /// A regression lock (MicrogameContentGeneratorSpecsTests, fast suite)
         /// parses this array's literal source text and asserts every duration
@@ -77,14 +78,16 @@ namespace Barcade.EditorTools
         /// no valid "migrate before generate" ordering, since migration has nothing
         /// to read until generation (or hand-authoring) has produced v1 assets.
         /// The pipeline order is therefore, and remains: GenerateAll (this class,
-        /// writes/refreshes the 12 v1 .asset files) -&gt; MigrateAll (writes v2 JSON
-        /// from those v1 files) -&gt; ValidateAll (checks the v2 JSON against
-        /// MicrogameDefinitionValidator). The next Unity-gate window should expect
-        /// GenerateAll to apply the pending hintText addition to all 12 assets (see
-        /// above -- intended content, not churn to investigate) with no other field
-        /// changing, then run MigrateAll against that freshly-regenerated state so
-        /// the v2 JSON carries the hints, then ValidateAll (see hand-off for the
-        /// exact commands).
+        /// writes/refreshes the on-disk .asset files) -&gt; MigrateAll (writes v2
+        /// JSON from those v1 files) -&gt; ValidateAll (checks the v2 JSON against
+        /// MicrogameDefinitionValidator). TASK-061's Unity-gate window (NOT done by
+        /// this Specs-array edit alone) still needs to: delete the 6 now-orphaned
+        /// on-disk assets (aporrea-d1-03/d3-04, timing-d1-07/d3-08, apunta-d1-05/
+        /// d3-06 + .meta -- GenerateAll's LoadOrCreate pattern does not prune
+        /// assets no longer in Specs, it only stops re-touching them), then run
+        /// GenerateAll -&gt; MigrateAll -&gt; ValidateAll so MicrogamePool.asset's
+        /// serialized `definitions` list drops the 3 retired ids too (see hand-off
+        /// for the exact commands).
         /// </summary>
         private static readonly DefSpec[] Specs = new DefSpec[]
         {
@@ -97,30 +100,6 @@ namespace Barcade.EditorTools
                 BaseDuration=4f, Difficulty=2 },
             new DefSpec { Id="esquiva", VerbText="¡ESQUIVA RÁPIDO!",
                 HintText="Mueve tu figura y evita los obstáculos",
-                BaseDuration=3f, Difficulty=3 },
-
-            // ── Aporrea (mash) ────────────────────────────────────────────────────
-            new DefSpec { Id="aporrea", VerbText="¡APORREA!",
-                HintText="Aporrea el botón lo más rápido posible",
-                BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="aporrea", VerbText="¡APORREA FUERTE!",
-                HintText="Aporrea el botón lo más rápido posible",
-                BaseDuration=4f, Difficulty=3 },
-
-            // ── Apunta (aim) ──────────────────────────────────────────────────────
-            new DefSpec { Id="apunta", VerbText="¡APUNTA!",
-                HintText="Apunta tu marca al objetivo y pulsa",
-                BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="apunta", VerbText="¡APUNTA BIEN!",
-                HintText="Apunta tu marca al objetivo y pulsa",
-                BaseDuration=4f, Difficulty=3 },
-
-            // ── Timing (press on cue) ─────────────────────────────────────────────
-            new DefSpec { Id="timing", VerbText="¡AHORA!",
-                HintText="Pulsa cuando la marca esté en la zona verde",
-                BaseDuration=5f, Difficulty=1 },
-            new DefSpec { Id="timing", VerbText="¡YA!",
-                HintText="Pulsa cuando la marca esté en la zona verde",
                 BaseDuration=3f, Difficulty=3 },
 
             // ── Recolecta (collect) ───────────────────────────────────────────────

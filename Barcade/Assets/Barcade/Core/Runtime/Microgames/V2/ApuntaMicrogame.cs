@@ -5,8 +5,10 @@ namespace Barcade.Core.Microgames.V2
     /// <summary>
     /// GDD §4 MECH_04 — ¡APUNTA! (hold-charge aiming). v2 <see cref="IMicrogame"/>
     /// implementation (see that interface's doc for the v1/v2 coexistence
-    /// rationale). The existing v1 <c>Barcade.Core.ApuntaMicrogame</c> (TASK-011,
-    /// a much simpler single-shot aim-and-fire mechanic) is untouched.
+    /// rationale). The v1 <c>Barcade.Core.ApuntaMicrogame</c> (TASK-011, a much
+    /// simpler single-shot aim-and-fire mechanic) coexisted with this class for a
+    /// while but has since been retired (TASK-061, T-107 slice 4) -- it mapped to
+    /// no GDD mechanic other than the one this class already implements.
     ///
     /// <para>
     /// <b>Simulation model.</b> Each seat has a fixed turret at one corner of the

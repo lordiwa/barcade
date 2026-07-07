@@ -275,8 +275,16 @@ namespace Barcade.Framework
         // ── Default registry ──────────────────────────────────────────────────────
 
         /// <summary>
-        /// Builds the canonical registry mapping all 5 mechanic ids to their
-        /// logic + view factories. Called once in Awake if no registry has been injected.
+        /// Builds the canonical registry mapping the remaining mechanic ids to
+        /// their logic + view factories. Called once in Awake if no registry has
+        /// been injected.
+        ///
+        /// TASK-061 (T-107 slice 4, Unit A): aporrea/timing/apunta-v1 retired --
+        /// none of the three maps to a canonical GDD MECH_01-09 mechanic (Phase A
+        /// disposition, ratified by the orchestrator). Their registry entries are
+        /// removed along with the mechanics/views themselves. recolecta stays
+        /// registered for now -- its own disposition is a content decision routed
+        /// to the human, out of Unit A's scope.
         /// </summary>
         public static MicrogameRegistry BuildDefaultRegistry()
         {
@@ -289,36 +297,6 @@ namespace Barcade.Framework
                 {
                     var view = root.AddComponent<EsquivaView>();
                     view.Bind((EsquivaMicrogame)game, players);
-                }
-            ));
-
-            // ── aporrea ───────────────────────────────────────────────────────────
-            reg.Register("aporrea", new MicrogameEntry(
-                createLogic: () => new AporreaMicrogame(threshold: 5, timeLimit: 5f),
-                attachView:  (game, players, root) =>
-                {
-                    var view = root.AddComponent<AporreaView>();
-                    view.Bind((AporreaMicrogame)game, players);
-                }
-            ));
-
-            // ── apunta ────────────────────────────────────────────────────────────
-            reg.Register("apunta", new MicrogameEntry(
-                createLogic: () => new ApuntaMicrogame(angleTolerance: 25f),
-                attachView:  (game, players, root) =>
-                {
-                    var view = root.AddComponent<ApuntaView>();
-                    view.Bind((ApuntaMicrogame)game, players);
-                }
-            ));
-
-            // ── timing ────────────────────────────────────────────────────────────
-            reg.Register("timing", new MicrogameEntry(
-                createLogic: () => new TimingMicrogame(speed: 1.0f, zoneMin: 0.4f, zoneMax: 0.6f),
-                attachView:  (game, players, root) =>
-                {
-                    var view = root.AddComponent<TimingView>();
-                    view.Bind((TimingMicrogame)game, players, zoneMin: 0.4f, zoneMax: 0.6f);
                 }
             ));
 

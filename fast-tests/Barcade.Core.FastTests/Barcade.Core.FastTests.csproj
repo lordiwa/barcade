@@ -39,9 +39,9 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SequencerTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RoundPhaseMachineTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\EsquivaMicrogameTests.cs" />
-    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\AporreaMicrogameTests.cs" />
-    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ApuntaMicrogameTests.cs" />
-    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\TimingMicrogameTests.cs" />
+    <!-- TASK-061 (T-107 slice 4): aporrea/timing/apunta-v1 retired. AporreaMicrogameTests.cs,
+         ApuntaMicrogameTests.cs (v1), and TimingMicrogameTests.cs were deleted along with the
+         mechanics they covered. recolecta stays pending the human's ruling on its own disposition. -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RecolectaMicrogameTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ContentUpdatePolicyTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\GridArenaTests.cs" />

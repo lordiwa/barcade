@@ -110,13 +110,17 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
-        public void ExactlyTwelveSpecsExist()
+        public void ExactlySixSpecsExist()
         {
-            // Guards the fixture/parse itself (mirrors
-            // MicrogameDefinitionMigratorTests.ExactlyTwelveDefinitionAssetsExist):
-            // if this drifts, the tests below would silently check fewer/more
-            // entries than the generator actually declares.
-            Assert.That(ParseSpecs(), Has.Count.EqualTo(12));
+            // TASK-061 (T-107 slice 4, Unit A): was 12 before aporrea/timing/
+            // apunta-v1 were retired (6 entries removed: 2 each). Guards the
+            // fixture/parse itself (mirrors
+            // MicrogameDefinitionMigratorTests.ExactlyTwelveDefinitionAssetsExist,
+            // which stays at 12 for now -- the on-disk assets themselves are
+            // deleted in the Unity-gate window, not by this Specs-array edit): if
+            // this drifts, the tests below would silently check fewer/more entries
+            // than the generator actually declares.
+            Assert.That(ParseSpecs(), Has.Count.EqualTo(6));
         }
 
         [Test]

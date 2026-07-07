@@ -6,8 +6,12 @@ using Barcade.Core.Microgames.V2;
 // Barcade.Core.Tests is lexically nested inside Barcade.Core, so an unqualified
 // name resolves against Barcade.Core's own members before "using"-imported ones —
 // see the identical note in ReaccionaMicrogameTests.cs. Renamed aliases sidestep
-// the MicrogameResult/IMicrogame/InputSnapshot/ApuntaMicrogame collisions (the v1
-// Barcade.Core.ApuntaMicrogame from TASK-011 shares this v2 mechanic's simple name).
+// the MicrogameResult/IMicrogame/InputSnapshot collisions this nesting would
+// otherwise cause against Barcade.Core's own v1 types (still live -- e.g. v1
+// EsquivaMicrogame/RecolectaMicrogame keep using them). The v1 Barcade.Core.
+// ApuntaMicrogame that originally motivated the ApuntaMicrogame alias too was
+// retired in TASK-061 (T-107 slice 4) -- V2Apunta is kept anyway for consistency
+// with every other v2 test file's identical aliasing pattern.
 using V2Result = Barcade.Core.Microgames.V2.MicrogameResult;
 using V2Microgame = Barcade.Core.Microgames.V2.IMicrogame;
 using V2Snapshot = Barcade.Core.Microgames.V2.InputSnapshot;

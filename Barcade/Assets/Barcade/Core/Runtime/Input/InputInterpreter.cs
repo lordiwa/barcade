@@ -23,7 +23,9 @@ namespace Barcade.Core
     /// (StickX, StickY) pair instead of an 8-way enum, and a
     /// <see cref="ButtonState"/> enum whose <see cref="ButtonState.Pressed"/>
     /// member already bakes in a rising-edge concept upstream (see
-    /// <c>AporreaMicrogame</c>, which treats <c>Pressed</c> as "just went down").
+    /// <c>SampleTapMicrogame</c>, which treats <c>Pressed</c> as "just went down";
+    /// the same era's Aporrea/Timing/Apunta-v1 microgames read it identically but
+    /// were retired in TASK-061, T-107 slice 4).
     /// This interpreter does not trust that pre-baked edge — it treats
     /// <c>Pressed || Held</c> as the raw "button down this tick" boolean and
     /// re-derives press/release edges itself with its own debounce, because the

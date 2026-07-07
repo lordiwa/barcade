@@ -12,15 +12,20 @@ namespace Barcade.Framework.Tests
     /// TASK-014 Part C — Verification that SequencerDirector can select every mechanic id
     /// and MicrogameHost can build each without error.
     ///
-    /// The pool is built in-code from the 5 canonical registry ids, so this test is
+    /// The pool is built in-code from the registry's own ids, so this test is
     /// self-contained and does NOT require GenerateAll to have run first.
+    ///
+    /// TASK-061 (T-107 slice 4, Unit A): AllMechanicIds shrank from 5 to 2 --
+    /// aporrea/timing/apunta-v1 retired (mapped to no canonical GDD MECH_01-09
+    /// mechanic). recolecta stays registered for now; its own disposition is a
+    /// content decision routed to the human, out of Unit A's scope.
     ///
     /// The orchestrator MUST run GenerateAll before running any test that loads the
     /// generated .asset files from disk.
     ///
     /// Acceptance criteria verified:
-    ///   AC1: SequencerDirector can pick each of the 5 mechanic ids.
-    ///   AC2: MicrogameHost.StartRound succeeds for all 5 ids without exception.
+    ///   AC1: SequencerDirector can pick every registered mechanic id.
+    ///   AC2: MicrogameHost.StartRound succeeds for every registered id without exception.
     ///   AC3: Difficulty propagates: MicrogameHost.StartRound accepts difficulty param
     ///        without error for each id at difficulty=0, 0.5, and 1.0.
     /// </summary>
@@ -29,7 +34,7 @@ namespace Barcade.Framework.Tests
     {
         private static readonly string[] AllMechanicIds =
         {
-            "esquiva", "aporrea", "apunta", "timing", "recolecta"
+            "esquiva", "recolecta"
         };
 
         // ── Teardown ──────────────────────────────────────────────────────────────
@@ -56,7 +61,7 @@ namespace Barcade.Framework.Tests
         // ── AC1: SequencerDirector picks each mechanic id ─────────────────────────
 
         [Test]
-        public void SequencerDirector_CanPickAllFiveMechanicIds()
+        public void SequencerDirector_CanPickAllRegisteredMechanicIds()
         {
             // Build a pool with one descriptor per mechanic id.
             var descriptors = new List<MicrogameDescriptor>();
@@ -66,7 +71,7 @@ namespace Barcade.Framework.Tests
             var director = new SequencerDirector(descriptors, new SeededRandom(42), RampSettings.Default);
 
             // Pick enough rounds to have each id selected at least once.
-            // With anti-repeat and 5 entries, picking 20 rounds guarantees coverage.
+            // With anti-repeat and 2 entries, picking 20 rounds guarantees coverage.
             var seen = new System.Collections.Generic.HashSet<string>();
             for (int i = 0; i < 20; i++)
             {
@@ -80,10 +85,10 @@ namespace Barcade.Framework.Tests
                     $"SequencerDirector must be able to pick id '{id}' from the pool");
         }
 
-        // ── AC2: MicrogameHost.StartRound succeeds for all 5 ids ──────────────────
+        // ── AC2: MicrogameHost.StartRound succeeds for every registered id ────────
 
         [UnityTest]
-        public IEnumerator MicrogameHost_StartsRound_ForAllFiveMechanicIds()
+        public IEnumerator MicrogameHost_StartsRound_ForAllRegisteredMechanicIds()
         {
             var registry = MicrogameHost.BuildDefaultRegistry();
 
@@ -97,7 +102,7 @@ namespace Barcade.Framework.Tests
                 host.SetRegistry(registry);
                 hostGO.SetActive(true);
 
-                // StartRound must not throw for any of the 5 ids.
+                // StartRound must not throw for any registered id.
                 Assert.DoesNotThrow(() =>
                 {
                     host.StartRound(
@@ -116,10 +121,10 @@ namespace Barcade.Framework.Tests
             }
         }
 
-        // ── AC3: Difficulty parameter accepted for all 5 ids ─────────────────────
+        // ── AC3: Difficulty parameter accepted for every registered id ───────────
 
         [UnityTest]
-        public IEnumerator MicrogameHost_AcceptsDifficultyParam_ForAllFiveIdsAndLevels()
+        public IEnumerator MicrogameHost_AcceptsDifficultyParam_ForAllRegisteredIdsAndLevels()
         {
             var registry = MicrogameHost.BuildDefaultRegistry();
             float[] difficulties = { 0f, 0.5f, 1f };
@@ -159,7 +164,7 @@ namespace Barcade.Framework.Tests
         [Test]
         public void MicrogameLoopController_CanBuildDirector_FromInCodePool()
         {
-            // Build descriptors for all 5 ids at 3 difficulty levels (15 total, like generated pool).
+            // Build descriptors for all registered ids at 3 difficulty levels (6 total, like generated pool).
             var descriptors = new List<MicrogameDescriptor>();
             int[] difficulties = { 1, 2, 3 };
             foreach (string id in AllMechanicIds)
