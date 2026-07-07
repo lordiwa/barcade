@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T23:43:38.291Z",
+  "generated_at": "2026-07-07T23:48:35.035Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -406,7 +406,7 @@
     {
       "key": "TASK-068",
       "title": "Wire BoardModel into SessionStateMachine BOARD_MOVE/BOARD_RESOLVE + reconcile coin pools (GDD §5.6)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
