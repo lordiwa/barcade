@@ -51,6 +51,10 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputInterpreterTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ReaccionaMicrogameTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ApuntaMicrogameV2Tests.cs" />
+    <!-- TASK-030 (GDD T-106): MicrogameDefinition v2 schema/validator/migrator -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionV2Tests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionValidatorTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionMigratorTests.cs" />
   </ItemGroup>
 
 </Project>
