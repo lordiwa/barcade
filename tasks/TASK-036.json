@@ -1,0 +1,36 @@
+{
+  "key": "TASK-036",
+  "title": "GDD T-117 — Contenido remoto endurecido: rollback, checksum, modo degradado (§12)",
+  "description": "Harden the TASK-016 Addressables architecture proof into the production §12 pipeline. Two layers: local group Barcade-Core in StreamingAssets (framework, 9 mechanics, base assets, emergency minimum pool — updatable only by reinstall) and remote group Barcade-Microgames over HTTP(S) (definitions, pools, GameTuning, variant assets — fleet-pushable). Operational flow: catalog check at boot and every N hours during ATTRACT; delta bundles download in background; new content activates only at the NEXT session cycle, never mid-game. Degraded mode: without network the cabinet runs indefinitely on last cached content, or ultimately the local minimum pool — a bar without internet never has a dead machine. Versioning: monotonic contentVersion; previous version kept in cache; automatic rollback if the new version fails schema validation (TASK-030 validator) or the load smoke test. Security minimum: HTTPS catalog + per-bundle checksum, mismatched hash rejected (full crypto signing explicitly deferred to fleet phase). Extends docs/remote-content.md. Read GDD §12 + TASK-016 artifacts before coding.",
+  "acceptance_criteria": [
+    "Content activation is session-cycle-gated: an update arriving mid-session is staged and activates only after GAME_OVER -> ATTRACT (test via simulated session clock)",
+    "Degraded mode: network cut at any stage (catalog fetch, bundle download) leaves the cabinet fully playable on cached or minimum-local content, verified by fault-injection tests",
+    "Rollback: a staged version failing schema validation or load smoke automatically reverts to the previous cached version, with the failure recorded (telemetry event if TASK-033 available, log otherwise)",
+    "Checksum enforcement: any bundle whose hash mismatches the catalog entry is rejected and triggers the degraded/rollback path",
+    "contentVersion is monotonic and surfaced to replay (.bcrp header) and telemetry headers",
+    "EditMode/PlayMode tests cover the update-check state machine; docs/remote-content.md updated with the hardened flow, rollback and checksum sections"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-5",
+    "framework",
+    "addressables",
+    "remote-content",
+    "T-117"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:20:50.438Z",
+  "updated_at": "2026-07-07T04:20:50.438Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,0 +1,37 @@
+{
+  "key": "TASK-031",
+  "title": "GDD T-113 — BoardModel: anillo, medidor de parada, casillas, economía (§5.1–5.3, §5.6)",
+  "description": "The board meta-game core, engine-free per the IBoardModel contract of Annex D.2 (BeginMovePhase/TickMove/MoveFinished/Resolve/GetSnapshot, BoardResolution with CoinDelta origin->destination flows). Ring of N=20 squares (data param, 16-24); avatars share the ring and stack on the same square. Simultaneous movement via the stop-meter: each player's meter cycles 1->6 at 4 Hz (full cycle 1.5 s), tap stops it, 8 s timeout auto-stops at the tick's value; resulting distribution must be statistically uniform. Square types and ring quotas per GDD 5.3 (6 moneda+, 2 moneda-, 3 inversion, 3 propiedad/trampa, 3 evento, 1 estrella movil, 2 cangrejo). Inversion squares: deposit 0/25/50% of balance chosen with stick in <=4 s; highest cumulative depositor owns it; tie -> first depositor by tick; owner earns 1 star each time the global round marker advances 3. Property: buy empty for 8, rival landing transfers 4 to owner. Star: buy for 15, square relocates (seeded), only one at a time. Hard economic invariant (GDD 5.3): every coin taken from a player goes to another player or a VISIBLE pot — CoinDelta always names origin and destination; nothing vanishes; balances never go below 0. Plugs into the BOARD_MOVE/BOARD_RESOLVE states of the SessionStateMachine (TASK-024). Read GDD §5 fully + Annex D.2 before coding.",
+  "acceptance_criteria": [
+    "Implements IBoardModel per Annex D.2 as engine-free Core code; all randomness via injected SeededRandom; deterministic given (seed, inputs)",
+    "Stop-meter: cycles 1-6 at 4 Hz, tap freezes the player's own meter, 8 s timeout freezes at the current value, all four resolve simultaneously; statistical test over 1000+ seeds shows approximately uniform distribution of stopped values (GDD 5.2 AC)",
+    "Ring composition honors the 5.3 quota table for N=20 and stays valid for N in [16,24] (property test)",
+    "Economic invariant holds under property test: every CoinDelta has a visible origin and destination, no coins created or destroyed unaccounted, no balance ever negative",
+    "Inversion, property, star, and cangrejo (weapon-grant) squares implement the exact 5.3 rules including deposit-tie -> first-by-tick and star relocation after purchase",
+    "BOARD_MOVE/BOARD_RESOLVE integrate with the SessionStateMachine stubs from TASK-024 without FSM shape changes; timeout budget per GDD 2.2 respected",
+    "Steady-state TickMove allocates zero heap memory",
+    "Tests-first: red tests for each rule committed strictly before implementation; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-4",
+    "core",
+    "board",
+    "T-113"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-024"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:19:44.536Z",
+  "updated_at": "2026-07-07T04:19:44.536Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,0 +1,35 @@
+{
+  "key": "TASK-035",
+  "title": "GDD T-108 — Sequencer: cuotas, anti-repetición y bias anti-frustración (§9.2, §6.4)",
+  "description": "Extend the existing Sequencer (TASK-005 era) into the GDD §9.2 selector: seeded draw over the active MicrogamePool (v2 definitions from TASK-030) respecting hard constraints — per-7-round session quota (>=1 asymmetric, exactly 1 coop special phase, rest competitive), never the same mechanic two rounds in a row, never the same variant twice per session, plus the §6.4 anti-frustration bias: if a player placed 4th two consecutive rounds, the third round's draw is biased toward a mechanic from that player's best in-session history (bias of SELECTION, never of result). The GDD nesting prohibition applies: one decision -> at most one random draw. The whole selector is a pure function of (seed, history) — fully testable. Applies difficulty ramp D(r) = 1 + 0.06(r−1) metadata to the selected definition (final microgame D=1.5 fixed). Read GDD §9, §6.4 before coding.",
+  "acceptance_criteria": [
+    "Selector is a pure function of (seed, session history): same inputs -> same draw (replay test); no hidden state, no wall clock",
+    "Quota test over 1000 seeded 7-round sessions: every session has >=1 asymmetric, exactly 1 coop special, remainder competitive",
+    "Anti-repetition: no mechanic twice consecutively and no variant twice per session, verified over the same 1000-session corpus",
+    "Anti-frustration bias engages exactly on the two-consecutive-4th-places trigger and provably shifts selection probability toward the player's best-history mechanic without guaranteeing outcome (statistical test)",
+    "D(r) ramp attached per round with D_final = 1.5 for the climax microgame",
+    "Existing Sequencer consumers keep compiling; tests-first; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "sequencer",
+    "T-108"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:20:38.128Z",
+  "updated_at": "2026-07-07T04:20:38.128Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,0 +1,37 @@
+{
+  "key": "TASK-042",
+  "title": "GDD T-114 — Arsenal cangrejo + eventos + FINAL_WAGER en tablero (§5.4, §5.5) [gate Hito 4]",
+  "description": "Completes the board: weapons, round modifiers, and the wager wired into BOARD/session flow. Arsenal (§5.4): max 1 weapon held (pickup replaces); used during BOARD_RESOLVE by aiming with stick + tap confirm. Guante de boxeo: usable ONLY against the 1st-place player; target loses 50% of coins which fall to the board floor and are shared among players within 2 squares. Imán: steals 1 object or 6 coins, range <= 4 squares. Colmena: area — everyone on and adjacent to the target square loses 3 coins toward the thrower, thrower immune. Structural anti-leader targeting is code; the decision to fire is the group's (P5). Eventos (§5.5): seeded draw among DobleVelocidad (next microgame 1.5x), MuerteSubita, ModoPinata, LluviaDeMonedas (+2 all), Apagon (score HUD hidden until end) — wired as RoundModifier through BoardResolution into the session. FINAL_WAGER integrates the TASK-037 wager into the FSM's FINAL_WAGER state with the 5 s stick choice. Hito 4 gate (§17): economic invariants green over 1000 bot-simulated full sessions; complete session inside the §2.2 time budget. Read GDD §5.4/§5.5, §6.2, §2.2 before coding.",
+  "acceptance_criteria": [
+    "All three weapons implement their exact restriction rules (guante only-vs-leader, iman range 4, colmena thrower-immune) with every coin flow expressed as visible origin->destination CoinDeltas",
+    "Inventory: holding max 1, pickup replaces, weapon consumed on use; targeting flow (stick aim + tap) resolves within BOARD_RESOLVE's 10 s budget",
+    "The 5 eventos exist as seeded RoundModifiers reaching the next microgame/session state (DobleVelocidad multiplies speed-scaling params; Apagon hides scores until GAME_OVER)",
+    "FINAL_WAGER state consumes the TASK-037 wager implementation with compulsory 25/50/75 choice and timeout default",
+    "Hito 4 gate: 1000 full bot-driven sessions (TASK-038 bots) show zero economic-invariant violations and every session inside the 2.2 time budget",
+    "Tests-first; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-4",
+    "core",
+    "board",
+    "arsenal",
+    "T-114"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-031",
+    "TASK-037"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:22:23.560Z",
+  "updated_at": "2026-07-07T04:22:23.560Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

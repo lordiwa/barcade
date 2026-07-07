@@ -1,0 +1,36 @@
+{
+  "key": "TASK-038",
+  "title": "GDD T-110 — Sistema de bots: IBotPolicy + 3 calibraciones + arnés de tests estadísticos (Annex D.3)",
+  "description": "One bot system, two uses (Annex D.3): fill empty seats in production and drive the §16 statistical balance tests. Each mechanic implements IBotPolicy { PlayerInput Decide(BotSkill skill, in BotView view, SeededRandom rng) } where BotView is strictly the projection of state a human could see — bots never read hidden state (enforced by BotView construction, not discipline). BotSkill humanizers: reactionDelayTicks (Novato ~N(20,5) ≈330 ms; Optimo = 6 ≈100 ms), errorRate per decision (Novato 0.25; Optimo 0.0), mashHz (Novato ~N(4.5,1); Optimo 9 = saturation), with per-mechanic overrides. Standard calibrations Bot.Novato (production seat-filler, target 10-20% winrate vs average humans), Bot.Medio (statistical reference), Bot.Optimo (test ceilings only: escapability, reachability). The statistical harness runs 1000-seed batches inside the fast suite within a sane time budget and is the executable definition of 'bots calibrados' used by later winrate-band ACs (T-111/T-112). Policies required now for the mechanics existing at execution time (MECH_02/03/01/04/05); the harness API must accept future mechanics without change. Read Annex D.3 + §16 before coding.",
+  "acceptance_criteria": [
+    "IBotPolicy contract implemented for every existing mechanic; BotView types expose only human-visible state (no reference to hidden sim internals compiles)",
+    "BotSkill sampling (gaussian delays/rates) is seeded and deterministic; same seed -> same bot behavior (replay test)",
+    "Three named calibrations exist as data; Bot.Optimo drives the escapability/reachability ceiling tests for MECH_02/MECH_04 introduced in their tickets",
+    "Statistical harness: 1000-seed batch of a full mechanic round completes in the fast suite within budget (document the measured time); results reproducible",
+    "Novato fills an Empty/Idle seat in a simulated session without stalling any state (integration test with the SessionStateMachine)",
+    "Tests-first; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "bots",
+    "testing",
+    "T-110"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-034"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:21:21.747Z",
+  "updated_at": "2026-07-07T04:21:21.747Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

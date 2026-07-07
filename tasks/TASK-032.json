@@ -1,0 +1,36 @@
+{
+  "key": "TASK-032",
+  "title": "GDD T-115 — Replay .bcrp: formato binario + test de hash de estado final (Annex D.4)",
+  "description": "Session replay as the primary field-debugging tool (GDD §13 + Annex D.4). Binary format .bcrp: Header {magic BCRP, formatVersion u16, contentVersion u32, sessionSeed u64, startUtc i64, seatStates u8[4], gameTuningHash u64}; Body {framecount u32, then per-tick PlayerInput deltas RLE-encoded (stick u4 + button u1 per seat, <=3 bytes/tick worst case)}; Footer {finalStateHash u64 (FNV-1a of the serialized Core state at Game Over), crc32}. Recording (sessionSeed + InputSnapshot sequence) and replaying on the same contentVersion reproduces the session bit-for-bit to the same finalStateHash. A contentVersion mismatch at replay reports 'replay incompatible', never a determinism failure. Expected size: 12-min session (~43,200 ticks) < 50 KB. Defines the attach-point for crash telemetry (TASK linked to T-116). Builds on the session-level replay-determinism harness from TASK-028. Read GDD §13 + Annex D.4 before coding.",
+  "acceptance_criteria": [
+    "Writer + reader for the exact D.4 layout (header/body/footer, RLE input deltas, crc32) with format round-trip test",
+    "Record -> replay on same contentVersion yields identical finalStateHash across a matrix of test seeds and scripted input sequences (fast-suite test)",
+    "contentVersion mismatch at replay surfaces as 'replay incompatible' (typed result), never as a hash/determinism failure; corrupted crc32 detected and reported",
+    "Size test: a simulated 12-minute session serializes under 50 KB",
+    "finalStateHash is FNV-1a over a canonical Core state serialization defined well enough to be stable across process restarts on the same platform",
+    "Tests-first; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-5",
+    "core",
+    "replay",
+    "determinism",
+    "T-115"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-028"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:19:53.944Z",
+  "updated_at": "2026-07-07T04:19:53.944Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

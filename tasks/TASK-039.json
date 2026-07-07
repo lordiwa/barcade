@@ -1,0 +1,38 @@
+{
+  "key": "TASK-039",
+  "title": "GDD T-118 — Modo kiosco: watchdog, burn-in, soak 8h (§14 operación continua) [gate Hito 5]",
+  "description": "Production hardening for 8-12 h/day continuous operation on the N100 target (GDD §14). Windows kiosk mode: autologin + launcher watchdog that restarts the app if unresponsive for 10 s; scheduled daily restart at closing time; rotating local log capped at 200 MB. Burn-in prevention: in ATTRACT, all static elements drift ±4 px on a 60 s cycle. Boot-to-ATTRACT <= 40 s from power-on. Hito 5 gate ACs (§17): a remote pool update applies WITHOUT restarting the binary (with TASK-036); a simulated network cut causes zero gameplay degradation; an 8-hour soak run shows flat memory (no leak) and zero crashes. The soak and boot-time measurements need a real Windows machine — coordinate with the human for the target-hardware runs; everything else is scriptable. Read GDD §14 + §17 Hito 5 before coding.",
+  "acceptance_criteria": [
+    "Watchdog restarts the app within budget when it stops responding 10 s (fault-injection test); daily scheduled restart configured and documented",
+    "Rotating log with 200 MB cap proven by synthetic log flood",
+    "ATTRACT burn-in drift (±4 px, 60 s cycle) applied to all static UI elements",
+    "Remote pool update applied end-to-end without binary restart (with TASK-036), verified on a running instance",
+    "Simulated network cut mid-operation: session continues undegraded (ties into TASK-036 degraded mode)",
+    "8 h soak: memory flat within tolerance, zero crashes, logs rotate — run recorded with the human on target-like hardware (uat-style evidence attached to the ticket)",
+    "Boot to ATTRACT <= 40 s measured and recorded on the target machine"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-5",
+    "framework",
+    "ops",
+    "kiosk",
+    "T-118"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-033",
+    "TASK-036"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:21:32.259Z",
+  "updated_at": "2026-07-07T04:21:32.259Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

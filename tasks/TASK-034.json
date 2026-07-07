@@ -1,0 +1,39 @@
+{
+  "key": "TASK-034",
+  "title": "GDD T-107 — Adaptar MECH_02 ¡ESQUIVA! al contrato; completar MECH_03 ¡CORRE!; crear MECH_01 ¡MANTÉN! (§4)",
+  "description": "Consolidates the three Hito 2 competitive mechanics per GDD §4, on the canonical §10.2 contract (GDD-authority decision 2026-07-07: code adapts to the GDD). (A) MECH_02: adapt the existing EsquivaMicrogame/Esquiva-3D dodge base to the v2 IMicrogame contract, conserving existing tests; normalized [0,1]² arena, deterministic seeded hazards (patterns Rain/Sides/Cross/Homing_soft with 30°/s turn cap guaranteeing escape), one hit eliminates, ranking by survival tick. (B) MECH_03: complete the endless-run per spec — button MASH accelerates (v = vBase + vGain·mashNorm via the §3.3 curve from InputInterpreter), stick-up TAP jumps (never the reverse mapping), identical seeded obstacle tracks in all 4 lanes, obstacle hit = 0.6 s stun (no elimination), rubber-band +8% vBase for last place; the existing RunnerSim (Endless Run demo) is the code base to adapt — fold in the still-pending human camera UAT verdict at the View level. (C) MECH_01 ¡MANTÉN!: new inverted-pendulum balance per §4 — theta'' = (g/L)·sin(theta) + perturbacion(t) − k·input with seeded noise amplitude ramp A(t) = A0 + rampa·t, fail at |theta| > thetaMax (35° default), L/R torque only, victory = last standing or lowest mean |theta|. The Alcocheck demo sim is prior art to mine, not a constraint. All three declare difficultyScaling fields in their v2 definitions. NOTE for orchestrator: large ticket — consider splitting into 3 sub-tickets at execution time; Annex D.5 lists it as one row. Read GDD §4 (MECH_01/02/03), §10.2, §9.1 before coding.",
+  "acceptance_criteria": [
+    "All three mechanics implement the canonical v2 IMicrogame contract as engine-free Core sims with injected SeededRandom and zero-alloc steady Tick",
+    "MECH_02: escapability test — an optimal bot survives full duration on every seed in the test set; no overlapping spawns (min separation 0.08); Homing_soft turn rate capped 30 deg/s; existing dodge tests conserved or migrated",
+    "MECH_03: same seed produces the identical track in all 4 lanes; a bot at constant 6 Hz mash with perfect jumps finishes unstunned; rubber-band never inverts the result between two players with identical mash over 1000 seeds (statistical test)",
+    "MECH_01: with null input every pendulum falls before duration on all test seeds; with simulated perfect correction 100% survive; replay determinism test passes",
+    "Each mechanic's v2 definition declares its difficultyScaling params and passes the TASK-030 validator",
+    "Ranking edge cases per GDD: simultaneous eliminations share Place; survivors at timeout share 1st (MECH_02); ties handled without fabricated winners",
+    "Tests-first (red before impl) for all new/changed rules; fast suite green after, no regression; existing legacy consumers keep compiling"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "microgame",
+    "MECH_01",
+    "MECH_02",
+    "MECH_03",
+    "T-107"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:20:28.216Z",
+  "updated_at": "2026-07-07T04:20:28.216Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

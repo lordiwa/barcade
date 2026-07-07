@@ -1,0 +1,38 @@
+{
+  "key": "TASK-040",
+  "title": "GDD T-111 — MECH_06 ¡PERSIGUE!/¡ESCAPA! + MECH_07 ¡BOMBARDEA! (asimétricas 1v3, §4)",
+  "description": "The two 1v3 asymmetric mechanics per GDD §4, on the canonical v2 contract, balance-verified with the TASK-038 bot harness. MECH_06: arena with 2-3 cover obstacles; solo role rotates ROUND-ROBIN forced by the system across the session (never the same seat twice in a row); modes soloHunts (solo catches the 3) and soloFlees (the 3 catch the solo, solo wins surviving duration); the solo compensates 1-vs-3 ONLY with mobility (+15% speed, longer dash) — never different rules (hard design rule); dash on tap with exact 1.5 s cooldown. MECH_07 (inverted power): solo aims a reticle, each shot telegraphs the zone 0.7 s before impact (NEVER damage without visible warning — P4 guarantee), fire cadence 1/0.9 s with max queue of 1; solo scores per hit, the trio scores by surviving. Balance bands measured with Bot.Medio over 1000 seeds: MECH_06 corral test (3 coordinated bots catch an optimal solo in < duration in >= 40% of seeds) and MECH_07 winrate in [40%, 60%]. Both declare soloSpeedBonus etc. as data for remote recalibration. Read GDD §4 MECH_06/MECH_07 + D.3 before coding.",
+  "acceptance_criteria": [
+    "Both mechanics implement the v2 contract, engine-free, seeded, zero-alloc steady Tick",
+    "MECH_06 solo rotation verified round-robin over a full simulated session (never same seat consecutively; system-forced, never chosen)",
+    "MECH_06 corral test: 3 coordinated Bot.Medio catch an optimal solo bot within duration in >= 40% of 1000 seeds; dash cooldown exact at tick resolution",
+    "MECH_07 telegraph: >= 0.5 s guaranteed between telegraph visibility in RenderState and damage application (timeline test); solo cannot queue more than 1 pending shot",
+    "MECH_07 winrate with calibrated bots in the [40, 60]% band over 1000 seeds; both mechanics' balance knobs are definition data passing the validator",
+    "Solo balance is mobility-only: identical rule set both sides asserted structurally (shared verb/collision logic, no role-specific rule branches beyond speed/dash params)",
+    "Tests-first; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "microgame",
+    "MECH_06",
+    "MECH_07",
+    "T-111"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-038"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:21:52.034Z",
+  "updated_at": "2026-07-07T04:21:52.034Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

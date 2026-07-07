@@ -1,0 +1,39 @@
+{
+  "key": "TASK-041",
+  "title": "GDD T-112 — MECH_08 ¡SUJETA! + MECH_09 ¡IGUALA! + fases especiales coop/Jefe (§4, §7) [gate Hito 3]",
+  "description": "The cooperative mechanics and both special phases, closing Hito 3. MECH_08 (§4): 4 color switches; team wins by holding all required switches SIMULTANEOUSLY for holdWindow (1.5 s default) within duration; early release resets the window, never fails the round; coop payout identical for all (internal ranking in coop is banned — P2); infoAsym variant: only one rotating player sees the countdown (info asymmetry lives in RenderState/BotView so views and bots respect it). MECH_09 (§4): colorRelay coop — colored symbols in sequence, only the color's owner confirms within reactWindow(n) = max(0.45, 0.9 − 0.05n); wrong-owner confirm = −1 common progress with correct attribution; sequences never repeat a color 3x consecutively; diagonals collapse via the TASK-023 helper; simonSolo competitive variant. Special coop phase (§7.1, ronda 3-4): 60-90 s scenario built from MECH_08/09; uniform movement stats for all avatars (difficulty is 100% level architecture); ergonomic-violation elements as data (distanciasEstiradas, interseccionForzada with collision ON only here, cuelloBotella, sueloDinamico at t=30 s); positive scoring with bronze/plata/oro -> 2/4/6 coins each. Boss phase (§7.2, ronda 5-6): score leader starts as Jefe (bigger hitbox, 3 hits, area attack telegraph 0.6 s); golpe final swaps roles IN THE SAME TICK with no ambiguous invulnerability frame, new Jefe at 2 hits; 75 s; Jefe-at-timeout wins 6, attackers 2. NOTE for orchestrator: large ticket — candidate to split (08, 09, fase coop, fase Jefe) at execution time. Read GDD §4 MECH_08/09 + §7 before coding.",
+  "acceptance_criteria": [
+    "MECH_08: window validates only with all required holds overlapped at tick level; an Idle/Empty seat converts the requirement 4/4 -> 3/3 automatically (coop never impossible by abandonment); identical payout to all players verified",
+    "MECH_08 infoAsym: countdown visibility is per-seat in RenderState and BotView so only the rotating seat can act on timing",
+    "MECH_09: generated sequences never repeat a color 3x consecutively; reactWindow decays to a floor of exactly 0.45 s; wrong-color confirm subtracts 1 common progress and attributes the author correctly in the result/event data",
+    "Coop phase: all 4 avatars share identical movement params (structural assert); the 4 ergonomic-violation elements exist as composable level data; collision between players active ONLY in this phase; bronze/plata/oro thresholds pay 2/4/6 to all",
+    "Jefe phase: role swap resolves in the same tick as the final hit with no invulnerability-gap frame (tick-timeline test); telegraph always precedes Jefe damage; 75 s duration; rewards 6/2",
+    "Both phases integrate with the Sequencer quota (exactly 1 coop special per session; Jefe targets the score leader) via TASK-035",
+    "Tests-first; fast suite green; Hito 3 gate: asym winrates in band (with TASK-040) and coop-impossible-by-abandonment proven impossible"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "microgame",
+    "MECH_08",
+    "MECH_09",
+    "fases-especiales",
+    "T-112"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-038"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:22:10.209Z",
+  "updated_at": "2026-07-07T04:22:10.209Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

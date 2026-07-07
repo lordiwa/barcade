@@ -1,0 +1,35 @@
+{
+  "key": "TASK-037",
+  "title": "GDD T-109 — ScoreModel: estrellas bonus con exclusión + apuesta final (§6.2/§6.3) [gate Hito 2]",
+  "description": "Extend the existing ScoreModel (TASK-003 era) with the GDD §6 systems. Payouts stay data-driven (default [6,4,2,1] competitive; coop 4 win / 1 fail — the absolute-zero payout is banned, §6.1). FINAL_WAGER (§6.2): each player compulsorily bets 25/50/75% of coins (stick choice, 5 s timeout -> default), pot redistributed by final-microgame result at 50/30/15/5%. Bonus stars (§6.3): at Game Over, 2 stars drawn (session seed) from the hidden-objective pool tracked by in-session counters — Kamikaze (most eliminations), Cangreja (most weapons used), Zen, Gatillo (best REACCIONA latency), Inversora (most invested), Fantasma (least robbed); each worth 1 star. Acotación rule: the draw EXCLUDES combinations that would hand victory to a player trailing by >= 3 stars (absurd-but-justifiable comebacks only). Final tiebreak chain: estrellas -> monedas -> microgame wins -> declared shared podium. Catch-up stays bounded per §6.2 (rubber-band and head-start live in mechanics; wager compression is the ScoreModel's lever, max ~1 star of swing). This closes Hito 2 at Core level. Read GDD §6 fully before coding.",
+  "acceptance_criteria": [
+    "Payout tables are data (GameTuning-style), validator-compatible, and never emit a zero payout for any place in any mode",
+    "FINAL_WAGER: compulsory 25/50/75 choice with 5 s timeout default; pot math exact at 50/30/15/5; property test shows wager compresses coin distribution and can swing at most about 1 star of value",
+    "Bonus stars: all six counters tracked; seeded draw of 2; exclusion rule provably prevents any draw that would flip victory to a player >= 3 stars behind (exhaustive test over constructed scenarios plus 1000-seed fuzz)",
+    "Tiebreak chain estrellas -> monedas -> victorias -> declared tie implemented and tested including the full-tie shared-podium case",
+    "Determinism: same session seed + same counters -> same stars (replay test)",
+    "Tests-first; fast suite green after, no regression; existing ScoreModel consumers keep compiling"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "scoring",
+    "T-109"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-035"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:21:08.977Z",
+  "updated_at": "2026-07-07T04:21:08.977Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

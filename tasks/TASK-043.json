@@ -1,0 +1,35 @@
+{
+  "key": "TASK-043",
+  "title": "GDD T-119 — Instrumentación de piloto + panel de KPIs (§15.2) [gate Hito 6]",
+  "description": "Turns the §15 telemetry into pilot-readable business/balance data and closes the prototype loop. KPI queries + panel over the TASK-033 store: sesiones/noche por máquina; tasa de revancha (new session < 3 min after Game Over — THE icebreaker-validation KPI); duración media de sesión vs 15-20 min target; winrate del solista in [40, 60]% band; tasa de remontada por bonificación in [20, 35]% band; distribución de victorias por puesto físico (detects seat ergonomics/hardware bias). Plus the pilot runbook: installation checklist, the two observational metrics collected by a human (risas/gritos per session; time-to-first-verbal-interaction between strangers), and the ≥2-week data-collection protocol. Prototype success criteria (§17 Hito 6): revancha rate >= 30% AND observational evidence of stranger interaction — if both hold, the concept is validated. The panel can be a simple local dashboard (HTML over SQLite or equivalent); no cloud infra required for the pilot. Final acceptance is inherently human/field work — the code part ships tests, the pilot part ships data. Read GDD §15 + §17 Hito 6 before coding.",
+  "acceptance_criteria": [
+    "Every 15.2 KPI is computable from the telemetry store by an automated query with unit tests over synthetic event fixtures (including the <3 min revancha window and the by-seat victory distribution)",
+    "Panel renders all KPIs against their target bands and flags out-of-band values; runs locally on the cabinet or an operator laptop without cloud dependencies",
+    "Pilot runbook exists: install checklist, observational-metric collection sheets, 2-week protocol, and the two success criteria stated verbatim",
+    "Dry-run: a simulated multi-session corpus produces a correct end-to-end KPI report (numbers hand-verified for at least one KPI)",
+    "Field phase recorded on this ticket as uat-style evidence: >= 2 weeks of real pilot data collected and the success-criteria verdict written up with the human"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-6",
+    "telemetry",
+    "pilot",
+    "kpi",
+    "T-119"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-039"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:22:36.249Z",
+  "updated_at": "2026-07-07T04:22:36.249Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T04:06:27.789Z",
+  "generated_at": "2026-07-07T04:22:36.249Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -174,6 +174,90 @@
       "title": "Input hardening follow-ups: debounce for legacy ButtonState consumers + HID adapter deadzone (from TASK-023 review)",
       "status": "todo",
       "priority": "low"
+    },
+    {
+      "key": "TASK-030",
+      "title": "GDD T-106 — MicrogameDefinition schema v2 + validator + asset migrator (§11.1)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-031",
+      "title": "GDD T-113 — BoardModel: anillo, medidor de parada, casillas, economía (§5.1–5.3, §5.6)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-032",
+      "title": "GDD T-115 — Replay .bcrp: formato binario + test de hash de estado final (Annex D.4)",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-033",
+      "title": "GDD T-116 — Telemetría: buffer local SQLite + eventos del apéndice C (§15)",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-034",
+      "title": "GDD T-107 — Adaptar MECH_02 ¡ESQUIVA! al contrato; completar MECH_03 ¡CORRE!; crear MECH_01 ¡MANTÉN! (§4)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-035",
+      "title": "GDD T-108 — Sequencer: cuotas, anti-repetición y bias anti-frustración (§9.2, §6.4)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-036",
+      "title": "GDD T-117 — Contenido remoto endurecido: rollback, checksum, modo degradado (§12)",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-037",
+      "title": "GDD T-109 — ScoreModel: estrellas bonus con exclusión + apuesta final (§6.2/§6.3) [gate Hito 2]",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-038",
+      "title": "GDD T-110 — Sistema de bots: IBotPolicy + 3 calibraciones + arnés de tests estadísticos (Annex D.3)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-039",
+      "title": "GDD T-118 — Modo kiosco: watchdog, burn-in, soak 8h (§14 operación continua) [gate Hito 5]",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-040",
+      "title": "GDD T-111 — MECH_06 ¡PERSIGUE!/¡ESCAPA! + MECH_07 ¡BOMBARDEA! (asimétricas 1v3, §4)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-041",
+      "title": "GDD T-112 — MECH_08 ¡SUJETA! + MECH_09 ¡IGUALA! + fases especiales coop/Jefe (§4, §7) [gate Hito 3]",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-042",
+      "title": "GDD T-114 — Arsenal cangrejo + eventos + FINAL_WAGER en tablero (§5.4, §5.5) [gate Hito 4]",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-043",
+      "title": "GDD T-119 — Instrumentación de piloto + panel de KPIs (§15.2) [gate Hito 6]",
+      "status": "todo",
+      "priority": "medium"
     }
   ]
 }

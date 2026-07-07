@@ -1,0 +1,33 @@
+{
+  "key": "TASK-030",
+  "title": "GDD T-106 — MicrogameDefinition schema v2 + validator + asset migrator (§11.1)",
+  "description": "Migrate the existing MicrogameDefinition (ScriptableObject, TASK-004 era) to the GDD §11.1 v2 schema and build the validator that gates both the build pipeline and the test runner. v2 adds: schemaVersion, dynamics (competitive|asym1v3|coop), difficultyScaling (list of param paths scaled by D(r), §9.1), payoutTable, minPlayers, tags, assets, and stageProfile (camera/environment/entityPrefabSet — consumed by Framework, ignored by Core). Definitions serialize SO <-> JSON round-trip for the remote layer (§12). A migrator upgrades the 12 existing definition assets without data loss. Per the GDD-authority decision: the §11.1 shape is canonical; existing definition consumers adapt. Read GDD §11 fully plus §6.1 (payout invariant) and §9.1 (difficultyScaling semantics) before coding.",
+  "acceptance_criteria": [
+    "Definition data model carries every GDD 11.1 field (schemaVersion=2, id, mechanic, displayVerb, dynamics, duration, difficultyScaling, params, payoutTable, assets, stageProfile, minPlayers, tags) with SO <-> JSON round-trip fidelity (round-trip test)",
+    "Validator rejects: params outside the range declared by the mechanic, duration outside [3, 8], and any payoutTable violating the minimum-reward invariant of GDD 6.1 (no zero payout for any place; coop fail still pays)",
+    "Validator runs in the fast suite AND is invocable from the build pipeline (executeMethod or equivalent hook); invalid definitions fail loudly with the offending field named",
+    "Migrator upgrades all 12 existing definition assets to v2 with no data loss (before/after field-equivalence test or documented mapping); migrated assets pass the validator",
+    "Existing consumers of MicrogameDefinition keep compiling and their tests stay green",
+    "Tests-first: red validator/round-trip/migrator tests committed strictly before implementation; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "data",
+    "T-106"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:19:29.477Z",
+  "updated_at": "2026-07-07T04:19:29.477Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}
