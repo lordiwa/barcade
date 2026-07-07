@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Barcade.Core.Content;
+using Barcade.Core.Scoring;
 
 namespace Barcade.Core.Tests
 {
@@ -157,6 +158,109 @@ namespace Barcade.Core.Tests
 
             Assert.That(result.IsValid, Is.False);
             Assert.That(result.OffendingField, Is.EqualTo("payoutTable"));
+        }
+
+        // ── payoutTable length must match its dynamics' shape (TASK-050) ─────────
+        // GDD §6.1: "Reparto por microjuego competitivo (dato payoutTable): 1o=6,
+        // 2o=4, 3o=2, 4o=1. Cooperativo: exito=4 a todos, fallo=1 a todos" -- two
+        // DIFFERENT shapes under the same field name: 4 entries (one per place)
+        // for competitive/asym1v3 (both produce a ranked 1..4 podium -- the GDD
+        // gives no separate asym1v3 payout shape), 2 entries [success, fail] for
+        // coop. Found by rev-c037 (TASK-037 review): the validator accepted ANY
+        // length >= 1 while PayoutRules.ApplyCompetitive throws unless length==4,
+        // so a [6,4,2] definition validated green and crashed mid-session.
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(5)]
+        public void PayoutTable_CompetitiveWithWrongLength_Rejected(int length)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition(); // Dynamics = Competitive
+            def.PayoutTable = MakeTable(length);
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False, $"length {length}");
+            Assert.That(result.OffendingField, Is.EqualTo("payoutTable"), $"length {length}");
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(5)]
+        public void PayoutTable_Asym1v3WithWrongLength_Rejected(int length)
+        {
+            // Asym1v3 rounds still resolve to a ranked 1..4 podium (RoundRecord.Places
+            // in TASK-035 uses the same 1..4 shape for every dynamics) and have no
+            // GDD-described payout shape of their own -- same 4-entry contract as
+            // competitive.
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Dynamics = MicrogameDynamics.Asym1v3;
+            def.PayoutTable = MakeTable(length);
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False, $"length {length}");
+            Assert.That(result.OffendingField, Is.EqualTo("payoutTable"), $"length {length}");
+        }
+
+        [TestCase(1)]
+        [TestCase(3)]
+        [TestCase(4)]
+        public void PayoutTable_CoopWithWrongLength_Rejected(int length)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Dynamics = MicrogameDynamics.Coop;
+            def.PayoutTable = MakeTable(length);
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False, $"length {length}");
+            Assert.That(result.OffendingField, Is.EqualTo("payoutTable"), $"length {length}");
+        }
+
+        [Test]
+        public void PayoutTable_LengthContractMatchesPayoutRules_NoValidatedInputEverThrows()
+        {
+            // AC2: validator and PayoutRules.Apply* must agree on shape -- no
+            // payoutTable that validates green may throw when actually applied.
+            for (int length = 0; length <= 6; length++)
+            {
+                int[] table = MakeTable(length);
+
+                foreach (MicrogameDynamics dynamics in new[]
+                         { MicrogameDynamics.Competitive, MicrogameDynamics.Asym1v3, MicrogameDynamics.Coop })
+                {
+                    MicrogameDefinitionV2 def = ValidApuntaDefinition();
+                    def.Dynamics = dynamics;
+                    def.PayoutTable = table;
+
+                    ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+                    if (!result.IsValid) continue; // only checking the "validates green" side
+
+                    if (dynamics == MicrogameDynamics.Coop)
+                    {
+                        Assert.DoesNotThrow(() => PayoutRules.ApplyCoop(new int[4], true, table[0], 0b1111),
+                            $"length {length}, {dynamics}: validated green but ApplyCoop(success) threw");
+                        Assert.DoesNotThrow(() => PayoutRules.ApplyCoop(new int[4], false, table[1], 0b1111),
+                            $"length {length}, {dynamics}: validated green but ApplyCoop(fail) threw");
+                    }
+                    else
+                    {
+                        Assert.DoesNotThrow(() => PayoutRules.ApplyCompetitive(new int[4], new[] { 1, 2, 3, 4 }, table),
+                            $"length {length}, {dynamics}: validated green but ApplyCompetitive threw");
+                    }
+                }
+            }
+        }
+
+        /// <summary>A payoutTable of the given length, every entry the minimum-valid 1 (shape-only test helper).</summary>
+        private static int[] MakeTable(int length)
+        {
+            var table = new int[length];
+            for (int i = 0; i < length; i++) table[i] = 1;
+            return table;
         }
 
         // ── params outside the range declared by the mechanic (GDD §11.1) ───────
