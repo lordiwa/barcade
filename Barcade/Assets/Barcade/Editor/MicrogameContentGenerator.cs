@@ -41,58 +41,87 @@ namespace Barcade.EditorTools
         /// All 12+ definitions across the 5 mechanics, with meaningfully varied
         /// difficulty, duration and verbText. Each id matches a MicrogameRegistry key.
         ///
-        /// Base durations are deliberately generous (7–10 s) so the game reads well on
-        /// a first play-through. The speed ramp compresses them across a session, but a
-        /// minimum effective duration (set in MicrogameLoopController) prevents any round
-        /// from feeling like a blink.
+        /// TASK-045 (GDD-canonical rule): durations must stay within GDD §11.1's
+        /// [<see cref="Barcade.Core.Content.MicrogameDefinitionValidator.MinDurationSeconds"/>,
+        /// <see cref="Barcade.Core.Content.MicrogameDefinitionValidator.MaxDurationSeconds"/>]
+        /// bound. An earlier revision of this array carried 7-10 s "deliberately
+        /// generous" values that were never applied to the 12 on-disk assets (which
+        /// already sat at 3-6 s) -- that stale copy would have failed the v2
+        /// validator's duration check the moment
+        /// MicrogameDefinitionMigrationTool.MigrateAll ran against a fresh
+        /// GenerateAll output. The values below were brought back into the [3, 8]
+        /// bound by matching each entry to its corresponding on-disk
+        /// Assets/Barcade/Content/Microgames/*.asset duration exactly (verified
+        /// 1:1 by id+difficulty), so re-running GenerateAll now reproduces the
+        /// current on-disk assets byte-for-byte rather than introducing new churn.
+        /// A regression lock (MicrogameContentGeneratorSpecsTests, fast suite)
+        /// parses this array's literal source text and asserts every duration
+        /// stays in bound and that every entry migrates to a valid v2 definition,
+        /// so this class does not need to compile against Barcade.Core.Tests --
+        /// see that file's class doc for why a source-text regex is used instead of
+        /// a normal reference (this Editor-only file depends on UnityEditor/
+        /// UnityEngine and is not linked into the fast-test dotnet project).
+        ///
+        /// TASK-045 AC2 ordering decision (generator vs. v1-&gt;v2 migration): this
+        /// generator is NOT retired. MicrogameDefinitionMigrationTool.MigrateAll
+        /// reads v1 MicrogameDefinition assets from disk as its *input* -- there is
+        /// no valid "migrate before generate" ordering, since migration has nothing
+        /// to read until generation (or hand-authoring) has produced v1 assets.
+        /// The pipeline order is therefore, and remains: GenerateAll (this class,
+        /// writes/refreshes the 12 v1 .asset files) -&gt; MigrateAll (writes v2 JSON
+        /// from those v1 files) -&gt; ValidateAll (checks the v2 JSON against
+        /// MicrogameDefinitionValidator). Because Specs now matches the current
+        /// on-disk assets exactly, the next Unity-gate window can re-run all three
+        /// steps as a confirmation pass with no expected diff to the 12 assets and
+        /// no migrator fixture churn (see hand-off for the exact commands).
         /// </summary>
         private static readonly DefSpec[] Specs = new DefSpec[]
         {
             // ── Esquiva (dodge) ───────────────────────────────────────────────────
             new DefSpec { Id="esquiva", VerbText="¡ESQUIVA!",
                 HintText="Mueve tu figura y evita los obstáculos",
-                BaseDuration=9f, Difficulty=1 },
+                BaseDuration=5f, Difficulty=1 },
             new DefSpec { Id="esquiva", VerbText="¡ESQUIVA!",
                 HintText="Mueve tu figura y evita los obstáculos",
-                BaseDuration=8f, Difficulty=2 },
+                BaseDuration=4f, Difficulty=2 },
             new DefSpec { Id="esquiva", VerbText="¡ESQUIVA RÁPIDO!",
                 HintText="Mueve tu figura y evita los obstáculos",
-                BaseDuration=7f, Difficulty=3 },
+                BaseDuration=3f, Difficulty=3 },
 
             // ── Aporrea (mash) ────────────────────────────────────────────────────
             new DefSpec { Id="aporrea", VerbText="¡APORREA!",
                 HintText="Aporrea el botón lo más rápido posible",
-                BaseDuration=9f, Difficulty=1 },
+                BaseDuration=5f, Difficulty=1 },
             new DefSpec { Id="aporrea", VerbText="¡APORREA FUERTE!",
                 HintText="Aporrea el botón lo más rápido posible",
-                BaseDuration=8f, Difficulty=3 },
+                BaseDuration=4f, Difficulty=3 },
 
             // ── Apunta (aim) ──────────────────────────────────────────────────────
             new DefSpec { Id="apunta", VerbText="¡APUNTA!",
                 HintText="Apunta tu marca al objetivo y pulsa",
-                BaseDuration=9f, Difficulty=1 },
+                BaseDuration=5f, Difficulty=1 },
             new DefSpec { Id="apunta", VerbText="¡APUNTA BIEN!",
                 HintText="Apunta tu marca al objetivo y pulsa",
-                BaseDuration=8f, Difficulty=3 },
+                BaseDuration=4f, Difficulty=3 },
 
             // ── Timing (press on cue) ─────────────────────────────────────────────
             new DefSpec { Id="timing", VerbText="¡AHORA!",
                 HintText="Pulsa cuando la marca esté en la zona verde",
-                BaseDuration=8f, Difficulty=1 },
+                BaseDuration=5f, Difficulty=1 },
             new DefSpec { Id="timing", VerbText="¡YA!",
                 HintText="Pulsa cuando la marca esté en la zona verde",
-                BaseDuration=7f, Difficulty=3 },
+                BaseDuration=3f, Difficulty=3 },
 
             // ── Recolecta (collect) ───────────────────────────────────────────────
             new DefSpec { Id="recolecta", VerbText="¡RECOLECTA!",
                 HintText="Recoge los objetos verdes antes de que acabe el tiempo",
-                BaseDuration=10f, Difficulty=1 },
+                BaseDuration=6f, Difficulty=1 },
             new DefSpec { Id="recolecta", VerbText="¡RECOGE TODO!",
                 HintText="Recoge los objetos verdes antes de que acabe el tiempo",
-                BaseDuration=9f, Difficulty=2 },
+                BaseDuration=5f, Difficulty=2 },
             new DefSpec { Id="recolecta", VerbText="¡RECOLECTA TODO!",
                 HintText="Recoge los objetos verdes antes de que acabe el tiempo",
-                BaseDuration=8f, Difficulty=3 },
+                BaseDuration=4f, Difficulty=3 },
         };
 
         // ── Public entry point (headless + Editor menu) ────────────────────────
