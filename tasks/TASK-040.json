@@ -28,9 +28,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T13:17:57.702Z",
+      "body": "Carry-in from the TASK-050 close (rev-t050 LOW-1, 2026-07-07), relevant when authoring the MECH_06/MECH_07 asym definitions: the v2 validator requires asym1v3 payoutTable length 4 (same ranked shape as competitive; RoundRecord.Places is length-4 ranked for every dynamics). GDD 7.2's asym payout values ('gana quien es Jefe al agotarse el tiempo — recompensa 6 monedas; atacantes 2') author in that shape as [6,2,2,2] (attackers tie via shared places; ApplyCompetitive supports tie-sharing). Also amend the overstated comment in MicrogameDefinitionValidatorTests.cs:163-171/:194-197 ('GDD gives asym no separate payout description' -> 'no separate SHAPE; 7.2 gives values 6/2, expressible as [6,2,2,2]') on the first touch of that file."
+    }
+  ],
   "created_at": "2026-07-07T04:21:52.034Z",
-  "updated_at": "2026-07-07T04:21:52.034Z",
+  "updated_at": "2026-07-07T13:17:57.702Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

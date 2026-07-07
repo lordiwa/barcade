@@ -7,7 +7,7 @@
     "Validator and PayoutRules agree on the contract (no input can validate green and then throw in PayoutRules); coop payout shape unaffected",
     "Fast suite green, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -20,17 +20,25 @@
   "depends_on": [
     "TASK-037"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "6d22b07",
+    "d652d73"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "developer",
       "at": "2026-07-07T13:10:49.560Z",
       "body": "Delivered tests-first on master by dev-t101: 6d22b07 test(core) red — 12 GENUINE assertion failures against the no-length-check validator (all three dynamics + a direct cross-check test) -> d652d73 fix(core). Suite 518 -> 530/530. DESIGN CALL (flagged): GDD 6.1 describes two payout shapes under the same field — competitive 4-entry (one per place) vs coop 2-entry ([success, fail], confirmed against PayoutRules.ApplyCoop's signature and the pre-existing 2-element coop test). Asym1v3 has NO separate GDD-described payout shape and TASK-035's RoundRecord.Places uses ranked 1..4 for every dynamics, so asym1v3 requires 4 entries too (not just literal Dynamics.Competitive) — flagged in case 'competitive-mode' in the AC meant something narrower. Implementation: ValidatePayoutTable now takes MicrogameDynamics, checks Length against 4 (competitive/asym1v3) or 2 (coop) BEFORE the per-entry minimum-payout check, failing loudly with field name + actual vs required length. AC2 anti-drift sensor: PayoutTable_LengthContractMatchesPayoutRules_NoValidatedInputEverThrows sweeps lengths 0-6 across all three dynamics asserting validate-green implies apply-never-throws — catches FUTURE drift, not just the [6,4,2] case. Coop path unchanged (both pre-existing coop tests pass untouched)."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T13:17:57.637Z",
+      "body": "CLOSED on rev-t050 verdict APPROVE-WITH-NITS (2026-07-07 ~15:40Z). Review depth FULL — rubric inputs: small diff BUT core tdd-tier surface (MicrogameDefinitionValidator, TASK-030 tdd lineage; mandatory-FULL). Findings: 0 HIGH, 0 MEDIUM, 1 LOW (comment-accuracy only: 'GDD gives asym no separate payout description' is overstated — GDD 7.2 line 524 gives asym VALUES 'Jefe 6 monedas; atacantes 2' but no distinct table SHAPE; they author as [6,2,2,2] in the ranked table with tie-sharing; one-line comment amendment deferred as a carry-in note on TASK-040 where the asym definitions get authored). DESIGN CALL JUDGED CORRECT: asym1v3 pinned to the 4-entry ranked shape — 6.1 names only two shapes; RoundRecord.Places is hard-required length-4 ranked for every dynamics; ApplyCompetitive is the only ranked payout path; a 2-entry asym table would have no consumer and would throw on the only path; the sweep sensor forces any future dedicated asym path to change the contract visibly. Reviewer verifications (all firsthand, pinned worktrees at 6d22b07/d652d73): red = exactly the 12 new tests failing for the right reasons, incl. the sensor failing via a GENUINE ArgumentException from PayoutRules through a validate-green table; green 530/530; AC2 sweep NOT vacuous (21 combos, real Apply calls, coop leg load-bearing via table[1] indexing); coop tests byte-identical and passing; error message names field + actual + required; single private call site passes def.Dynamics, no reflection dispatch, no silently-defaulted enum case; GDD quotes verified verbatim against 6.1 line 480 + 11.1 line 736 + Annex B; parity confirmed; tier audit PASS (commits strictly ordered, red firsthand). Commits: 6d22b07 (test) / d652d73 (fix). The validate-green-then-crash-mid-session class is now sealed by a standing anti-drift sensor."
     }
   ],
   "created_at": "2026-07-07T12:41:50.787Z",
-  "updated_at": "2026-07-07T13:10:50.507Z",
+  "updated_at": "2026-07-07T13:17:57.637Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
