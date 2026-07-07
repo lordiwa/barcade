@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T17:22:55.045Z",
+  "generated_at": "2026-07-07T17:30:38.460Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -358,7 +358,7 @@
     {
       "key": "TASK-060",
       "title": "T-107 Slice 3 — MECH_01 ¡MANTÉN! new inverted-pendulum balance mechanic",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {
