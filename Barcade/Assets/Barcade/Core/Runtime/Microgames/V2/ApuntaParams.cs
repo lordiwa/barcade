@@ -45,6 +45,25 @@ namespace Barcade.Core.Microgames.V2
         /// Fixed flight duration (seconds) every projectile takes to arrive,
         /// regardless of its landing distance — an engineering addition (GDD gap);
         /// see <see cref="ApuntaMicrogame"/> class doc.
+        ///
+        /// <para>
+        /// <b>Invariant vs. the in-flight pool capacity (TASK-026 review, LOW-5,
+        /// documented rather than ctor-guarded — see rationale below).</b>
+        /// <c>ApuntaMicrogame</c>'s pool holds at most 32 simultaneous in-flight
+        /// shots. The fastest a seat can legitimately fire is once per 4-tick
+        /// press/release cycle (T-101's 2-tick debounce confirm applied to both
+        /// edges) = 15 shots/sec/seat; with all 4 seats sustaining that, the pool
+        /// drains at up to 60 shots/sec. If <c>ProjectileFlightSeconds</c> exceeds
+        /// 32/60 ≈ 0.533s, sustained max-rate mashing across all 4 seats can fill
+        /// the pool faster than shots resolve — any shot fired while the pool is
+        /// full is silently dropped (never scores, never resolves) rather than
+        /// crashing or corrupting state, per <c>Fire()</c>'s own documented
+        /// overflow guard. Not ctor-validated: the pool capacity lives on
+        /// <c>ApuntaMicrogame</c>, a different type, and a cross-type constant
+        /// reference here would be more fragile than useful for a threshold this
+        /// far from any GDD default (0.3s, comfortably under 0.533s even under
+        /// worst-case 4-seat mashing).
+        /// </para>
         /// </summary>
         public readonly float ProjectileFlightSeconds;
 

@@ -104,6 +104,18 @@ namespace Barcade.Core.Microgames.V2
         private const int PoolCapacity = 32;
         private const int FeedbackCapacity = 16;
 
+        /// <summary>
+        /// GDD §4: the stick's 8 discrete directions are "interpoladas a 0.25s
+        /// para sensación analógica" — presentation-layer interpolation only (the
+        /// sim itself snaps to the discrete angle instantly). This is the window
+        /// <see cref="RenderEntity.VisualVariant"/> encodes progress over, on
+        /// PlayerAvatar entities (0..255 = 0.0..1.0). A private constant rather
+        /// than an <see cref="ApuntaParams"/> field: it's a presentation hint the
+        /// sim exposes for the presenter's convenience, not a value that changes
+        /// sim outcomes or determinism.
+        /// </summary>
+        private const float AimInterpSeconds = 0.25f;
+
         public const byte CueFired = 1;
         public const byte CueHit = 2;
         public const byte CueMiss = 3;
@@ -122,12 +134,14 @@ namespace Barcade.Core.Microgames.V2
         private PlayerRoster _roster;
         private int _durationTicks;
         private int _flightTicks;
+        private int _aimInterpTicks;
 
         private int _tick;
         private bool _isFinished;
 
         // Per-seat state.
         private readonly Direction8[] _aim = new Direction8[SeatCount];
+        private readonly int[] _aimChangeTick = new int[SeatCount];
         private readonly int[] _chargeTicks = new int[SeatCount];
         private readonly int[] _hitCount = new int[SeatCount];
         private readonly int[] _shotsFired = new int[SeatCount];
@@ -164,7 +178,10 @@ namespace Barcade.Core.Microgames.V2
         {
             _params = parameters;
             _interpreter = new InputInterpreter(parameters.InputConfig);
-            _renderState = new RenderState(SeatCount + parameters.TargetCount, FeedbackCapacity);
+            // MEDIUM-2(a) fix: capacity must also cover in-flight Projectile
+            // entities (up to PoolCapacity of them) so publishing them stays
+            // zero-alloc — the array is sized once here, never resized.
+            _renderState = new RenderState(SeatCount + parameters.TargetCount + PoolCapacity, FeedbackCapacity);
 
             _targetX = new float[parameters.TargetCount];
             _targetY = new float[parameters.TargetCount];
@@ -186,18 +203,31 @@ namespace Barcade.Core.Microgames.V2
 
             _rng = rng;
             _roster = roster;
-            // GDD §4 defines no difficulty-scaled parameter for MECH_04; difficultyMult
-            // is accepted for interface compliance only and currently has no effect.
+            // Fix (TASK-026 review, LOW-4): GDD §11.1's example definition for
+            // MECH_04 declares difficultyScaling: ["targetMoving.speed", "windAccel"]
+            // — the GDD DOES specify which params scale with difficulty for this
+            // mechanic. Wiring difficultyMult to actually scale TargetMovingSpeed/
+            // WindAccel is deferred to T-106 (the v2 MicrogameDefinition data
+            // migration), since difficultyScaling is a per-definition-field concept
+            // that lives in that data layer, which hasn't landed yet — not because
+            // GDD lacks the concept. difficultyMult is accepted here for interface
+            // compliance only and currently has no effect.
 
             _interpreter.Reset();
             _tick = 0;
             _isFinished = false;
             _durationTicks = (int)MathF.Round(_params.DurationSeconds * _params.InputConfig.TicksPerSecond);
             _flightTicks = (int)MathF.Round(_params.ProjectileFlightSeconds * _params.InputConfig.TicksPerSecond);
+            _aimInterpTicks = (int)MathF.Round(AimInterpSeconds * _params.InputConfig.TicksPerSecond);
 
             for (int i = 0; i < SeatCount; i++)
             {
                 _aim[i] = DefaultAimFor(AllSlots[i]);
+                // Cold-start aim is already "settled" — not mid-interpolation —
+                // so back-date the change tick far enough that elapsed >= the
+                // interp window immediately (avoiding int overflow in the
+                // subtraction at any realistic _tick value).
+                _aimChangeTick[i] = int.MinValue / 2;
                 _chargeTicks[i] = 0;
                 _hitCount[i] = 0;
                 _shotsFired[i] = 0;
@@ -241,36 +271,60 @@ namespace Barcade.Core.Microgames.V2
 
             MoveTargets();
 
-            for (int i = 0; i < SeatCount; i++)
-            {
-                if (!_roster.IsActive(AllSlots[i])) continue;
-
-                Direction8 raw = _interpreter.RawDirection(AllSlots[i]);
-                if (raw != Direction8.None) _aim[i] = raw;
-
-                if (_interpreter.ButtonReleasedThisTick(AllSlots[i]))
-                {
-                    Fire(i, _chargeTicks[i]);
-                    _chargeTicks[i] = 0;
-                }
-                else
-                {
-                    _chargeTicks[i] = _interpreter.HoldDurationTicks(AllSlots[i]);
-                }
-            }
-
-            // Timeout auto-fire (GDD §4 edge case): a seat still charging (never
-            // released) when the round's last active tick is reached fires now,
-            // with whatever power it currently holds.
-            if (_tick == _durationTicks - 1)
+            // Fix (TASK-026 review, HIGH-1): charge accumulation and all firing
+            // (release-triggered and the timeout auto-fire alike) are gated on
+            // _tick < _durationTicks. Overtime ticks (after duration expires but
+            // before AnyProjectileActive() goes false, kept open so already-fired
+            // shots can still land) must only run MoveTargets/ResolveArrivals/
+            // PublishRenderState. Without this gate: (A) holding through the
+            // auto-fire tick and releasing a beat later — the natural human
+            // reaction — would fire a SECOND shot from the same physical hold,
+            // since HoldDurationTicks keeps counting and the per-seat loop keeps
+            // refreshing _chargeTicks every tick regardless of duration; (B)
+            // continuous mashing through overtime would keep minting new
+            // in-flight projectiles faster than they resolve, so
+            // AnyProjectileActive() (which IsFinished waits on) never goes false —
+            // a permanent hang for whatever sequencer eventually drives this
+            // microgame. No new shots can start after duration expires, so any
+            // in-flight projectile is bounded by ProjectileFlightSeconds from its
+            // firing tick (which was < _durationTicks), guaranteeing termination.
+            if (_tick < _durationTicks)
             {
                 for (int i = 0; i < SeatCount; i++)
                 {
                     if (!_roster.IsActive(AllSlots[i])) continue;
-                    if (_chargeTicks[i] > 0)
+
+                    Direction8 raw = _interpreter.RawDirection(AllSlots[i]);
+                    if (raw != Direction8.None && raw != _aim[i])
+                    {
+                        _aim[i] = raw;
+                        _aimChangeTick[i] = _tick;
+                    }
+
+                    if (_interpreter.ButtonReleasedThisTick(AllSlots[i]))
                     {
                         Fire(i, _chargeTicks[i]);
                         _chargeTicks[i] = 0;
+                    }
+                    else
+                    {
+                        _chargeTicks[i] = _interpreter.HoldDurationTicks(AllSlots[i]);
+                    }
+                }
+
+                // Timeout auto-fire (GDD §4 edge case): a seat still charging (never
+                // released) when the round's last active tick is reached fires now,
+                // with whatever power it currently holds.
+                if (_tick == _durationTicks - 1)
+                {
+                    for (int i = 0; i < SeatCount; i++)
+                    {
+                        if (!_roster.IsActive(AllSlots[i])) continue;
+                        if (_chargeTicks[i] > 0)
+                        {
+                            Fire(i, _chargeTicks[i]);
+                            _chargeTicks[i] = 0;
+                        }
                     }
                 }
             }
@@ -432,11 +486,24 @@ namespace Barcade.Core.Microgames.V2
                 _targetX[i] += _targetVX[i] * dt;
                 _targetY[i] += _targetVY[i] * dt;
 
-                if (_targetX[i] < _params.CentralZoneMin) { _targetX[i] = _params.CentralZoneMin + (_params.CentralZoneMin - _targetX[i]); _targetVX[i] = -_targetVX[i]; }
-                else if (_targetX[i] > _params.CentralZoneMax) { _targetX[i] = _params.CentralZoneMax - (_targetX[i] - _params.CentralZoneMax); _targetVX[i] = -_targetVX[i]; }
+                // Fix (TASK-026 review, MEDIUM-3): clamp into the zone rather than
+                // mirror-reflecting the exact overshoot. The old formula
+                // (newPos = boundary + (boundary - pos)) only converges when the
+                // per-tick step is small relative to the zone span; when the step
+                // approaches or exceeds the span — including the degenerate
+                // zero-span zone the constructor already allows — each bounce
+                // re-applies a full step on top of an already-"corrected" position,
+                // so the drift roughly doubles bounce over bounce instead of
+                // shrinking, diverging without bound. Clamping trades a small
+                // amount of "lost" bounce energy (invisible at 60 ticks/sec for any
+                // reasonable speed/span ratio) for a hard guarantee the target never
+                // leaves the zone. A zero-span zone naturally becomes a stationary
+                // target this way: every tick clamps straight back to the one point.
+                if (_targetX[i] < _params.CentralZoneMin) { _targetX[i] = _params.CentralZoneMin; _targetVX[i] = MathF.Abs(_targetVX[i]); }
+                else if (_targetX[i] > _params.CentralZoneMax) { _targetX[i] = _params.CentralZoneMax; _targetVX[i] = -MathF.Abs(_targetVX[i]); }
 
-                if (_targetY[i] < _params.CentralZoneMin) { _targetY[i] = _params.CentralZoneMin + (_params.CentralZoneMin - _targetY[i]); _targetVY[i] = -_targetVY[i]; }
-                else if (_targetY[i] > _params.CentralZoneMax) { _targetY[i] = _params.CentralZoneMax - (_targetY[i] - _params.CentralZoneMax); _targetVY[i] = -_targetVY[i]; }
+                if (_targetY[i] < _params.CentralZoneMin) { _targetY[i] = _params.CentralZoneMin; _targetVY[i] = MathF.Abs(_targetVY[i]); }
+                else if (_targetY[i] > _params.CentralZoneMax) { _targetY[i] = _params.CentralZoneMax; _targetVY[i] = -MathF.Abs(_targetVY[i]); }
             }
         }
 
@@ -561,10 +628,27 @@ namespace Barcade.Core.Microgames.V2
             for (int i = 0; i < SeatCount; i++)
             {
                 _renderState.Hud.Scores[i] = _hitCount[i];
+                // MEDIUM-2(b) fix: the live oscillating charge power while a seat
+                // is actively holding — 0 while not charging. This is THE visual
+                // the player times against (GDD §4 "medidor oscilante").
+                _renderState.Hud.Meters[i] = _chargeTicks[i] > 0
+                    ? ChargePower(_chargeTicks[i], _params.ChargeCycleSeconds, _params.InputConfig.TicksPerSecond)
+                    : 0f;
+
                 if (!_roster.IsActive(AllSlots[i])) continue;
 
                 (float cx, float cy) = TurretCorner(AllSlots[i]);
                 (float dx, float dy) = DirectionToUnit(_aim[i]);
+
+                // MEDIUM-2(c) fix: GDD §4's 0.25s discrete-angle interpolation is a
+                // presentation concern — the sim snaps _aim instantly and only
+                // exposes how far along that window we are, encoded 0..255 into
+                // VisualVariant (see AimInterpSeconds doc). The presenter, not the
+                // sim, does the actual smoothing between the previous and current
+                // Rotation.
+                int elapsed = _tick - _aimChangeTick[i];
+                float progress = elapsed >= _aimInterpTicks ? 1f : (float)elapsed / _aimInterpTicks;
+                if (progress < 0f) progress = 0f;
 
                 _renderState.Entities[entityCount].Kind = EntityKind.PlayerAvatar;
                 _renderState.Entities[entityCount].OwnerSeat = i;
@@ -573,7 +657,7 @@ namespace Barcade.Core.Microgames.V2
                 _renderState.Entities[entityCount].Height = 0f;
                 _renderState.Entities[entityCount].Rotation = MathF.Atan2(dy, dx) * (180f / MathF.PI);
                 _renderState.Entities[entityCount].Scale = 1f;
-                _renderState.Entities[entityCount].VisualVariant = 0;
+                _renderState.Entities[entityCount].VisualVariant = (byte)MathF.Round(progress * 255f);
                 entityCount++;
             }
 
@@ -587,6 +671,30 @@ namespace Barcade.Core.Microgames.V2
                 _renderState.Entities[entityCount].Rotation = 0f;
                 _renderState.Entities[entityCount].Scale = 1f;
                 _renderState.Entities[entityCount].VisualVariant = (byte)(_targetConsumed[i] ? 1 : 0);
+                entityCount++;
+            }
+
+            // MEDIUM-2(a) fix: publish every in-flight shot as a Projectile entity
+            // so the presenter has something to draw between launch and landing.
+            // Position is linearly interpolated from launch to landing over the
+            // shot's fixed flight time — cheap, deterministic, and consistent with
+            // "trajectories are deterministic" (AC3) — not simulated tick-by-tick.
+            for (int i = 0; i < PoolCapacity; i++)
+            {
+                if (!_poolActive[i]) continue;
+
+                float t = (float)(_tick - _poolLaunchTick[i]) / _flightTicks;
+                if (t < 0f) t = 0f;
+                else if (t > 1f) t = 1f;
+
+                _renderState.Entities[entityCount].Kind = EntityKind.Projectile;
+                _renderState.Entities[entityCount].OwnerSeat = _poolOwnerSeat[i];
+                _renderState.Entities[entityCount].X = _poolLaunchX[i] + (_poolLandingX[i] - _poolLaunchX[i]) * t;
+                _renderState.Entities[entityCount].Y = _poolLaunchY[i] + (_poolLandingY[i] - _poolLaunchY[i]) * t;
+                _renderState.Entities[entityCount].Height = 0f;
+                _renderState.Entities[entityCount].Rotation = 0f;
+                _renderState.Entities[entityCount].Scale = 1f;
+                _renderState.Entities[entityCount].VisualVariant = 0;
                 entityCount++;
             }
 
