@@ -35,10 +35,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T12:40:43.837Z",
       "body": "[RE-APPLIED] SCOPE ADDITION for the integration fix round (from rev-c044's TASK-044 review + the cloud dev's own note 9): the selector currently mixes seeds with its own Combine() helper; TASK-044 introduces the canonical GDD-13 stream derivation Derive(sessionSeed, round, RngStream.*). Migrate the selector's seed mixing to the Derive idiom AS PART OF this ticket's integration fix round — it shifts the 1000-session corpus streams, and the fix round is already recalibrating that corpus for the rotation-period change (rev-c035 MEDIUM-1), so doing both at once avoids a second corpus churn. Two derivation idioms must NOT coexist after integration."
+    },
+    {
+      "author": "developer",
+      "at": "2026-07-07T12:56:47.030Z",
+      "body": "INTEGRATION + FIX ROUND complete on master (dev-t101): cherry-picks 3416adc (test) / bb2abcb (feat), fix round 1d84408 (test, red) -> 563922f (fix). Suite at Phase B end: 495 green, zero local regressions. Fix round: rotation period 2 (round/2) — confirmed the OLD formula genuinely could never fire the bias trigger (adjacent rounds never shared a rotation), not cosmetic; asym==Exactly(1) + round-in-{5,6} asserts (mirrors coop pattern); CompetitiveOnlyPool() for the two trigger-exactness tests; RoundRecord clones its places array (genuine red against the aliasing bug). Combine() -> SeededRandom.Derive(sessionSeed, roundNumber, RngStream.Draws) migration done in the same pair; sentinel round-numbers (-1, -2) for the two schedule decisions so they cannot collide with real per-round draws. All tightened assertions incl. the 1000-seed corpus passed on the FIRST post-migration run — no recalibration needed (corpus asserts invariants, not stream-specific values). Awaiting rev-c035 re-verify."
     }
   ],
   "created_at": "2026-07-07T04:20:38.128Z",
-  "updated_at": "2026-07-07T12:40:43.837Z",
+  "updated_at": "2026-07-07T12:56:47.030Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
