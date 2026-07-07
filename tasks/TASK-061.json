@@ -8,7 +8,7 @@
     "Retirements remove the id cleanly from the MicrogameHost registry, MicrogameContentGenerator Specs, and the on-disk assets, with no dangling references; the TASK-030 validator/migrator stays green.",
     "Tests: rewrites are tdd with retuned debounce-aware expectations (documented, not blind-reblessed); retirements prove no production consumer references the removed id. Fast suite green; Framework registry compile verification rides the Unity gate."
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -28,7 +28,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T15:12:20.777Z",
-  "updated_at": "2026-07-07T15:12:20.777Z",
+  "updated_at": "2026-07-07T17:10:16.339Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

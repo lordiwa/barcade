@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T17:07:57.960Z",
+  "generated_at": "2026-07-07T17:10:16.339Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -364,7 +364,7 @@
     {
       "key": "TASK-061",
       "title": "T-107 Slice 4 — legacy-id reconciliation (aporrea/timing/apunta-v1/recolecta)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     },
     {
