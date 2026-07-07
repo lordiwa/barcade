@@ -57,6 +57,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionMigratorTests.cs" />
     <!-- TASK-024 (GDD T-102): SessionStateMachine full session FSM -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SessionStateMachineTests.cs" />
+    <!-- TASK-035 (GDD T-108): v2 microgame selector (quotas, anti-repeat, bias) -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameSelectorTests.cs" />
   </ItemGroup>
 
 </Project>
