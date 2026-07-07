@@ -6,12 +6,13 @@ using Barcade.Core.Microgames.V2;
 // This test file's own namespace (Barcade.Core.Tests) is lexically nested inside
 // Barcade.Core, and an unqualified name is resolved against member declarations
 // of enclosing namespaces before "using"-imported names — even before using
-// aliases declared at file scope. Barcade.Core.MicrogameResult (v1) and
-// Barcade.Core.IMicrogame (v1) therefore win over the "using Barcade.Core.Microgames.V2;"
-// import for the plain names MicrogameResult/IMicrogame. Renamed aliases (V2Result/
-// V2Microgame) sidestep the collision entirely instead of fighting that precedence rule.
+// aliases declared at file scope. Barcade.Core.MicrogameResult/IMicrogame/InputSnapshot
+// (v1) therefore win over the "using Barcade.Core.Microgames.V2;" import for those
+// plain names. Renamed aliases (V2Result/V2Microgame/V2Snapshot) sidestep the
+// collision entirely instead of fighting that precedence rule.
 using V2Result = Barcade.Core.Microgames.V2.MicrogameResult;
 using V2Microgame = Barcade.Core.Microgames.V2.IMicrogame;
+using V2Snapshot = Barcade.Core.Microgames.V2.InputSnapshot;
 
 namespace Barcade.Core.Tests
 {
@@ -21,6 +22,11 @@ namespace Barcade.Core.Tests
     /// latency/ties, false start + anti-spam, the 90 ms anticipation threshold
     /// (and its interaction with InputInterpreter's debounce), fakeouts/rounds,
     /// empty-seat exclusion, all-false-start safety, and zero allocation.
+    ///
+    /// Drives the mechanic through the GDD-literal, session-level v2
+    /// <see cref="InputSnapshot"/>/<see cref="PlayerInput"/> contract — not the v1
+    /// per-seat <c>IReadOnlyPlayerInputs</c> (that stays internal to
+    /// <c>ReaccionaMicrogame</c>'s private input bridge).
     ///
     /// No Unity scene required — pure C#, runs in the dotnet fast-test runner.
     /// </summary>
@@ -32,13 +38,17 @@ namespace Barcade.Core.Tests
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
-        // ── Test double (same pattern as InputInterpreterTests.FakeInputs) ────────
+        // ── Test double: builds a v2 InputSnapshot from per-seat pressed flags ────
 
-        private sealed class FakeInputs : IReadOnlyPlayerInputs
+        private sealed class FakeInputs
         {
-            private readonly InputSnapshot[] _snaps = new InputSnapshot[4];
-            public void Set(PlayerSlot slot, InputSnapshot snap) => _snaps[(int)slot] = snap;
-            public InputSnapshot For(PlayerSlot slot) => _snaps[(int)slot];
+            private readonly PlayerInput[] _players = new PlayerInput[4];
+
+            public void Set(PlayerSlot slot, bool pressed, Direction8 stick = Direction8.None)
+                => _players[(int)slot] = new PlayerInput(stick, pressed);
+
+            /// <summary>Wraps the current per-seat state into a v2 snapshot for this tick. No allocation beyond the struct itself (the backing array is reused).</summary>
+            public V2Snapshot Build(int tick) => new V2Snapshot(tick, _players);
         }
 
         // ── Test helpers ────────────────────────────────────────────────────────
@@ -57,7 +67,7 @@ namespace Barcade.Core.Tests
 
             for (int t = 0; t < 20000; t++)
             {
-                mg.Tick(inputs);
+                mg.Tick(inputs.Build(t));
                 RenderState rs = mg.GetRenderState();
                 for (int i = 0; i < rs.FeedbackCount; i++)
                     if (rs.Feedback[i].Cue == ReaccionaMicrogame.CueSignal)
@@ -68,12 +78,12 @@ namespace Barcade.Core.Tests
         }
 
         /// <summary>
-        /// Drives ticks 0..N with each scheduled seat's raw button held Pressed on
+        /// Drives ticks 0..N with each scheduled seat's raw button held pressed on
         /// exactly the two ticks needed to make InputInterpreter confirm the press
         /// edge on <c>confirmAtTick</c> (its 2-tick-confirm debounce means the
         /// confirmed edge lands one tick after the second raw sample) — i.e. set
-        /// Pressed at confirmAtTick-1 and confirmAtTick. Unscheduled seats stay
-        /// Released throughout. Stops early once the microgame finishes.
+        /// pressed at confirmAtTick-1 and confirmAtTick. Unscheduled seats stay
+        /// released throughout. Stops early once the microgame finishes.
         /// </summary>
         private static void RunScheduled(ReaccionaMicrogame mg, IDictionary<PlayerSlot, int> confirmAtTick, int maxTicks = 5000)
         {
@@ -84,9 +94,9 @@ namespace Barcade.Core.Tests
                 {
                     bool scheduled = confirmAtTick.TryGetValue(slot, out int target);
                     bool pressed = scheduled && (t == target - 1 || t == target);
-                    inputs.Set(slot, new InputSnapshot(0f, 0f, pressed ? ButtonState.Pressed : ButtonState.Released));
+                    inputs.Set(slot, pressed);
                 }
-                mg.Tick(inputs);
+                mg.Tick(inputs.Build(t));
                 if (mg.IsFinished) return;
             }
             throw new InvalidOperationException("microgame did not finish within maxTicks");
@@ -124,7 +134,7 @@ namespace Barcade.Core.Tests
             var mg = new ReaccionaMicrogame(ReaccionaParams.GddDefaults);
             mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
-            mg.Tick(inputs);
+            mg.Tick(inputs.Build(0));
 
             RenderState rs = mg.GetRenderState();
             Assert.That(rs.EntityCount, Is.EqualTo(4));
@@ -197,12 +207,9 @@ namespace Barcade.Core.Tests
             {
                 bool pressNow = pendingConfirmTick >= 0 && (t == pendingConfirmTick - 1 || t == pendingConfirmTick);
                 foreach (PlayerSlot slot in AllSlots)
-                {
-                    bool pressed = slot == reactSlot && pressNow;
-                    inputs.Set(slot, new InputSnapshot(0f, 0f, pressed ? ButtonState.Pressed : ButtonState.Released));
-                }
+                    inputs.Set(slot, slot == reactSlot && pressNow);
 
-                mg.Tick(inputs);
+                mg.Tick(inputs.Build(t));
 
                 RenderState rs = mg.GetRenderState();
                 for (int i = 0; i < rs.FeedbackCount; i++)
@@ -285,11 +292,11 @@ namespace Barcade.Core.Tests
             {
                 // Rojo mashes repeatedly (2 ticks down, 2 up) well before the signal.
                 bool spamPressed = t < signalTick - 20 && (t % 4) < 2;
-                inputs.Set(PlayerSlot.Rojo, new InputSnapshot(0f, 0f, spamPressed ? ButtonState.Pressed : ButtonState.Released));
+                inputs.Set(PlayerSlot.Rojo, spamPressed);
                 foreach (PlayerSlot slot in AllSlots)
-                    if (slot != PlayerSlot.Rojo) inputs.Set(slot, new InputSnapshot(0f, 0f, ButtonState.Released));
+                    if (slot != PlayerSlot.Rojo) inputs.Set(slot, false);
 
-                mg.Tick(inputs);
+                mg.Tick(inputs.Build(t));
 
                 RenderState rs = mg.GetRenderState();
                 for (int i = 0; i < rs.FeedbackCount; i++)
@@ -382,10 +389,10 @@ namespace Barcade.Core.Tests
             for (int t = 0; t < 5000 && !mg.IsFinished; t++)
             {
                 bool spamPressed = (t % 4) < 2; // spams from tick 0, long before the signal
-                inputs.Set(PlayerSlot.Rojo, new InputSnapshot(0f, 0f, spamPressed ? ButtonState.Pressed : ButtonState.Released));
+                inputs.Set(PlayerSlot.Rojo, spamPressed);
                 foreach (PlayerSlot slot in AllSlots)
-                    if (slot != PlayerSlot.Rojo) inputs.Set(slot, new InputSnapshot(0f, 0f, ButtonState.Released));
-                mg.Tick(inputs);
+                    if (slot != PlayerSlot.Rojo) inputs.Set(slot, false);
+                mg.Tick(inputs.Build(t));
             }
 
             Assert.That(FindRank(mg.GetResult(), PlayerSlot.Rojo).Metric, Is.EqualTo(ReaccionaMicrogame.FailurePenaltyTicks));
@@ -412,7 +419,7 @@ namespace Barcade.Core.Tests
 
             for (int t = 0; t < 5000 && !mg.IsFinished; t++)
             {
-                mg.Tick(inputs);
+                mg.Tick(inputs.Build(t));
                 RenderState rs = mg.GetRenderState();
                 for (int i = 0; i < rs.FeedbackCount; i++)
                 {
@@ -472,10 +479,10 @@ namespace Barcade.Core.Tests
                 foreach (PlayerSlot slot in AllSlots)
                 {
                     bool pressed = pendingConfirmTick.TryGetValue(slot, out int target) && (t == target - 1 || t == target);
-                    inputs.Set(slot, new InputSnapshot(0f, 0f, pressed ? ButtonState.Pressed : ButtonState.Released));
+                    inputs.Set(slot, pressed);
                 }
 
-                mg.Tick(inputs);
+                mg.Tick(inputs.Build(t));
 
                 RenderState rs = mg.GetRenderState();
                 for (int i = 0; i < rs.FeedbackCount; i++)
@@ -555,18 +562,18 @@ namespace Barcade.Core.Tests
             var mg = new ReaccionaMicrogame(ReaccionaParams.GddDefaults);
             mg.Initialize(new SeededRandom(99), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
-            inputs.Set(PlayerSlot.Rojo, new InputSnapshot(0f, 0f, ButtonState.Released));
-            inputs.Set(PlayerSlot.Azul, new InputSnapshot(0f, 0f, ButtonState.Pressed));
-            inputs.Set(PlayerSlot.Amarillo, new InputSnapshot(0f, 0f, ButtonState.Held));
-            inputs.Set(PlayerSlot.Verde, new InputSnapshot(0f, 0f, ButtonState.Released));
+            inputs.Set(PlayerSlot.Rojo, false);
+            inputs.Set(PlayerSlot.Azul, true);
+            inputs.Set(PlayerSlot.Amarillo, true);
+            inputs.Set(PlayerSlot.Verde, false);
 
             // Warm up: JIT the hot path (covers signal fire, DNF resolution, and the
             // finished no-op path since GddDefaults is best-of-1 and reactionTimeout
             // is comfortably inside this window).
-            for (int i = 0; i < 500; i++) mg.Tick(inputs);
+            for (int i = 0; i < 500; i++) mg.Tick(inputs.Build(i));
 
             long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 1000; i++) mg.Tick(inputs);
+            for (int i = 500; i < 1500; i++) mg.Tick(inputs.Build(i));
             long after = GC.GetAllocatedBytesForCurrentThread();
 
             Assert.That(after - before, Is.EqualTo(0L));
@@ -588,6 +595,20 @@ namespace Barcade.Core.Tests
             Assert.That(roster.IsActive(PlayerSlot.Azul), Is.False);
             Assert.That(roster.IsActive(PlayerSlot.Amarillo), Is.True);
             Assert.That(roster.IsActive(PlayerSlot.Verde), Is.True);
+        }
+
+        // ── v2 InputSnapshot / PlayerInput sanity ──────────────────────────────
+
+        [Test]
+        public void V2InputSnapshot_WrongPlayerCount_Throws()
+        {
+            Assert.Throws<ArgumentException>(() => new V2Snapshot(0, new PlayerInput[3]));
+        }
+
+        [Test]
+        public void V2InputSnapshot_NullPlayers_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => new V2Snapshot(0, null));
         }
     }
 }
