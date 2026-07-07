@@ -306,6 +306,8 @@ namespace Barcade.Core.Microgames.V2
             if (_isFinished) return;
             if (input.Players == null) throw new ArgumentException("InputSnapshot.Players must not be null.", nameof(input));
 
+            _renderState.FeedbackCount = 0; // per-tick feedback stream, same as every other v2 mechanic's Tick
+
             _elapsedSeconds += DtSeconds;
 
             // A spawn whose every candidate attempt overlapped (pool full, or --
@@ -373,6 +375,12 @@ namespace Barcade.Core.Microgames.V2
                     {
                         _eliminated[i] = true;
                         _eliminationTick[i] = _tick;
+                        // One-hit-eliminates is the climactic, permanent event of the
+                        // round -- High tier, matching Corre's CueStunned and Manten's
+                        // CueFallen severity. Fired once here at the elimination site;
+                        // the seat is skipped on every later tick (see the guard above),
+                        // so a latched seat never re-emits.
+                        EmitFeedback(i, FeedbackLevel.High, CueEliminated);
                         break;
                     }
                 }
@@ -672,6 +680,19 @@ namespace Barcade.Core.Microgames.V2
         }
 
         private static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
+
+        /// <summary>
+        /// Appends one <see cref="FeedbackEvent"/> to this tick's pre-allocated
+        /// feedback pool (zero heap allocation -- the struct is written in place),
+        /// bounds-checked against <see cref="FeedbackCapacity"/>. Identical shape to
+        /// every other v2 mechanic's helper (ReaccionaMicrogame/CorreMicrogame/etc).
+        /// </summary>
+        private void EmitFeedback(int seat, FeedbackLevel level, byte cue)
+        {
+            if (_renderState.FeedbackCount >= _renderState.Feedback.Length) return;
+            _renderState.Feedback[_renderState.FeedbackCount] = new FeedbackEvent(seat, level, cue);
+            _renderState.FeedbackCount++;
+        }
 
         private void PublishRenderState()
         {

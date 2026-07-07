@@ -577,12 +577,11 @@ namespace Barcade.Core.Tests
         public void Determinism_SameSeedAndInputScript_ProducesIdenticalTraceAndResult()
         {
             // Unlike ReaccionaMicrogame's own determinism lock (which compares
-            // Feedback-event traces), CueEliminated is declared here but never
-            // actually emitted via EmitFeedback anywhere in this mechanic, so
-            // there is no feedback stream to compare. This compares a per-tick
-            // RenderState trace instead: EntityCount plus every entity's
-            // Kind/OwnerSeat/X/Y, for a full round including a HomingSoft
-            // pattern, plus the final GetResult() Ranks. Input is a FIXED
+            // Feedback-event traces), this compares a per-tick RenderState trace:
+            // EntityCount plus every entity's Kind/OwnerSeat/X/Y, for a full round
+            // including a HomingSoft pattern, plus the final GetResult() Ranks (the
+            // CueEliminated feedback stream itself is pinned separately by the
+            // TASK-064 feedback-trace tests above). Input is a FIXED
             // per-seat cycling schedule -- a deterministic function of (seat,
             // tick) only, never read back from RenderState -- so nothing here is
             // reactive/adaptive; this isolates the SIM's own determinism
