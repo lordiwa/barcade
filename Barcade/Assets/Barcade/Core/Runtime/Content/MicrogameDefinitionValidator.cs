@@ -36,6 +36,11 @@ namespace Barcade.Core.Content
     /// Runs in the fast suite (AC3) and is the same code the Editor build-pipeline
     /// hook (Barcade.EditorTools.MicrogameDefinitionMigrationTool.ValidateAll)
     /// calls -- one rule set, never duplicated between test and build tooling.
+    ///
+    /// Deliberately NOT checked here: SchemaVersion. Version dispatch (reject or
+    /// migrate a payload whose schemaVersion != 2) belongs to the §12 remote
+    /// content loader, which owns wire-format versioning -- next-ticket scope
+    /// (review LOW-5, reviewer concurred).
     /// </summary>
     public static class MicrogameDefinitionValidator
     {
@@ -54,7 +59,9 @@ namespace Barcade.Core.Content
             if (string.IsNullOrEmpty(def.Mechanic))
                 return ValidationResult.Fail("mechanic", "mechanic must be non-empty");
 
-            if (def.Duration < MinDurationSeconds || def.Duration > MaxDurationSeconds)
+            // Negated inclusion (rather than `d < min || d > max`) so NaN -- for
+            // which every comparison is false -- is rejected too (review LOW-3).
+            if (!(def.Duration >= MinDurationSeconds && def.Duration <= MaxDurationSeconds))
             {
                 return ValidationResult.Fail(
                     "duration",
@@ -95,7 +102,21 @@ namespace Barcade.Core.Content
             foreach (ParamRange range in schema.Ranges)
             {
                 if (!parameters.TryGetValue(range.Name, out object raw)) continue;
-                if (!TryToDouble(raw, out double value)) continue;
+
+                // Review MEDIUM-2: a non-numeric value for a param the mechanic
+                // declares a numeric range for must fail loudly, not silently
+                // bypass the range gate (e.g. "chargeCycleSec": "10.0" as a
+                // quoted string). Params the schema does NOT declare a range for
+                // stay free-form (the GDD §11.1 example itself nests an object
+                // under params.targetMoving).
+                if (!TryToDouble(raw, out double value))
+                {
+                    string got = raw == null ? "null" : $"{raw.GetType().Name} '{raw}'";
+                    return ValidationResult.Fail(
+                        $"params.{range.Name}",
+                        $"params.{range.Name} must be a number (mechanic {mechanic} declares the range " +
+                        $"[{range.Min}, {range.Max}]); got {got}");
+                }
 
                 if (value < range.Min || value > range.Max)
                 {

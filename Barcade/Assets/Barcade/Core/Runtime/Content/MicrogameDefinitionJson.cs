@@ -148,7 +148,18 @@ namespace Barcade.Core.Content
                 return Array.Empty<int>();
 
             var result = new int[list.Count];
-            for (int i = 0; i < list.Count; i++) result[i] = (int)Convert.ToDouble(list[i], CultureInfo.InvariantCulture);
+            for (int i = 0; i < list.Count; i++)
+            {
+                double d = Convert.ToDouble(list[i], CultureInfo.InvariantCulture);
+
+                // Review LOW-4: coins are integral (GDD §6.1) -- a fractional
+                // entry is authoring corruption; fail loudly instead of the
+                // previous silent (int) truncation (1.5 -> 1).
+                if (d != Math.Floor(d) || d < int.MinValue || d > int.MaxValue)
+                    throw new FormatException($"{key}[{i}]={d} is not a whole number within Int32 range.");
+
+                result[i] = (int)d;
+            }
             return result;
         }
 

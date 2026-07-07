@@ -37,6 +37,14 @@ namespace Barcade.Core.Content
             int i = 0;
             SkipWhitespace(json, ref i);
             object value = ParseValue(json, ref i);
+
+            // Review LOW-1: junk after the first value indicates a corrupt or
+            // concatenated remote payload -- reject it rather than silently
+            // using the first value.
+            SkipWhitespace(json, ref i);
+            if (i < json.Length)
+                throw new FormatException($"Unexpected trailing content at position {i}.");
+
             return value;
         }
 
@@ -165,7 +173,7 @@ namespace Barcade.Core.Content
                 SkipWhitespace(s, ref i);
                 string key = ParseString(s, ref i);
                 SkipWhitespace(s, ref i);
-                if (s[i] != ':') throw new FormatException($"Expected ':' at position {i}.");
+                if (i >= s.Length || s[i] != ':') throw new FormatException($"Expected ':' at position {i}.");
                 i++;
                 object value = ParseValue(s, ref i);
                 result[key] = value;
@@ -204,15 +212,24 @@ namespace Barcade.Core.Content
 
         private static string ParseString(string s, ref int i)
         {
-            if (s[i] != '"') throw new FormatException($"Expected '\"' at position {i}.");
+            // Bounds checks throughout so truncated input fails with a loud
+            // FormatException instead of an IndexOutOfRange/ArgumentOutOfRange
+            // leaking from the string indexer (review LOW-2).
+            if (i >= s.Length || s[i] != '"')
+                throw new FormatException($"Expected '\"' at position {i}.");
             i++;
             var sb = new StringBuilder();
-            while (s[i] != '"')
+            while (true)
             {
+                if (i >= s.Length) throw new FormatException("Unterminated JSON string.");
+
                 char c = s[i];
+                if (c == '"') break;
+
                 if (c == '\\')
                 {
                     i++;
+                    if (i >= s.Length) throw new FormatException("Unterminated escape sequence at end of input.");
                     char esc = s[i];
                     switch (esc)
                     {
@@ -225,8 +242,10 @@ namespace Barcade.Core.Content
                         case 'r': sb.Append('\r'); break;
                         case 't': sb.Append('\t'); break;
                         case 'u':
+                            if (i + 5 > s.Length)
+                                throw new FormatException($"Truncated \\u escape at position {i}.");
                             string hex = s.Substring(i + 1, 4);
-                            sb.Append((char)Convert.ToInt32(hex, 16));
+                            sb.Append((char)Convert.ToInt32(hex, 16)); // bad hex digits -> FormatException
                             i += 4;
                             break;
                         default:

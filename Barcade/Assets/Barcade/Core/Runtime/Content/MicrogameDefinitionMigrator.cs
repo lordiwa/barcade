@@ -85,7 +85,13 @@ namespace Barcade.Core.Content
                 PayoutTable = (int[])DefaultCompetitivePayout.Clone(),
                 Assets = new Dictionary<string, string>(StringComparer.Ordinal),
                 StageProfile = new StageProfile(CameraFor(v1.Id), string.Empty, string.Empty),
-                MinPlayers = 4,
+                // [ASSUMED] The v1 schema has no minPlayers; 2 is the migration
+                // default (orchestrator decision under the GDD-canonical
+                // directive): GDD §11.1's own example uses minPlayers: 2 for a
+                // competitive definition, and §1.3 makes 2-3-player sessions a
+                // hard constraint -- a higher default would lock every migrated
+                // microgame out of them. Design may recalibrate per-definition.
+                MinPlayers = 2,
                 Tags = Array.Empty<string>(),
                 LegacyHintText = v1.HintText,
                 LegacyDifficultyTier = v1.Difficulty,

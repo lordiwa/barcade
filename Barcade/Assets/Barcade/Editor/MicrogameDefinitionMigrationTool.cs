@@ -59,7 +59,17 @@ namespace Barcade.EditorTools
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 var v1 = AssetDatabase.LoadAssetAtPath<MicrogameDefinition>(path);
-                if (v1 == null) continue;
+                if (v1 == null)
+                {
+                    // Review LOW-6: FindAssets said this is a MicrogameDefinition
+                    // but it failed to load -- that is a broken asset, not a
+                    // definition to silently leave out of the migrated set.
+                    Debug.LogError(
+                        $"[MicrogameDefinitionMigrationTool] '{path}' matched t:MicrogameDefinition " +
+                        "but failed to load -- counting as a migration failure.");
+                    failed++;
+                    continue;
+                }
 
                 var fields = new LegacyMicrogameDefinitionFields(
                     id: v1.id,
