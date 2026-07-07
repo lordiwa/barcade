@@ -107,7 +107,7 @@ namespace Barcade.Core
                 return minInclusive;
 
             uint bound = (uint)((long)maxExclusive - minInclusive);
-            uint threshold = (uint)(-bound) % bound;
+            uint threshold = unchecked((uint)(-bound)) % bound;
             while (true)
             {
                 uint r = NextUInt32();
