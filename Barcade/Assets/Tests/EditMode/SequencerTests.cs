@@ -111,7 +111,9 @@ namespace Barcade.Core.Tests
             };
             var director = MakeDirector(pool, seed: 42);
 
-            var expected = new[] { "C", "A", "B", "A", "C", "B", "A", "C", "A", "B" };
+            // Recalibrated for TASK-044: SeededRandom is now PCG32 (GDD 13), so the
+            // seed-42 pick sequence changed once, permanently (algorithm-pinned).
+            var expected = new[] { "A", "C", "B", "C", "A", "C", "A", "B", "A", "C" };
             for (int i = 0; i < expected.Length; i++)
             {
                 string picked = director.PickNext().Id;
@@ -153,8 +155,8 @@ namespace Barcade.Core.Tests
             var pool = new[] { Desc("X"), Desc("Y") };
             var director = MakeDirector(pool, seed: 100);
 
-            // Precomputed: seed=100 with [X,Y] → Y X Y X Y X Y X Y X
-            var expected = new[] { "Y", "X", "Y", "X", "Y", "X", "Y", "X", "Y", "X" };
+            // Precomputed for PCG32 (TASK-044): seed=100 with [X,Y] → X Y X Y X Y X Y X Y
+            var expected = new[] { "X", "Y", "X", "Y", "X", "Y", "X", "Y", "X", "Y" };
             for (int i = 0; i < expected.Length; i++)
             {
                 string picked = director.PickNext().Id;
