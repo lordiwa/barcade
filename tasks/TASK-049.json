@@ -7,7 +7,7 @@
     "The workflow pins an SDK channel compatible with the repo (8.0.x) and passes on the current master",
     "README or the workflow file itself documents that Unity suites are intentionally excluded (local Editor gate)"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "low",
   "labels": [
     "ci",
@@ -19,17 +19,29 @@
   "depends_on": [
     "TASK-044"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "bec83b6"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "dev-t101",
       "at": "2026-07-07T14:22:48.501Z",
       "body": "Hand-off. One commit on master: bec83b6 ci: add minimal GitHub Actions workflow. File: .github/workflows/fast-tests.yml. Workflow name \"Fast Suite\"; job id dotnet-test, job name \"dotnet test (Barcade.Core.FastTests)\". Triggers: push to master + pull_request (unfiltered). Runner ubuntu-latest. Steps: actions/checkout@v4 -> actions/setup-dotnet@v4 (dotnet-version '8.0.x') -> dotnet test fast-tests/Barcade.Core.FastTests --nologo.\n\nAC1: push+PR triggers; dotnet test non-zero exit fails the check; §13 analyzer test rides in the same suite. AC2: 8.0.x pin matches local SDK 8.0.422; exact invocation sanity-checked locally = 554/554 green; confirmed dotnet test builds only Barcade.Core.FastTests.csproj (never the Unity-dependent Framework/Editor projects — no Unity install needed in CI); GitHub-side pass observation deferred to post-push UAT (dev cannot push). AC3: header comment block inside the workflow file documents the Unity-suite exclusion (README untouched, dev call per briefing).\n\nUAT SCRIPT (post-push): on github.com/lordiwa/barcade, Actions tab or commit checks — expect check \"Fast Suite / dotnet test (Barcade.Core.FastTests)\" green; step \"Run fast suite\" log ends \"Passed! - Failed: 0, Passed: 554, Skipped: 0, Total: 554\". That observation closes AC2 and forms the uat-only verdict. YAML parse-validated before commit. Surface: .github/ only; rev-t045/rev-t053 surfaces untouched."
+    },
+    {
+      "author": "uat",
+      "at": "2026-07-07T14:27:04.978Z",
+      "body": "UAT verdict (uat-only tier). Human delegated observation to the Orchestrator (AskUserQuestion, 2026-07-07 ~14:30Z) — each step recorded PASS, verified by Orchestrator at the human's request.\n\nStep 1 — AC1 (workflow runs on push to master and fails the check on any test failure): expected = an Actions run of workflow \"Fast Suite\" triggered by the push of fc41617 to master, job \"dotnet test (Barcade.Core.FastTests)\" whose step exit code gates the check. Observed = run 28873757302 triggered by that push, job present, dotnet test's non-zero-on-failure semantics gate the step (§13 analyzer test rides in the same suite). VERDICT: PASS (verified by Orchestrator at the human's request).\n\nStep 2 — AC2 (SDK pinned 8.0.x; passes on current master): expected = setup-dotnet '8.0.x' and a green run on master HEAD. Observed = run 28873757302 concluded SUCCESS; log line: \"Passed!  - Failed: 0, Passed: 554, Skipped: 0, Total: 554, Duration: 615 ms - Barcade.Core.FastTests.dll (net8.0)\" — matches the local 554/554 baseline exactly. VERDICT: PASS (verified by Orchestrator at the human's request).\n\nStep 3 — AC3 (Unity-suite exclusion documented): expected = README or workflow-file documentation of the intentional EditMode/PlayMode exclusion. Observed = header comment block in .github/workflows/fast-tests.yml documenting the exclusion (no Unity license/runner in CI; local Editor gate; separate future ticket for a licensed runner), orchestrator static-checked. VERDICT: PASS (verified by Orchestrator at the human's request).\n\nOVERALL: PASS — all 3 ACs covered, all steps PASS."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:27:19.245Z",
+      "body": "CLOSED on recorded UAT PASS (all 3 ACs, human-delegated observation — see uat comment above). Tier uat-only: no reviewer required by tier; verification = orchestrator static YAML check + firsthand CI observation (run 28873757302 on fc41617: SUCCESS, 554/554 in 615 ms on ubuntu-latest). Delivered: .github/workflows/fast-tests.yml — workflow 'Fast Suite', job 'dotnet test (Barcade.Core.FastTests)', triggers push-to-master + pull_request, actions/checkout@v4 + actions/setup-dotnet@v4 pinned 8.0.x, dotnet test fast-tests/Barcade.Core.FastTests --nologo; header comments document the intentional Unity EditMode/PlayMode exclusion (local Editor gate; licensed CI runner = separate future ticket). Every future push/PR now gets an automated green/red fast-suite signal including the GDD §13 analyzer test — closing rev-c044's LOW-2 gap from the TASK-044 review."
     }
   ],
   "created_at": "2026-07-07T12:41:37.201Z",
-  "updated_at": "2026-07-07T14:22:48.784Z",
+  "updated_at": "2026-07-07T14:27:19.245Z",
   "jira_key": null,
   "verification_tier": "uat-only",
   "marker": "[EXPLICIT]",

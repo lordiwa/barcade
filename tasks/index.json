@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:23:39.888Z",
+  "generated_at": "2026-07-07T14:27:19.245Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -292,7 +292,7 @@
     {
       "key": "TASK-049",
       "title": "Minimal CI pipeline: run the fast suite (incl. the GDD §13 analyzer test) on every push/PR",
-      "status": "in_review",
+      "status": "done",
       "priority": "low"
     },
     {
