@@ -22,9 +22,15 @@
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "reviewer",
+      "at": "2026-07-07T12:40:54.675Z",
+      "body": "[RE-APPLIED after working-tree cleaning lost the original write] FULL-depth fresh-context review (rev-c044) of the CLOUD-authored TASK-044 (branch claude/gdd-hito1-cloud, commits 21fe765 test -> 3fb67ac feat), pinned at 3fb67ac: APPROVE-WITH-NITS on its own tree — 0 HIGH, 0 MEDIUM, 2 LOW. Suite 492/492 firsthand; red reproduced (compile-red on the new PCG32 surface); commit order strict; tdd honored. AC1 AUTHENTICITY PROVEN (not calibration laundering): reviewer independently transcribed canonical pcg_basic.c to Python and computed srandom(42,54) -> 0xa15c02b7 0x7b47f409 0xba1d3330 0x83d2f293 0xbfa4784b 0xcbed606e — exact match with the pinned vectors AND the published pcg32-demo Round 1 output; LCG multiplier, inc=(streamId<<1)|1, srandom init dance, XSH-RR permutation all canonical line-for-line. AC4 analyzer MUTATION-TESTED: System.Random probe injected -> test fails; removed -> clean; executable in both runners; fast-tests links Core sources (single source of truth). AC3 independence test genuine (interleaved draws + equality assert; SplitMix64 bijection collision-free). API preserved or strictly improved: NextFloat top-24-bit [0,1) strict (old could round to 1.0f); NextInt keeps System.Random edge contract + gains rejection sampling (uniformity test); ISeededRandom untouched, zero consumer files modified. AC2: exactly one existing test file touched (SequencerTests.cs, two 10-pick sequences recalibrated exactly, nothing weakened). AC5 satisfied-in-substance: externally-computed published constants validated on every run (cross-process by construction), platform scope documented per GDD 13. LOW-1: SeededRandom.cs:110 (uint)(-bound) relies on unchecked default — wrap in unchecked() like line 86 (behavior-preserving, shifts no streams). LOW-2: AC4 says 'CI check' but the repo has NO CI pipeline -> TASK-049 filed. OBS: empty-range NextInt no longer consumes a draw (harmless); PCG same-state stream correlations theoretical only. INTEGRATION: blast radius = SequencerTests.cs + new Pcg32SeededRandomTests (10) + csproj; ALL 17 local-only tests survive — verified statically AND empirically via trial cherry-pick onto local master 45c6259: combined 476/476. No code coupling to cloud TASK-024/035. FOLLOW-UP (concurs with cloud dev note 9): selector Combine() vs this ticket's Derive() dual idiom — folded into the TASK-035 integration fix round. INTEGRATION EXECUTED: picks landed on master as 7b2fc40 (test) / 4d6db74 (feat); unchecked() wrap pending as its own commit; rev-c044 re-verifies."
+    }
+  ],
   "created_at": "2026-07-07T04:46:07.014Z",
-  "updated_at": "2026-07-07T12:13:18.682Z",
+  "updated_at": "2026-07-07T12:40:54.675Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

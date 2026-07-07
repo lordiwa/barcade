@@ -1,0 +1,31 @@
+{
+  "key": "TASK-049",
+  "title": "Minimal CI pipeline: run the fast suite (incl. the GDD §13 analyzer test) on every push/PR",
+  "description": "[RE-CREATED after working-tree cleaning deleted the untracked original] Gap surfaced by rev-c044 during the TASK-044 PCG32 review (LOW-2): GDD §13 asks for a CI/analyzer rule against System.Random/UnityEngine.Random in Barcade.Core, and TASK-044 delivers it as an executable fast-suite test — but the repo has NO CI pipeline at all (no .github/workflows), so nothing runs the suite on push. The cloud-batch workflow (PR #1) would also have benefited from an automated green/red signal. Add a minimal GitHub Actions workflow that restores and runs `dotnet test fast-tests/Barcade.Core.FastTests` on push to master and on pull_request, using an SDK version pinned to match the repo (8.0.x). Unity EditMode/PlayMode suites stay OUT of scope (no Unity license/runner in CI; those remain the local Editor gate). Keep it to one workflow file; no build matrix, no caching cleverness required.",
+  "acceptance_criteria": [
+    "A GitHub Actions workflow runs the fast suite on push to master and on pull_request, failing the check on any test failure (which includes the §13 analyzer test)",
+    "The workflow pins an SDK channel compatible with the repo (8.0.x) and passes on the current master",
+    "README or the workflow file itself documents that Unity suites are intentionally excluded (local Editor gate)"
+  ],
+  "status": "todo",
+  "priority": "low",
+  "labels": [
+    "ci",
+    "infra",
+    "determinism",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-044"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T12:41:37.201Z",
+  "updated_at": "2026-07-07T12:41:37.201Z",
+  "jira_key": null,
+  "verification_tier": "uat-only",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

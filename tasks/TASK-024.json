@@ -11,7 +11,7 @@
     "Existing RoundPhaseMachine consumers keep compiling and passing (extension, not rewrite)",
     "Tests-first: failing fast-suite tests for the invariants above committed strictly before implementation; suite green after with no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -24,7 +24,12 @@
   "depends_on": [
     "TASK-023"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "2744481",
+    "d7f5324",
+    "e89bf49",
+    "87bb842"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -36,10 +41,20 @@
       "author": "reviewer",
       "at": "2026-07-07T12:16:02.391Z",
       "body": "FULL-depth fresh-context review (rev-t024) of 259c3e1..d7f5324, evidence pinned at d7f5324 in a detached worktree: APPROVE-WITH-NITS — 0 HIGH, 3 MEDIUM, 4 LOW. Suite 465/465 observed firsthand (449 baseline + 16 new); RoundPhaseMachineTests standalone 25/25; RoundPhaseMachine.cs byte-untouched (empty diff); red reproduced firsthand at 2744481 (build fails, 15x CS0246 — dev's note said 16, actual 15, immaterial = LOW-4). MEDIUM-1: CompleteJoin() fires the instant the 2nd seat claims (SessionStateMachine.cs:299) — in a 4-player group, seats 3/4 pressing one tick later never join; GDD 9.3 budgets up to 30 s for color choice and the 2.1 exit label is ambiguous; only interpretation in the diff with NO [ASSUMED] tag and no design ruling. MEDIUM-2: MgIntro 0.8 s wiring unpinned — config VALUE pinned but if the constructor arg were dropped and RoundPhaseMachine's 1.0 s default took over, all 465 tests still pass (silent-drift shape); same smaller gap for MgResult's external 1.5 s window; fix = exact tick-count tests against distinctive config values. MEDIUM-3: difficultyMult hardcoded 1f at both Initialize call sites, unflagged, while SessionPhase doc itself cites D_final=1.5x; scope-fine (difficulty is T-108) but needs [ASSUMED] seam comment + pin. LOW-1 stale LastMicrogameResult when mgIntroSeconds=0 AND playDuration=0 (flush cascades past the arrival-capture block; unreachable with GddDefaults). LOW-2 ResetToAttract does not clear _roster. LOW-3 input-boundary test holds by exact cancellation at window edges; assertion message overstates. LOW-4 record-keeping (15 vs 16 CS0246). ASSUMPTION AUDIT: (a) JOIN 0-ready timeout PASS per approved semantics; (b) FinalMg gameplay input ACCEPTED (GDD draws FINAL_MG with no sub-phases; denying input makes climax unplayable; documented + pinned); (c) TotalRounds=7 PASS (Annex B line 903 verified); (d) FinalMg duration reuse PASS; (e) GetResult gating PASS; (f) null-microgame skip PASS; (g) 0.8 s override PARTIAL -> MEDIUM-2. RISK AREAS: in-feat test edits both legitimate and strictly strengthening; Tick(0f) flush advances exactly one phase, no double-advance; AC5 snapshot pure readonly struct, replay compares full 2001-snapshot traces field-by-field; zero-alloc window LIVE (not a 4th vacuous incident); liveness verified incl. never-finishing microgame and FinalMg ceiling; interpreter Reset at BeginRound/BeginFinalMg matches 3.2; five HIGH classes swept — none; calibration audit: every GDD citation checked accurate, [ASSUMED] tags sit exactly where the GDD is silent. TIER AUDIT: tdd correct and honored. AC-by-AC: all 7 pass (AC3 as [ASSUMED]-amended; AC2 with the MEDIUM-2 sensor caveat). Disposition: fix round for MEDIUM-1 (needs orchestrator design ruling), MEDIUM-2, MEDIUM-3, LOW-1/2/3; LOW-4 recorded here, no action. rev-t024 re-verifies the fix diff."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T12:37:21.256Z",
+      "body": "CLOSED on rev-t024 fix-round verdict CLOSE (2026-07-07 ~13:10Z). Review depth FULL — rubric inputs: core tdd-tier logic (mandatory-FULL surface, session FSM) + 1161 inserted lines/11 files first round + 333/18 across 3 files fix round. Round 1: APPROVE-WITH-NITS (0 HIGH / 3 MEDIUM / 4 LOW), suite 465/465 firsthand, all 7 developer assumptions audited (JOIN 0-ready timeout PASS per recorded ruling; FinalMg gameplay input ACCEPTED as [ASSUMED]-amended AC3; TotalRounds=7 verified vs Annex B). Fix round e89bf49 (test) -> 87bb842 (fix), 473/473 firsthand, RoundPhaseMachineTests 25/25. Re-verify evidence: M1 JOIN semantics (window open until 30 s, early exit only on all-4-claimed — [ASSUMED] ruling in session decisions[]) proven by DIRECT EXPERIMENT: reviewer surgically reverted only the exit condition in a scratch worktree — exactly the 2 discriminating pins fail, restored cleanly; M2 exact-duration pins (MgIntro 7-tick / MgResult 9-tick distinctive values) with production confirmed untouched; M3 difficultyMult routed through SetActiveMicrogame (default 1f, T-108 seam documented, non-default 2.5f pin); L1 CaptureResult extraction + flush-cascade capture (real CoopScore-9 sensor); L2 roster cleared (outside zero-alloc window); L3 per-tick boundary predicate strictly stronger. In-fix MgResult test fencepost fix judged LEGITIMATE (reviewer derived the same accounting independently; production timing untouched). MgPlay/FinalMg exit-boundary asymmetry ACCEPTED (input never reaches a finished microgame — verified call order; both conventions deterministic and explicitly pinned; unifying would churn for no player-visible benefit). Residual LOW recorded, no action: MgResult observable window one tick short / MgIntro one tick long of budget, deterministic, mutually offsetting, pinned with accurate comments. This close completes the Editor-free Hito 1 core (T-101/102/103/104 + schema T-106); remaining Hito 1 = TASK-027 StagePresenter + TASK-028 scene/UAT (Unity Editor + human). Follow-on wiring: TASK-051 (FINAL_WAGER choice capture + SessionCounters feeds)."
+    },
+    {
+      "author": "developer",
+      "at": "2026-07-07T12:41:30.929Z",
+      "body": "[RE-APPLIED out of order after working-tree cleaning lost the original write — this fix-round hand-off chronologically precedes the close comment] Fix round complete on master (dev-t101): e89bf49 test(core) red -> 87bb842 fix(core). Red = genuine compile-red CS1739 (MEDIUM-3's test calls SetActiveMicrogame(difficultyMult:) before the signature exists). Suite 466 -> 473/473 (7 net new); RoundPhaseMachineTests standalone 25/25. MEDIUM-1 (JOIN, [ASSUMED] per orchestrator ruling): exit now _readyCount >= AllSlots.Length || _phaseElapsed >= JoinTimeoutSeconds (old >=JoinMinReady trigger dropped; field kept for GDD traceability); pinned by Join_TwoReadyPlayers_StaysOpenUntilAllFourOrTimeout (replaces old pin), Join_ThirdAndFourthPlayerCanStillJoinAfterMinimumReached, Join_AllFourClaimed_AdvancesBeforeTimeout. MEDIUM-2: MgIntro/MgResult exact-duration pins (distinctive 7/9-tick values) — no production change needed. MEDIUM-3: SetActiveMicrogame gained difficultyMult (default 1f) forwarded to both Initialize sites; pinned non-default 2.5f + default companion. LOW-1: CaptureResult() extraction + already-at-Result-after-flush handling; pinned. LOW-2: ResetToAttract clears _roster; pinned. LOW-3: per-tick delta predicate (postPhase==MgPlay || prePhase==FinalMg). NEW FLAG: MgPlay/FinalMg exit-boundary asymmetry (MgPlay exit tick does not forward, FinalMg's does) — behavior unchanged, judged by rev-t024 in re-verify: ACCEPTED. Self-caught MgResult fencepost test bug fixed inside fix commit (entry tick self-accumulates in the same TickRoundSubLoop call), judged legitimate by rev-t024 via independent derivation. No TASK-048-surface files touched."
     }
   ],
   "created_at": "2026-07-07T03:25:56.079Z",
-  "updated_at": "2026-07-07T12:16:02.391Z",
+  "updated_at": "2026-07-07T12:41:30.929Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

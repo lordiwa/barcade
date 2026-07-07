@@ -25,9 +25,20 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "reviewer",
+      "at": "2026-07-07T12:40:40.745Z",
+      "body": "[RE-APPLIED after working-tree cleaning lost the original write] FULL-depth fresh-context review (rev-c035) of the CLOUD-authored TASK-035 (branch claude/gdd-hito1-cloud, commits 11d3bfc test -> 4bd442c feat), evidence pinned at 4bd442c: APPROVE-WITH-NITS on its own tree — 0 HIGH, 1 MEDIUM, 3 LOW. Suite 482/482 firsthand (471 base + 11 new); red reproduced at 11d3bfc (CS0234/CS0246 confined to the new Sequencer.V2 types); two-commit discipline + tdd tier honored. MEDIUM-1 (corpus sensor weaker than documented): (a) PlaySession rotation rot=(seed+round)&3 shifts the 4th-place seat EVERY round, so the two-consecutive-4ths bias trigger NEVER fires in the 1000-session corpus (doc comment claiming otherwise is provably false) — bias-vs-constraint interaction rests solely on the separate 200-seed test; (b) the 'remainder competitive' assert is a tautology; (c) corpus asserts the coop window (rounds 3/4) but never the asym window (5/6) nor asym==exactly 1 (GDD 7.2 '1 por sesión' vs AC '>=1' — GDD-vs-test gap). Fix: rotation period 2; Assert asym==1 + asym-round-in-{5,6}. LOW-1 hidden seed coupling (trigger test silently encodes CoopRound(7)!=4; use competitive-only pool). LOW-2 RoundRecord aliases the caller's places array (no defensive copy) — replay-purity hazard. LOW-3 statistical margin ~2 sigma; competitive-only pool doubles it. POSITIVE: AC1 purity audited; AC2/AC3 corpus = 1000 distinct seeds, EVERY session asserted per-round incl. climax; AC4 statistical test real (matched-seed biased-vs-unbiased over 2000 trials, threshold + <0.95 ceiling; off-by-one trigger case covered; bias post-filter selection-weight only, provably cannot override anti-repetition); AC5 D(r)=1+0.06(r-1), D_final=1.5 GDD-verbatim; AC6 only csproj touched, v1 SequencerDirector untouched. GDD cross-checks firsthand: 9.2, 7.1/7.2 windows, 6.4 trigger, nesting prohibition P3 satisfied; v1 SequencerDirector confirmed to contain a P3-violating re-roll loop (SequencerDirector.cs:117-122) validating the V2-successor approach — BUT GDD 9.2 says 'código existente, se extiende': coexistence defensible ONLY if T-107 (TASK-034) retires v1 (note appended there). BiasWeight=3 honestly [ASSUMED]. GDD tension recorded: 6.4 'fuerza en el sorteo' vs its own 'bias suave' parenthetical; implementation follows the AC. INTEGRATION (verified vs local master 45c6259): zero couplings to the unmergeable cloud-024; deps only TASK-030 types + SeededRandom.NextInt (PCG32-preserved API); csproj +2 hunk context byte-identical local-vs-cloud; new paths collide with nothing; expected conflicts ONLY tasks/*.json. INTEGRATION EXECUTED: picks landed on master as 3416adc (test) / bb2abcb (feat); fix round pending; rev-c035 re-verifies."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T12:40:43.837Z",
+      "body": "[RE-APPLIED] SCOPE ADDITION for the integration fix round (from rev-c044's TASK-044 review + the cloud dev's own note 9): the selector currently mixes seeds with its own Combine() helper; TASK-044 introduces the canonical GDD-13 stream derivation Derive(sessionSeed, round, RngStream.*). Migrate the selector's seed mixing to the Derive idiom AS PART OF this ticket's integration fix round — it shifts the 1000-session corpus streams, and the fix round is already recalibrating that corpus for the rotation-period change (rev-c035 MEDIUM-1), so doing both at once avoids a second corpus churn. Two derivation idioms must NOT coexist after integration."
+    }
+  ],
   "created_at": "2026-07-07T04:20:38.128Z",
-  "updated_at": "2026-07-07T12:13:17.741Z",
+  "updated_at": "2026-07-07T12:40:43.837Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

@@ -1,0 +1,32 @@
+{
+  "key": "TASK-050",
+  "title": "Validator/PayoutRules contract drift: payoutTable length must be exactly 4 for competitive definitions",
+  "description": "[RE-CREATED after working-tree cleaning deleted the untracked original] Found by rev-c037 during the TASK-037 review (MEDIUM-1): MicrogameDefinitionValidator.ValidatePayoutTable (Content/MicrogameDefinitionValidator.cs:78-95, TASK-030) accepts any payoutTable of length >= 1, while the new PayoutRules.ApplyCompetitive (Scoring/PayoutRules.cs:66-67, TASK-037) throws ArgumentException unless length == 4. A v2 definition with payoutTable [6,4,2] passes validation GREEN and then crashes at scoring time — loud, but mid-session on a bar cabinet, exactly what the validator exists to prevent. Fix direction (GDD-canonical, §6.1 tables are 4-place): the validator should require exactly 4 entries for competitive-mode definitions (red test in the validator suite first); alternatively (weaker) PayoutRules documents and accepts N >= max place. Coop-mode tables have their own shape — do not break the coop path. Touches the closed TASK-030 surface: normal tdd flow, no open review on it.",
+  "acceptance_criteria": [
+    "A red validator-suite test pins that a competitive definition with payoutTable length != 4 fails validation with a field-naming error, committed strictly before the fix",
+    "Validator and PayoutRules agree on the contract (no input can validate green and then throw in PayoutRules); coop payout shape unaffected",
+    "Fast suite green, no regression"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "core",
+    "scoring",
+    "validator",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-037"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T12:41:50.787Z",
+  "updated_at": "2026-07-07T12:41:50.787Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T12:19:56.817Z",
+  "generated_at": "2026-07-07T12:42:00.283Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -142,7 +142,7 @@
     {
       "key": "TASK-024",
       "title": "GDD T-102 — SessionStateMachine: full session FSM with per-state timeouts (§2.1/§2.2)",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {
@@ -288,6 +288,24 @@
       "title": "Regularize RenderEntity.VisualVariant contract + pin overtime-landing scoring (TASK-026 review residuals)",
       "status": "done",
       "priority": "medium"
+    },
+    {
+      "key": "TASK-049",
+      "title": "Minimal CI pipeline: run the fast suite (incl. the GDD §13 analyzer test) on every push/PR",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "key": "TASK-050",
+      "title": "Validator/PayoutRules contract drift: payoutTable length must be exactly 4 for competitive definitions",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-051",
+      "title": "Wire ScoringV2 into the session loop: FINAL_WAGER choice capture + SessionCounters feeds from mechanics",
+      "status": "todo",
+      "priority": "high"
     }
   ]
 }

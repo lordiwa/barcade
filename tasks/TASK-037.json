@@ -25,9 +25,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "reviewer",
+      "at": "2026-07-07T12:41:08.425Z",
+      "body": "[RE-APPLIED after working-tree cleaning lost the original write] FULL-depth fresh-context review (rev-c037) of the CLOUD-authored TASK-037 (branch claude/gdd-hito1-cloud, commits 04b6aaa -> 3037b02 -> 0f0d662 tests, 26d974f feat), pinned at 26d974f: APPROVE-WITH-NITS on its own tree — 0 HIGH, 2 MEDIUM, 3 LOW. Suite 512/512 firsthand (492 + 20 new); compile-red reproduced at 0f0d662; three test commits strictly precede feat; tdd honored. COMMIT HYGIENE CLEARED: 3037b02 genuine pre-impl helper-arity fix; 0f0d662 recalibration NOT calibration laundering — reviewer recomputed: the original (35,35,35,35) fixture is mathematically unsatisfiable under exact GDD pot math AND contradicts 5.6's own sink economy; new envelope GDD-derived, assertion line untouched. GDD cross-checks exact: payouts 6/4/2/1 + coop 4/1; wager 25/50/75, pot 50/30/15/5 fully conserved (bottom-up remainder dealing tested); six star kinds incl. directions; tiebreak chain matches 6.3; ranking parity IDENTICAL to REACCIONA/APUNTA competition ranking; P3 single-tirada; AC2 property test exhaustive (4 holdings x 81 combos x 24 permutations); AC3 exclusion filter proven live via threshold=2 parameterization + 1000-seed fuzz asserting the real invariant; AC1 payout data flows through the TASK-030 validator (defense in depth); v1 ScoreModel untouched (coexistence). MEDIUM-1 (validator/consumer drift -> TASK-050): validator accepts payoutTable length>=1 while PayoutRules.ApplyCompetitive throws unless length==4 — a [6,4,2] definition validates green and crashes mid-session. MEDIUM-2 (exclusion-boundary adequacy -> integration fix round): allowed-side claim (2-behind coin-tiebreak comeback reachable) has NO test; empty-pool fallback (BonusStarDraw.cs:88 draws UNFILTERED — silently violates the invariant if star values change) untested; fix = allowed-side clone gap=2 + fallback-branch test or make fallback throw/pick-least-harmful. LOW-1 FinalWager.Resolve lacks the 1..4 place guard (silent value transfer). LOW-2 swing bound operationalized <=2 stars for an 'about 1 star' AC; assert message oversells; NOTE nothing at runtime enforces the 5.6 envelope — calibration risk logged to TASK-033. LOW-3 record-keeping (20 tests not 18; meta in feat commit). Exclusion generalized to ANY player >=3 behind — stricter than GDD, permitted. GDD-BUGS CONFIRMED (human action required): (1) GDD line 496 Zen star row truncated mid-cell; cloud containment sound (direction preserved, generic RecordZenMetric, [ASSUMED]); human must fill the metric + fix the GDD. (2) 5.6-vs-6.3 star-count conflict (2-3 vs exactly 2; cloud implemented 6.3, correct) AND reviewer addition: 5.6's bullet decomposition sums 4-6 vs its stated 2-4 — whole bullet needs a human pass. GDD silences [ASSUMED]: wager timeout default=Half; star-tie=no-holder. INTEGRATION: HARD dependency on TASK-044 (SeededRandom.Derive + RngStream at BonusStarDraw.cs:90); ZERO references to SessionStateMachine or selector types; merge order MUST be 035 -> 044 -> 037. Wiring gaps -> TASK-051. Housekeeping disclosed: stray worktree in live tree ~1 min, removed, verified clean."
+    }
+  ],
   "created_at": "2026-07-07T04:21:08.977Z",
-  "updated_at": "2026-07-07T12:13:18.738Z",
+  "updated_at": "2026-07-07T12:41:08.425Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
