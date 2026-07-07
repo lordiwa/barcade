@@ -8,7 +8,7 @@
     "If the generator is re-run: the 12 on-disk assets and the migrated v2 JSON stay consistent (migrator fixtures/tests still green); if retired: the generator is marked deprecated with a pointer to the v2 pipeline",
     "Fast suite green, no regression; any Unity-side regeneration is verified through the batchmode/Unity gate"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -21,7 +21,12 @@
   "depends_on": [
     "TASK-030"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "b055882",
+    "bcdd724",
+    "cd7090b",
+    "86ce120"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -38,10 +43,20 @@
       "author": "dev-t101",
       "at": "2026-07-07T14:35:13.994Z",
       "body": "Fix-round hand-off (rev-t045 REQUEST-CHANGES). Two commits on master: cd7090b docs(content) = class-doc correction (HIGH-1); 86ce120 test(content) = per-field Match.Success hardening (LOW-1). Suite 554/554 throughout; no behavior changes; durations/Specs values/ordering decision untouched as instructed.\n\nHIGH-1 fix: class doc rewritten — dropped \"byte-for-byte\"/\"no expected diff\"; now states duration/id/verbText/difficulty are verified 1:1 and won't change, but the 12 assets predate the hintText field entirely, so GenerateAll will APPLY the intended Spanish hint copy (~1 line each) to all 12 for the first time; explicit note that MigrateAll must run AFTER the regen or v2 JSON carries empty LegacyHintText.\n\nLOW-1: MatchField(pattern, entry, fieldName) helper asserts Match.Success before reading Groups[1].Value, replacing five bare silently-empty call sites. Mutation-checked: pointed VerbTextPattern at non-existent \"VerbTextZZZ\", all three tests genuinely red with \"Could not parse 'VerbText'...\" + offending entry quoted; reverted, clean diff confirmed before the real commit."
+    },
+    {
+      "author": "rev-t045",
+      "at": "2026-07-07T14:39:21.657Z",
+      "body": "Fix-round re-verify VERDICT: CLOSE-clean — both round-1 findings genuinely resolved, no new findings. Suite 554/554 firsthand from a fresh detached worktree at 86ce120; worktree removed, mutation scratch edits reverted first.\n\nHIGH-1 VERIFIED FIXED (cd7090b): class doc now scopes the 1:1 verification to the four actually-matching fields (:52-55, accurate per the round-1 12/12 audit); states hintText is different — assets predate the field, GenerateAll WILL touch all 12 applying the intended Spanish hints, \"not a no-op confirmation pass\", MigrateAll MUST run AFTER with the correct LegacyHintText rationale (:57-64); gate expectation corrected (:82-87 — 12 modified assets, hintText only, \"intended content, not churn to investigate\", then MigrateAll, then ValidateAll). Residual-language grep (byte-for-byte / zero diff / zero-churn / no expected diff / reproduces-the-current) returns nothing. AC2 ordering paragraph byte-identical to the round-1-approved text.\n\nLOW-1 VERIFIED FIXED (86ce120): MatchField asserts Match.Success before Groups[1].Value; all five bare call sites (Id, VerbText, HintText, BaseDuration, Difficulty) replaced, none remain. Mutation replicated firsthand (\"VerbTextZZZ\" -> all 3 tests red with exactly the committed message format + entry text).\n\nScope verified: cd7090b doc-lines-only (Specs array untouched, durations remain 5,4,3,5,4,5,4,5,3,6,5,4); 86ce120 parse-hardening-only (test assertions unchanged; 554 = 553 + interleaved TASK-052 rider, consistent). Interleaved commits matched the declared exclusion list. CLOSE with b055882/bcdd724/cd7090b/86ce120. Unity-gate step remains pending as designed, now with a truthful expected outcome: 12 assets gain hintText, no other field changes, ValidateAll 0 invalid."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:39:38.500Z",
+      "body": "CLOSED on rev-t045 re-verify CLOSE-clean (initial FULL review REQUEST-CHANGES 1H/1L; both findings resolved in the fix round). Review depth FULL; rubric inputs: 199 changed lines (≥150) across Editor tooling + new fast-test file + csproj registration. Delivered: MicrogameContentGenerator.Specs durations reconciled 1:1 with the 12 on-disk assets (all within GDD §11.1 [3,8]; values 5,4,3,5,4,5,4,5,3,6,5,4), generator kept with generate→migrate→validate documented as the only structurally sound order, regression lock parsing the generator source through the real migrator→validator pipeline (per-field Match.Success hardened, mutation-verified red twice — by dev and reviewer independently). KEY REVIEW CATCH (HIGH-1): the original zero-churn claim was false — the 12 assets predate the serialized hintText field, so the gate regen WILL modify all 12 by applying the intended Spanish hints; class doc + TASK-030 punch list corrected to the truthful expectation (regen first, MigrateAll strictly after, ValidateAll 0 invalid). Commits: b055882 (fix) / bcdd724 (locks) / cd7090b (doc truth-correction) / 86ce120 (parse hardening); suite 553/553→554/554 reviewer-reproduced firsthand at both pins. AC4's Unity-side leg rides the TASK-030 Unity-gate punch list per precedent, now with the corrected 12-asset expectation. Tier tests-after judged correct by reviewer."
     }
   ],
   "created_at": "2026-07-07T05:12:37.536Z",
-  "updated_at": "2026-07-07T14:35:13.994Z",
+  "updated_at": "2026-07-07T14:39:38.500Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",

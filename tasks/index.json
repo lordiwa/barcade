@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:35:13.994Z",
+  "generated_at": "2026-07-07T14:39:38.500Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -268,7 +268,7 @@
     {
       "key": "TASK-045",
       "title": "MicrogameContentGenerator stale vs v2 schema — Specs durations 7-10s violate the [3,8] bound; reconcile generator with GDD §11.1 and the on-disk assets",
-      "status": "in_review",
+      "status": "done",
       "priority": "medium"
     },
     {
