@@ -708,28 +708,5 @@ namespace Barcade.Core.Microgames.V2
 
             _renderState.EntityCount = entityCount;
         }
-
-        /// <summary>
-        /// Adapts this tick's v2 <see cref="InputSnapshot.Players"/> array into
-        /// <see cref="IReadOnlyPlayerInputs"/> (v1, per-seat) so the internal
-        /// <see cref="InputInterpreter"/> can be reused unchanged — identical
-        /// approach and rationale to <c>ReaccionaMicrogame</c>'s private bridge
-        /// (duplicated here rather than shared, to avoid touching
-        /// ReaccionaMicrogame.cs again while its review is in flight).
-        /// </summary>
-        private sealed class InputBridge : IReadOnlyPlayerInputs
-        {
-            private PlayerInput[] _players;
-
-            public void SetSource(PlayerInput[] players) => _players = players;
-
-            public Barcade.Core.InputSnapshot For(PlayerSlot slot)
-            {
-                PlayerInput p = _players[(int)slot];
-                (float x, float y) = DirectionToUnit(p.Stick);
-                ButtonState state = p.Button ? ButtonState.Held : ButtonState.Released;
-                return new Barcade.Core.InputSnapshot(x, y, state);
-            }
-        }
     }
 }

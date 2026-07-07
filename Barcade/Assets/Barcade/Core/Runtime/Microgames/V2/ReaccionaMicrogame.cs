@@ -50,11 +50,11 @@ namespace Barcade.Core.Microgames.V2
     /// <see cref="InputSnapshot"/> (<c>{ int Tick; PlayerInput[] Players; }</c>). T-101's
     /// <see cref="InputInterpreter"/> — reused here for its debounce and edge
     /// detection rather than reimplemented — was built against the pre-existing v1,
-    /// per-seat <c>Barcade.Core.InputSnapshot</c>/<c>IReadOnlyPlayerInputs</c>. A
-    /// small private <c>InputBridge</c> adapter translates each tick's v2
-    /// <c>PlayerInput{Direction8,bool}</c> into the v1 shape (mapping the raw
-    /// button bool to <c>Held</c>/<c>Released</c> — <c>InputInterpreter</c> only ever
-    /// distinguishes "down" from "up", so either "down" member works identically) so
+    /// per-seat <c>Barcade.Core.InputSnapshot</c>/<c>IReadOnlyPlayerInputs</c>. The
+    /// shared <see cref="InputBridge"/> (TASK-046 — previously a private copy here,
+    /// textually diverging from ApuntaMicrogame's own; see that type's own doc for
+    /// why and for the canonical stick-vector convention) adapts each tick's v2
+    /// <c>PlayerInput{Direction8,bool}</c> into the v1 shape so
     /// <c>_interpreter.Tick(_inputBridge)</c> still works unchanged. This keeps the
     /// *public* v2 contract GDD-literal while still getting T-101's debounce for
     /// free, without duplicating its logic. The bridge is allocated once and its
@@ -137,47 +137,6 @@ namespace Barcade.Core.Microgames.V2
         public const byte VariantDidNotReact = 3;
 
         private enum SeatOutcome { Pending, Reacted, FalseStarted, DidNotReact }
-
-        /// <summary>
-        /// Adapts this tick's v2 <see cref="InputSnapshot.Players"/> array (GDD-literal,
-        /// session-level) into <see cref="IReadOnlyPlayerInputs"/> (v1, per-seat) so the
-        /// internal <see cref="InputInterpreter"/> can be reused unchanged. Allocated
-        /// once; <see cref="SetSource"/> reassigns a field to the caller's array
-        /// reference each tick — no copying, no allocation.
-        /// </summary>
-        private sealed class InputBridge : IReadOnlyPlayerInputs
-        {
-            private PlayerInput[] _players;
-
-            public void SetSource(PlayerInput[] players) => _players = players;
-
-            public Barcade.Core.InputSnapshot For(PlayerSlot slot)
-            {
-                PlayerInput p = _players[(int)slot];
-                ToStickXY(p.Stick, out float x, out float y);
-                // InputInterpreter only ever distinguishes "down" from "up" (it treats
-                // Pressed and Held identically as "down") — Held is an arbitrary but
-                // harmless choice for the raw "down" state.
-                ButtonState state = p.Button ? ButtonState.Held : ButtonState.Released;
-                return new Barcade.Core.InputSnapshot(x, y, state);
-            }
-
-            private static void ToStickXY(Direction8 d, out float x, out float y)
-            {
-                switch (d)
-                {
-                    case Direction8.N: x = 0f; y = 1f; break;
-                    case Direction8.S: x = 0f; y = -1f; break;
-                    case Direction8.E: x = 1f; y = 0f; break;
-                    case Direction8.W: x = -1f; y = 0f; break;
-                    case Direction8.NE: x = 1f; y = 1f; break;
-                    case Direction8.SE: x = 1f; y = -1f; break;
-                    case Direction8.NW: x = -1f; y = 1f; break;
-                    case Direction8.SW: x = -1f; y = -1f; break;
-                    default: x = 0f; y = 0f; break;
-                }
-            }
-        }
 
         private static readonly PlayerSlot[] AllSlots =
         {
