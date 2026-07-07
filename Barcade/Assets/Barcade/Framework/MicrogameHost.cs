@@ -279,12 +279,13 @@ namespace Barcade.Framework
         /// their logic + view factories. Called once in Awake if no registry has
         /// been injected.
         ///
-        /// TASK-061 (T-107 slice 4, Unit A): aporrea/timing/apunta-v1 retired --
-        /// none of the three maps to a canonical GDD MECH_01-09 mechanic (Phase A
-        /// disposition, ratified by the orchestrator). Their registry entries are
-        /// removed along with the mechanics/views themselves. recolecta stays
-        /// registered for now -- its own disposition is a content decision routed
-        /// to the human, out of Unit A's scope.
+        /// TASK-061 (T-107 slice 4): all 4 pre-GDD legacy ids retired --
+        /// aporrea/timing/apunta-v1 as pure engineering calls (none maps to a
+        /// canonical GDD MECH_01-09 mechanic), recolecta by human ruling (maps to
+        /// no MECH_01-09 mechanic either; its code is preserved in git history,
+        /// see TASK-065 for a future ¡RECOGE! design). Their registry entries are
+        /// removed along with the mechanics/views themselves -- esquiva is the
+        /// only entry left.
         /// </summary>
         public static MicrogameRegistry BuildDefaultRegistry()
         {
@@ -297,26 +298,6 @@ namespace Barcade.Framework
                 {
                     var view = root.AddComponent<EsquivaView>();
                     view.Bind((EsquivaMicrogame)game, players);
-                }
-            ));
-
-            // ── recolecta ─────────────────────────────────────────────────────────
-            reg.Register("recolecta", new MicrogameEntry(
-                createLogic: () => new RecolectaMicrogame(
-                    quota:             3,
-                    collectRadius:     1.0f,
-                    avatarSpeed:       5f,
-                    playAreaHalfExtent: 4.5f),   // reduced so avatars stay within camera orthoSize=5
-                attachView: (game, players, root) =>
-                {
-                    var recolecta = (RecolectaMicrogame)game;
-
-                    // Pass the collectibles seeded during Prepare() so the view
-                    // can render them.  Bind is called after Prepare, so the array
-                    // is already populated.
-                    var collectibles = System.Linq.Enumerable.ToArray(recolecta.Collectibles);
-                    var view = root.AddComponent<RecolectaView>();
-                    view.Bind(recolecta, players, collectibles);
                 }
             ));
 

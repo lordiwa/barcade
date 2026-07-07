@@ -110,17 +110,18 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
-        public void ExactlySixSpecsExist()
+        public void ExactlyThreeSpecsExist()
         {
-            // TASK-061 (T-107 slice 4, Unit A): was 12 before aporrea/timing/
-            // apunta-v1 were retired (6 entries removed: 2 each). Guards the
+            // TASK-061 (T-107 slice 4): was 12 before all 4 legacy ids were
+            // retired (9 entries removed total: aporrea/timing/apunta-v1 at 2
+            // each, recolecta at 3 -- only esquiva's 3 remain). Guards the
             // fixture/parse itself (mirrors
             // MicrogameDefinitionMigratorTests.ExactlyTwelveDefinitionAssetsExist,
             // which stays at 12 for now -- the on-disk assets themselves are
             // deleted in the Unity-gate window, not by this Specs-array edit): if
             // this drifts, the tests below would silently check fewer/more entries
             // than the generator actually declares.
-            Assert.That(ParseSpecs(), Has.Count.EqualTo(6));
+            Assert.That(ParseSpecs(), Has.Count.EqualTo(3));
         }
 
         [Test]

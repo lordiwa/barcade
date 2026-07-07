@@ -15,10 +15,15 @@ namespace Barcade.Framework.Tests
     /// The pool is built in-code from the registry's own ids, so this test is
     /// self-contained and does NOT require GenerateAll to have run first.
     ///
-    /// TASK-061 (T-107 slice 4, Unit A): AllMechanicIds shrank from 5 to 2 --
-    /// aporrea/timing/apunta-v1 retired (mapped to no canonical GDD MECH_01-09
-    /// mechanic). recolecta stays registered for now; its own disposition is a
-    /// content decision routed to the human, out of Unit A's scope.
+    /// TASK-061 (T-107 slice 4): AllMechanicIds shrank from 5 to 1 (esquiva only)
+    /// -- aporrea/timing/apunta-v1 retired as pure engineering calls (mapped to
+    /// no canonical GDD MECH_01-09 mechanic), recolecta retired by human ruling
+    /// (also mapped to none; code preserved in git history, TASK-065 filed for a
+    /// future ¡RECOGE! design). With a single registered id, SequencerDirector's
+    /// anti-repeat condition is a no-op by design (see that class's own doc: "if
+    /// the pool has exactly one entry that entry is always returned") -- the
+    /// AC1 test below still passes but no longer exercises any actual selection
+    /// variety, an unavoidable consequence of retiring 4 of the 5 ids down to 1.
     ///
     /// The orchestrator MUST run GenerateAll before running any test that loads the
     /// generated .asset files from disk.
@@ -34,7 +39,7 @@ namespace Barcade.Framework.Tests
     {
         private static readonly string[] AllMechanicIds =
         {
-            "esquiva", "recolecta"
+            "esquiva"
         };
 
         // ── Teardown ──────────────────────────────────────────────────────────────
@@ -70,8 +75,10 @@ namespace Barcade.Framework.Tests
 
             var director = new SequencerDirector(descriptors, new SeededRandom(42), RampSettings.Default);
 
-            // Pick enough rounds to have each id selected at least once.
-            // With anti-repeat and 2 entries, picking 20 rounds guarantees coverage.
+            // Pick enough rounds to have each id selected at least once. With a
+            // single registered id, every pick trivially satisfies this (anti-repeat
+            // is a no-op for a single-item pool) -- 20 rounds is still a harmless
+            // sanity margin, not load-bearing coverage math anymore.
             var seen = new System.Collections.Generic.HashSet<string>();
             for (int i = 0; i < 20; i++)
             {
@@ -164,7 +171,7 @@ namespace Barcade.Framework.Tests
         [Test]
         public void MicrogameLoopController_CanBuildDirector_FromInCodePool()
         {
-            // Build descriptors for all registered ids at 3 difficulty levels (6 total, like generated pool).
+            // Build descriptors for all registered ids at 3 difficulty levels (3 total, like generated pool).
             var descriptors = new List<MicrogameDescriptor>();
             int[] difficulties = { 1, 2, 3 };
             foreach (string id in AllMechanicIds)
@@ -185,7 +192,7 @@ namespace Barcade.Framework.Tests
                     Assert.That(picked.Id, Is.Not.Null.And.Not.Empty);
                     director.AdvanceRound(new bool[] { true, false, true, false });
                 }
-            }, "SequencerDirector must handle 30 rounds from a 15-entry pool without error");
+            }, "SequencerDirector must handle 30 rounds from a 3-entry pool without error");
         }
     }
 }

@@ -38,20 +38,23 @@ namespace Barcade.EditorTools
         }
 
         /// <summary>
-        /// TASK-061 (T-107 slice 4, Unit A): aporrea/timing/apunta-v1 retired --
-        /// none of the three maps to a canonical GDD MECH_01-09 mechanic (Phase A
-        /// disposition, ratified by the orchestrator; grounded in GDD Annex D.1's
-        /// own repo-integration table, which lists no row for any of them). Their
+        /// TASK-061 (T-107 slice 4): all 4 pre-GDD legacy ids retired --
+        /// aporrea/timing/apunta-v1 as pure engineering calls (none maps to a
+        /// canonical GDD MECH_01-09 mechanic; grounded in GDD Annex D.1's own
+        /// repo-integration table, which lists no row for any of them), recolecta
+        /// by human ruling (2026-07-07: it maps to no MECH_01-09 mechanic either,
+        /// and the GDD's own §4.1 "Banco de reserva" names a possible future
+        /// "¡RECOGE!" successor but gives it no spec -- retiring now keeps the
+        /// registry canonical; recolecta's code is preserved in git history and a
+        /// backlog note, TASK-065, was filed for a future ¡RECOGE! design). Their
         /// entries are removed from this array along with the mechanics themselves
         /// (Barcade.Core.Runtime.Microgames.AporreaMicrogame/TimingMicrogame/
-        /// ApuntaMicrogame[v1] -- NOT the V2/ folder ApuntaMicrogame, which is the
-        /// canonical MECH_04 and is untouched). recolecta's 3 entries stay for now
-        /// -- its disposition is a content decision routed to the human, not an
-        /// engineering call, and is explicitly out of Unit A's scope. esquiva's 3
-        /// entries are also untouched (MECH_02, already GDD-mapped, not part of
-        /// this ticket at all).
+        /// ApuntaMicrogame[v1]/RecolectaMicrogame -- NOT the V2/ folder
+        /// ApuntaMicrogame, which is the canonical MECH_04 and is untouched).
+        /// esquiva's 3 entries are the only ones left (MECH_02, already
+        /// GDD-mapped, not part of this ticket at all).
         ///
-        /// All 6 definitions across the 2 remaining mechanics, with meaningfully
+        /// All 3 definitions for the 1 remaining mechanic, with meaningfully
         /// varied difficulty, duration and verbText. Each id matches a
         /// MicrogameRegistry key.
         ///
@@ -61,8 +64,8 @@ namespace Barcade.EditorTools
         /// bound. Duration, id, verbText and difficulty below were verified 1:1
         /// against each entry's corresponding on-disk
         /// Assets/Barcade/Content/Microgames/*.asset (matched by id+difficulty) and
-        /// match exactly -- no diff expected in those four fields for the two
-        /// mechanics that remain.
+        /// match exactly -- no diff expected in those four fields for the mechanic
+        /// that remains.
         ///
         /// A regression lock (MicrogameContentGeneratorSpecsTests, fast suite)
         /// parses this array's literal source text and asserts every duration
@@ -81,13 +84,19 @@ namespace Barcade.EditorTools
         /// writes/refreshes the on-disk .asset files) -&gt; MigrateAll (writes v2
         /// JSON from those v1 files) -&gt; ValidateAll (checks the v2 JSON against
         /// MicrogameDefinitionValidator). TASK-061's Unity-gate window (NOT done by
-        /// this Specs-array edit alone) still needs to: delete the 6 now-orphaned
+        /// this Specs-array edit alone) still needs to: delete the 9 now-orphaned
         /// on-disk assets (aporrea-d1-03/d3-04, timing-d1-07/d3-08, apunta-d1-05/
-        /// d3-06 + .meta -- GenerateAll's LoadOrCreate pattern does not prune
-        /// assets no longer in Specs, it only stops re-touching them), then run
-        /// GenerateAll -&gt; MigrateAll -&gt; ValidateAll so MicrogamePool.asset's
-        /// serialized `definitions` list drops the 3 retired ids too (see hand-off
-        /// for the exact commands).
+        /// d3-06, recolecta-d1-09/d2-10/d3-11 + .meta -- GenerateAll's
+        /// LoadOrCreate pattern does not prune assets no longer in Specs, it only
+        /// stops re-touching them), then run GenerateAll -&gt; MigrateAll -&gt;
+        /// ValidateAll so MicrogamePool.asset's serialized `definitions` list
+        /// drops all 4 retired ids too. ALSO found (not caught in Phase A):
+        /// Assets/AddressableAssetsData/AssetGroups/Barcade-Microgames.asset
+        /// lists all 12 original assets by GUID+address (Unity Addressables
+        /// group) -- the 9 entries for the 4 retired ids need removing there too,
+        /// via the Addressables Groups window (do not hand-edit that YAML; GUID
+        /// consistency is Addressables' own concern). See hand-off for the exact
+        /// commands/steps.
         /// </summary>
         private static readonly DefSpec[] Specs = new DefSpec[]
         {
@@ -101,17 +110,6 @@ namespace Barcade.EditorTools
             new DefSpec { Id="esquiva", VerbText="¡ESQUIVA RÁPIDO!",
                 HintText="Mueve tu figura y evita los obstáculos",
                 BaseDuration=3f, Difficulty=3 },
-
-            // ── Recolecta (collect) ───────────────────────────────────────────────
-            new DefSpec { Id="recolecta", VerbText="¡RECOLECTA!",
-                HintText="Recoge los objetos verdes antes de que acabe el tiempo",
-                BaseDuration=6f, Difficulty=1 },
-            new DefSpec { Id="recolecta", VerbText="¡RECOGE TODO!",
-                HintText="Recoge los objetos verdes antes de que acabe el tiempo",
-                BaseDuration=5f, Difficulty=2 },
-            new DefSpec { Id="recolecta", VerbText="¡RECOLECTA TODO!",
-                HintText="Recoge los objetos verdes antes de que acabe el tiempo",
-                BaseDuration=4f, Difficulty=3 },
         };
 
         // ── Public entry point (headless + Editor menu) ────────────────────────
