@@ -1,0 +1,32 @@
+{
+  "key": "TASK-052",
+  "title": "Thread per-definition payoutTable through the microgame contract into SessionStateMachine payouts",
+  "description": "Follow-up filed from rev-t051 MEDIUM-2 on TASK-051. SessionStateMachine currently applies [ASSUMED] session-default payouts on regular round ends (GDD §6.1: competitive {6,4,2,1}, coop {4}/{1}; doc at SessionStateMachine.cs ~95-116) because no per-definition content is threaded through the FSM — the doc says \"a follow-up once content is threaded through\" and this ticket is that named owner. Work: extend the v2 microgame/content path (MicrogameDefinition payoutTable per Annex D.2 POCOs / GDD §11 schema, through IMicrogame or SetActiveMicrogame) so each round's payout comes from the active definition, falling back to the GDD §6.1 defaults when a definition omits it. Preserve: coop-vs-competitive detection via ResultKind, climax-skips-regular-payout, pot conservation, zero-alloc Tick-path discipline. Existing TASK-051 pot/stakes tests pin the default path; new tests pin the per-definition override path.",
+  "acceptance_criteria": [
+    "A per-definition payoutTable (GDD §11 schema / Annex D.2 POCO field) reaches SessionStateMachine's round-end payout application for the active microgame, replacing the session-wide default when present.",
+    "Definitions without a payoutTable fall back to the GDD §6.1 defaults exactly as today (existing TASK-051 pot tests stay green unmodified).",
+    "Tests pin the override path: a non-default payoutTable changes CaptureResult payouts accordingly for competitive and coop rounds; climax rounds still skip regular payout.",
+    "The [ASSUMED] default-payout paragraph in SessionStateMachine's class doc is updated to describe the fallback-only role and drops the unowned-follow-up wording."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd",
+    "scoring",
+    "hito2",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-051"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T13:42:44.511Z",
+  "updated_at": "2026-07-07T13:42:44.511Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[INFERRED:strong]",
+  "source_tier": "T1"
+}

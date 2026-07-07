@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T13:37:38.933Z",
+  "generated_at": "2026-07-07T13:42:44.511Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -306,6 +306,12 @@
       "title": "Wire ScoringV2 into the session loop: FINAL_WAGER choice capture + SessionCounters feeds from mechanics",
       "status": "in_review",
       "priority": "high"
+    },
+    {
+      "key": "TASK-052",
+      "title": "Thread per-definition payoutTable through the microgame contract into SessionStateMachine payouts",
+      "status": "todo",
+      "priority": "medium"
     }
   ]
 }
