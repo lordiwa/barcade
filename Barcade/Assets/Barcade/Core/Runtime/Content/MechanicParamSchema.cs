@@ -97,12 +97,32 @@ namespace Barcade.Core.Content
             },
             reservedParamNames: new[] { "hazardPattern", "jumpEnabled" });
 
+        /// <summary>
+        /// GDD §4 MECH_01 (T-107 slice 3). Numeric bounds are engineering
+        /// defaults (GDD names the param list but not formal min/max), same
+        /// pattern as <see cref="Mech04Apunta"/>/<see cref="Mech02Esquiva"/>.
+        /// <c>dashRecoveryEnabled</c> is reserved (bool-valued, not
+        /// range-checked) so a definition that sets it validates.
+        /// </summary>
+        public static readonly MechanicParamSchema Mech01Manten = new MechanicParamSchema(
+            "MECH_01",
+            ranges: new[]
+            {
+                new ParamRange("gravityFactor", 0.5, 8.0),
+                new ParamRange("perturbAmplitude0", 0.0, 5.0),
+                new ParamRange("perturbRamp", 0.0, 2.0),
+                new ParamRange("torqueGain", 1.0, 20.0),
+                new ParamRange("thetaMax", 10.0, 60.0),
+            },
+            reservedParamNames: new[] { "dashRecoveryEnabled" });
+
         private static readonly Dictionary<string, MechanicParamSchema> ByMechanicId =
             new Dictionary<string, MechanicParamSchema>(StringComparer.Ordinal)
             {
                 { Mech04Apunta.MechanicId, Mech04Apunta },
                 { Mech05Reacciona.MechanicId, Mech05Reacciona },
                 { Mech02Esquiva.MechanicId, Mech02Esquiva },
+                { Mech01Manten.MechanicId, Mech01Manten },
             };
 
         public static bool TryGet(string mechanicId, out MechanicParamSchema schema) =>

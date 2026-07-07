@@ -15,5 +15,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_02 — ¡ESQUIVA! (GDD §4, dodge/survival). T-107 slice 1.</summary>
         Esquiva = 2,
+
+        /// <summary>MECH_01 — ¡MANTÉN! (GDD §4, inverted-pendulum balance). T-107 slice 3.</summary>
+        Manten = 3,
     }
 }
