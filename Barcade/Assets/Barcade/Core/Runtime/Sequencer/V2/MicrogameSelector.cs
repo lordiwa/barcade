@@ -15,8 +15,12 @@ namespace Barcade.Core.Sequencer.V2
     /// <b>Pure function.</b> Every method is static and deterministic in
     /// (pool contents+order, sessionSeed, round number, history) — no hidden
     /// state, no wall clock (GDD §9.2: "el sorteo es función pura de (seed,
-    /// historial)"). Round RNG streams derive from the session seed (§13
-    /// hierarchy) so consuming randomness in one round never shifts another.
+    /// historial)"). Round RNG streams derive from the session seed via
+    /// <see cref="SeededRandom.Derive"/> on the dedicated <see cref="RngStream.Draws"/>
+    /// stream (TASK-044's canonical GDD §13 idiom — migrated onto it in the
+    /// TASK-035 review fix round; this selector previously mixed seeds with its
+    /// own ad hoc helper, and two derivation idioms were never meant to coexist)
+    /// so consuming randomness in one round never shifts another.
     /// </para>
     ///
     /// <para>
@@ -25,7 +29,8 @@ namespace Barcade.Core.Sequencer.V2
     /// weighted draw picks the definition. The v1 director's re-roll loop is
     /// deliberately not reproduced. The two schedule decisions (which round
     /// hosts the coop special, which the asymmetric) are each their own single
-    /// draw from a dedicated seed-derived stream.
+    /// draw, on sentinel "round numbers" outside any real round's range so they
+    /// can never coincide with an actual per-round draw's derived state.
     /// </para>
     ///
     /// <para>
@@ -72,9 +77,14 @@ namespace Barcade.Core.Sequencer.V2
         /// <summary>GDD §9.1: fixed difficulty multiplier for the climax microgame.</summary>
         public const float FinalDifficulty = 1.5f;
 
-        // Dedicated derivation salts (§13: independent streams per decision).
-        private const int CoopScheduleSalt = 101;
-        private const int AsymScheduleSalt = 202;
+        // Sentinel "round numbers" for the two session-level schedule decisions
+        // (TASK-035 review fix round, TASK-044 SCOPE ADDITION): fed to
+        // SeededRandom.Derive alongside a real round number's draws, on the SAME
+        // RngStream.Draws stream. Chosen outside any real round-number range
+        // (1..roundsTotal+1) so a schedule decision's derived state can never
+        // coincide with an actual per-round mechanic draw's state.
+        private const int CoopScheduleRoundSentinel = -1;
+        private const int AsymScheduleRoundSentinel = -2;
 
         /// <summary>GDD §9.1: D(r) = 1 + 0.06(r-1), r 1-based.</summary>
         public static float DifficultyRamp(int roundNumber) => 1f + 0.06f * (roundNumber - 1);
@@ -134,13 +144,13 @@ namespace Barcade.Core.Sequencer.V2
 
         /// <summary>GDD §7.1: the coop special lands in round 3 or 4.</summary>
         private static int CoopRound(int sessionSeed)
-            => 3 + new SeededRandom(Combine(sessionSeed, CoopScheduleSalt)).NextInt(0, 2);
+            => 3 + SeededRandom.Derive(sessionSeed, CoopScheduleRoundSentinel, RngStream.Draws).NextInt(0, 2);
 
         /// <summary>GDD §7.2 window: the asymmetric round lands in round 5 or 6 (5 when the session is that short).</summary>
         private static int AsymRound(int sessionSeed, int roundsTotal)
         {
             if (roundsTotal < 6) return 5;
-            return 5 + new SeededRandom(Combine(sessionSeed, AsymScheduleSalt)).NextInt(0, 2);
+            return 5 + SeededRandom.Derive(sessionSeed, AsymScheduleRoundSentinel, RngStream.Draws).NextInt(0, 2);
         }
 
         // ── The draw ─────────────────────────────────────────────────────────────
@@ -182,7 +192,7 @@ namespace Barcade.Core.Sequencer.V2
             for (int i = 0; i < candidates.Count; i++)
                 totalWeight += WeightOf(candidates[i], biasMechanic);
 
-            var rng = new SeededRandom(Combine(sessionSeed, roundNumber));
+            var rng = SeededRandom.Derive(sessionSeed, roundNumber, RngStream.Draws);
             int roll = rng.NextInt(0, totalWeight);
 
             MicrogameDefinitionV2 picked = candidates[candidates.Count - 1];
@@ -278,18 +288,6 @@ namespace Barcade.Core.Sequencer.V2
             if (pool == null) throw new ArgumentNullException(nameof(pool));
             if (pool.Count == 0) throw new ArgumentException("pool must not be empty", nameof(pool));
             if (history == null) throw new ArgumentNullException(nameof(history));
-        }
-
-        /// <summary>§13 stream derivation: sessionSeed → per-decision seed. Mixed so nearby rounds/salts diverge.</summary>
-        private static int Combine(int sessionSeed, int stream)
-        {
-            unchecked
-            {
-                int h = sessionSeed * 486187739;
-                h ^= stream * 1000003;
-                h ^= h >> 16;
-                return h;
-            }
         }
     }
 }

@@ -33,7 +33,12 @@ namespace Barcade.Core.Sequencer.V2
 
             Mechanic = mechanic;
             VariantId = variantId;
-            Places = places;
+            // LOW-2 (TASK-035 review fix round): clone rather than alias the
+            // caller's array -- session history is long-lived and fed back into
+            // future SelectRound calls, so a caller mutating an array it already
+            // handed off (e.g. reusing a scratch buffer) must not corrupt an
+            // already-recorded round (replay purity).
+            Places = (int[])places.Clone();
         }
     }
 }
