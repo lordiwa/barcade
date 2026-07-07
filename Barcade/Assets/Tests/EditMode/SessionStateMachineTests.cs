@@ -1046,6 +1046,266 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
+        public void ExplicitSessionSeedOverload_IsDeterministic_AndIndependentOfRngDraws()
+        {
+            // M3 (TASK-051 review fix round): the SessionStateMachine(rng,
+            // sessionSeed, config) overload takes the scoring seed directly
+            // instead of deriving it from rng's own first draw -- pinned by
+            // running two sessions that use the SAME explicit sessionSeed but
+            // DIFFERENT rng seeds, and confirming the bonus-star draw (which only
+            // depends on sessionSeed, not rng) comes out identical regardless.
+            (BonusStarResult stars, int[] places) RunWith(int rngSeed, int sessionSeed)
+            {
+                var config = FastConfig(totalRounds: 1);
+                var fsm = new SessionStateMachine(new SeededRandom(rngSeed), sessionSeed, config);
+                var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+                for (int t = 1000; t < 1200 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity");
+                return (fsm.LastBonusStarResult, fsm.FinalPlaces);
+            }
+
+            (BonusStarResult stars, int[] places) a = RunWith(rngSeed: 1, sessionSeed: 777);
+            (BonusStarResult stars, int[] places) b = RunWith(rngSeed: 2, sessionSeed: 777);
+
+            Assert.That(b.stars.First, Is.EqualTo(a.stars.First), "same sessionSeed must draw the same bonus stars even with a different rng seed");
+            Assert.That(b.stars.Second, Is.EqualTo(a.stars.Second));
+            Assert.That(b.stars.StarsAfter, Is.EqualTo(a.stars.StarsAfter));
+            Assert.That(b.places, Is.EqualTo(a.places));
+        }
+
+        [Test]
+        public void TwoArgConstructor_StillDerivesTheScoringSeedFromRngsFirstDraw()
+        {
+            // M3 companion pin: the original two-argument constructor's
+            // first-draw derivation must still produce IDENTICAL results to
+            // before this overload was added -- proving DeriveScoringSeed's
+            // extraction into a separate static method changed nothing
+            // byte-for-byte. Cross-checked against the explicit-seed overload:
+            // constructing SeededRandom(seed) and immediately deriving
+            // NextInt(int.MinValue, int.MaxValue) from it must equal whatever
+            // the two-arg constructor's own internal derivation produces --
+            // observed indirectly through the resulting bonus-star draw, since
+            // _scoringSeed itself has no public accessor.
+            var oracleRng = new SeededRandom(42);
+            int expectedScoringSeed = oracleRng.NextInt(int.MinValue, int.MaxValue);
+
+            (BonusStarResult stars, int[] places) RunSession(SessionStateMachine fsm)
+            {
+                var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+                for (int t = 1000; t < 1200 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity");
+                return (fsm.LastBonusStarResult, fsm.FinalPlaces);
+            }
+
+            var config = FastConfig(totalRounds: 1);
+            var viaTwoArg = new SessionStateMachine(new SeededRandom(42), config);
+            var viaExplicitSeed = new SessionStateMachine(new SeededRandom(999) /* deliberately different rng */, expectedScoringSeed, config);
+
+            (BonusStarResult stars, int[] places) fromTwoArg = RunSession(viaTwoArg);
+            (BonusStarResult stars, int[] places) fromExplicitSeed = RunSession(viaExplicitSeed);
+
+            Assert.That(fromTwoArg.stars.First, Is.EqualTo(fromExplicitSeed.stars.First),
+                "the two-arg constructor's first-draw derivation must equal SeededRandom(42).NextInt(int.MinValue, int.MaxValue) exactly");
+            Assert.That(fromTwoArg.stars.StarsAfter, Is.EqualTo(fromExplicitSeed.stars.StarsAfter));
+            Assert.That(fromTwoArg.places, Is.EqualTo(fromExplicitSeed.places));
+        }
+
+        // ── M1 (TASK-051 review fix round): FinalWager gesture-capture semantics ──
+
+        private static (SessionStateMachine fsm, FakeInputs inputs, int[] preWagerCoins) DriveToFinalWager(int seed)
+        {
+            // A longer FinalWager window than FastConfig's default 0.05s (3
+            // ticks) -- these tests need room to hold one direction for a while,
+            // then switch/release, and still be inside the window when checked.
+            var config = new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0.02f, mgResultSeconds: 0.02f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.5f, gameOverSeconds: 0.02f,
+                totalRounds: 1, ticksPerSecond: 60);
+            var fsm = new SessionStateMachine(new SeededRandom(seed), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager), "test setup sanity");
+
+            int[] preWagerCoins = (int[])fsm.Coins.Clone();
+
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            return (fsm, inputs, preWagerCoins);
+        }
+
+        private static void FinishWagerAndGameOver(SessionStateMachine fsm, FakeInputs inputs, int startTick)
+        {
+            for (int t = startTick; t < startTick + 20 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity");
+        }
+
+        [Test]
+        public void FinalWager_LaterGestureOverridesEarlierOne()
+        {
+            // M1(i): a seat that changes their mind mid-window (Quarter then
+            // ThreeQuarters) must resolve to the LATEST choice -- pins against a
+            // first-write-wins refactor (sanity-checked non-vacuous below by
+            // temporarily flipping the latch and confirming this exact test goes
+            // red; see hand-off for the quoted failure).
+            (SessionStateMachine fsm, FakeInputs inputs, int[] preWagerCoins) = DriveToFinalWager(60);
+
+            // The window is 30 ticks total (finalWagerSeconds=0.5s @ 60Hz) --
+            // hold Quarter for only the first 10, leaving plenty of the window
+            // remaining for the switch to ThreeQuarters to register before it closes.
+            int t = 1000;
+            for (; t < 1000 + 10 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.W); // Quarter first
+                fsm.Tick(inputs.Build(t));
+            }
+            for (; t < 1000 + 200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.E); // then ThreeQuarters
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalMg), "test setup sanity: must have exited FinalWager");
+
+            FinishWagerAndGameOver(fsm, inputs, 2000);
+
+            Assert.That(fsm.LastWagerResult.Stakes[0], Is.EqualTo(preWagerCoins[0] * 75 / 100),
+                "the LATER gesture (ThreeQuarters) must win, not the first (Quarter)");
+        }
+
+        [Test]
+        public void FinalWager_ChooseThenReleaseToNeutral_StaysSticky()
+        {
+            // M1(ii): releasing to neutral (None) after picking a direction must
+            // NOT clear the choice -- it stays sticky until overridden by another
+            // MAPPED direction (Left/Up/Right).
+            (SessionStateMachine fsm, FakeInputs inputs, int[] preWagerCoins) = DriveToFinalWager(61);
+
+            int t = 1000;
+            for (; t < 1000 + 10 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.W); // picks Quarter
+                fsm.Tick(inputs.Build(t));
+            }
+            for (; t < 1000 + 200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.None); // releases to neutral
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalMg), "test setup sanity");
+
+            FinishWagerAndGameOver(fsm, inputs, 2000);
+
+            Assert.That(fsm.LastWagerResult.Stakes[0], Is.EqualTo(preWagerCoins[0] * 25 / 100),
+                "Quarter must stick even after releasing to neutral for the rest of the window");
+        }
+
+        [Test]
+        public void FinalWager_DownOrNeverTouched_ResolveToTimeoutDefaultHalf()
+        {
+            // M1(iii): Down is a documented no-op, same as never touching the
+            // stick at all -- both must resolve to FinalWager.DefaultChoice (Half).
+            (SessionStateMachine fsm, FakeInputs inputs, int[] preWagerCoins) = DriveToFinalWager(62);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.S); // Down -- documented no-op
+                // Azul: never touched at all.
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalMg), "test setup sanity");
+
+            FinishWagerAndGameOver(fsm, inputs, 2000);
+
+            Assert.That(fsm.LastWagerResult.Stakes[0], Is.EqualTo(preWagerCoins[0] * 50 / 100), "Rojo held Down the whole window -- must default to Half");
+            Assert.That(fsm.LastWagerResult.Stakes[1], Is.EqualTo(preWagerCoins[1] * 50 / 100), "Azul never touched the stick -- must default to Half");
+        }
+
+        [Test]
+        public void FinalWager_GestureDuringIntermission_DoesNotCarryOver()
+        {
+            // Optional M1 pin: a direction held during Intermission (before
+            // FinalWager even begins) must not carry over into the wager --
+            // true by construction (BeginFinalWager resets every seat's choice
+            // to null on entry), pinned explicitly per the review's suggestion.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(63), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            bool sawIntermission = false;
+            int t = 0;
+            for (; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            {
+                if (fsm.CurrentPhase == SessionPhase.Intermission)
+                {
+                    sawIntermission = true;
+                    inputs.Set(PlayerSlot.Rojo, false, Direction8.E); // held during Intermission: ThreeQuarters, if it counted
+                }
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(sawIntermission, Is.True, "test setup sanity: the probe must actually pass through Intermission");
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+
+            int[] preWagerCoins = (int[])fsm.Coins.Clone();
+
+            // Release to neutral before FinalWager's own window ever reads a
+            // direction, and never touch the stick again for the rest of the window.
+            inputs.Set(PlayerSlot.Rojo, false, Direction8.None);
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            for (int t2 = 1000; t2 < 1200 && fsm.CurrentPhase == SessionPhase.FinalWager; t2++)
+                fsm.Tick(inputs.Build(t2));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalMg), "test setup sanity");
+
+            FinishWagerAndGameOver(fsm, inputs, 2000);
+
+            Assert.That(fsm.LastWagerResult.Stakes[0], Is.EqualTo(preWagerCoins[0] * 50 / 100),
+                "a gesture held only during Intermission must not carry into FinalWager -- must default to Half");
+        }
+
+        [Test]
         public void GameOver_ReturnsToAttract_ClearsScoringState()
         {
             // Scoring-side companion to the existing GameOver roster/ready/round
