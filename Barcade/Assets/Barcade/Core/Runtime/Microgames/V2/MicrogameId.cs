@@ -9,5 +9,8 @@ namespace Barcade.Core.Microgames.V2
     {
         /// <summary>MECH_05 — ¡REACCIONA! (GDD §4, quick-draw).</summary>
         Reacciona = 0,
+
+        /// <summary>MECH_04 — ¡APUNTA! (GDD §4, hold-charge aiming).</summary>
+        Apunta = 1,
     }
 }
