@@ -69,6 +69,9 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameContentGeneratorSpecsTests.cs" />
     <!-- TASK-058 (T-107 slice 1, GDD MECH_02): ¡ESQUIVA! v2 contract -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\EsquivaMicrogameV2Tests.cs" />
+    <!-- TASK-060 (T-107 slice 3, GDD MECH_01): ¡MANTÉN! v2 contract + noise helper -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SeededValueNoise1DTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MantenMicrogameV2Tests.cs" />
   </ItemGroup>
 
 </Project>
