@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T03:26:52.215Z",
+  "generated_at": "2026-07-07T03:43:41.429Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -136,7 +136,7 @@
     {
       "key": "TASK-023",
       "title": "GDD T-101 — InputInterpreter: tap/hold/mash derivation, debounce, diagonal collapse (§3.2/§3.3)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "critical"
     },
     {

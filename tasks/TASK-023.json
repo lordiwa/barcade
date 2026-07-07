@@ -12,7 +12,7 @@
     "Steady-state Tick performs zero heap allocations and the interpreter is deterministic given the same snapshot sequence (replay-safe)",
     "Tests-first: failing fast-suite tests encoding each rule above are committed (test: commit) strictly before any implementation commit, with the red run captured as evidence; full fast suite green afterwards (baseline 323 tests must not regress)"
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "critical",
   "labels": [
     "gdd-v2",
@@ -25,9 +25,15 @@
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer",
+      "at": "2026-07-07T03:43:40.977Z",
+      "body": "Implemented tests-first on master, no push (by dev-t101). Commits: 1e5e94f test(core) failing InputInterpreter spec (30 tests; red evidence = CS0246 compile errors against the not-yet-existing types, the expected TDD-red for brand-new types) STRICTLY BEFORE e20d6f8 feat(core) InputInterpreter. Fast suite 323 -> 353, all green, 0 skipped. New Core files under Barcade/Assets/Barcade/Core/Runtime/Input/: Direction8.cs, InputInterpreterConfig.cs (ctor-injected ticksPerSecond/tapWindowTicks/mashMinHz/mashSatHz/mashWindowSeconds; GddDefaults = 60/9/2/9/0.5), InputInterpreter.cs (per-seat edges/tap/hold/mash + MashForce clamp01((hz-min)/(sat-min)), RawDirection, CollapsedCardinal, static ToDirection8 + CollapseDiagonal; Tick(IReadOnlyPlayerInputs); Reset() clears seat state not tick clock). Tests in Assets/Tests/EditMode/InputInterpreterTests.cs incl. zero-alloc proof (GC.GetAllocatedBytesForCurrentThread over 1000 ticks after warmup) and tick-by-tick determinism test. Design notes: 2-consecutive-tick confirm debounce (uniform 1-tick edge latency); diagonal cold-start resolves to horizontal component (mirrors InputSnapshot.CardinalDirection tie-break); stick-to-None does NOT clear dominant-cardinal memory, only Reset() does; 64-slot press-timestamp ring buffer per seat. FLAGGED DELTA vs GDD listing: existing Core InputSnapshot is per-seat (no session wrapper/Tick field), stores continuous StickX/StickY (Direction8 newly added), and upstream ButtonState.Pressed already bakes un-debounced edge detection — interpreter treats Pressed||Held as raw down and re-derives edges itself; legacy consumers (e.g. AporreaMicrogame) still receive un-debounced Pressed — follow-up ticket candidate."
+    }
+  ],
   "created_at": "2026-07-07T03:25:35.873Z",
-  "updated_at": "2026-07-07T03:26:52.215Z",
+  "updated_at": "2026-07-07T03:43:41.429Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
