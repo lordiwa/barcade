@@ -12,5 +12,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_04 — ¡APUNTA! (GDD §4, hold-charge aiming).</summary>
         Apunta = 1,
+
+        /// <summary>MECH_02 — ¡ESQUIVA! (GDD §4, dodge/survival). T-107 slice 1.</summary>
+        Esquiva = 2,
     }
 }

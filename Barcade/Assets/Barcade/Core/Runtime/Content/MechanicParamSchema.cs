@@ -81,11 +81,28 @@ namespace Barcade.Core.Content
             "MECH_05",
             reservedParamNames: new[] { "signalMode", "colorFilter" });
 
+        /// <summary>
+        /// GDD §4 MECH_02 (T-107 slice 1). Numeric bounds are engineering
+        /// defaults (GDD names the param list but not formal min/max), same
+        /// pattern as <see cref="Mech04Apunta"/>. <c>hazardPattern</c> and
+        /// <c>jumpEnabled</c> are reserved (enum-string/bool-valued, not
+        /// range-checked) so a definition that sets them validates.
+        /// </summary>
+        public static readonly MechanicParamSchema Mech02Esquiva = new MechanicParamSchema(
+            "MECH_02",
+            ranges: new[]
+            {
+                new ParamRange("spawnRatePerSec", 0.1, 5.0),
+                new ParamRange("hazardSpeed", 0.0, 2.0),
+            },
+            reservedParamNames: new[] { "hazardPattern", "jumpEnabled" });
+
         private static readonly Dictionary<string, MechanicParamSchema> ByMechanicId =
             new Dictionary<string, MechanicParamSchema>(StringComparer.Ordinal)
             {
                 { Mech04Apunta.MechanicId, Mech04Apunta },
                 { Mech05Reacciona.MechanicId, Mech05Reacciona },
+                { Mech02Esquiva.MechanicId, Mech02Esquiva },
             };
 
         public static bool TryGet(string mechanicId, out MechanicParamSchema schema) =>
