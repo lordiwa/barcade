@@ -268,6 +268,16 @@ namespace Barcade.Core
         private int _readyCount;
         private V2.PlayerRoster _roster;
 
+        // TASK-056 (GDD §3.2, line 224): dead-seat ("puesto muerto") detection. Per
+        // claimed-human seat, ticks since its last input edge ("flanco") while in a
+        // game state; a seat that reaches _idleThresholdTicks with no flanco is marked
+        // HumanIdle and excluded from that round's payout (not eliminated — it resumes
+        // on the next flanco). _prevRawDir remembers each seat's previous raw stick
+        // direction so a direction change registers as a flanco alongside button edges.
+        private readonly int[] _ticksSinceActivity = new int[4];
+        private readonly Direction8[] _prevRawDir = new Direction8[4];
+        private readonly int _idleThresholdTicks;
+
         private int _roundIndex;
 
         private V2.IMicrogame _activeMicrogame;
@@ -308,6 +318,10 @@ namespace Barcade.Core
             _rng = rng;
             _scoringSeed = sessionSeed;
             _config = config ?? SessionStateMachineConfig.GddDefaults;
+            // TASK-056: 45 s -> ticks (2700 @ 60 Hz). Rounded rather than truncated so a
+            // fractional seconds*rate lands on the nearest whole tick, and clamped to at
+            // least 1 so a (validated-positive) sub-tick window can still ever fire.
+            _idleThresholdTicks = Math.Max(1, (int)Math.Round(_config.IdleTimeoutSeconds * _config.TicksPerSecond));
             _interpreter = new InputInterpreter(InputInterpreterConfig.GddDefaults);
             _roundMachine = new RoundPhaseMachine(
                 intermissionDuration: 0f,
@@ -349,7 +363,7 @@ namespace Barcade.Core
         /// </summary>
         public V2.MicrogameResult? LastMicrogameResult => _lastResult;
 
-        /// <summary>Per-seat coins: payout accumulation through the round loop, then post-wager totals from FinalMg onward. See class doc for the [ASSUMED] default-payout note.</summary>
+        /// <summary>Per-seat coins: payout accumulation through the round loop, then post-wager totals from FinalMg onward. See the class doc's "Regular-round payout application" note (per-definition payoutTable when set, else the GDD §6.1 fallback).</summary>
         public int[] Coins => _coins;
 
         /// <summary>Per-seat completed-microgame win counts this session (competitive place 1, or every active seat on a coop success) — the <see cref="FinalRanking"/> tiebreak source.</summary>
@@ -439,6 +453,12 @@ namespace Barcade.Core
 
             _inputBridge.SetSource(input.Players);
             _interpreter.Tick(_inputBridge);
+
+            // TASK-056: dead-seat detection reads the edges the interpreter just
+            // derived, against the phase as of the start of this tick. Runs before the
+            // phase switch so the state entered on a previous tick is the one whose
+            // "estados de juego" membership gates this tick's idle accounting.
+            UpdateDeadSeatTracking();
 
             float dt = 1f / _config.TicksPerSecond;
 
@@ -536,6 +556,12 @@ namespace Barcade.Core
                 seats[i] = _ready[i] ? V2.SeatState.Human : V2.SeatState.Empty;
             _roster = new V2.PlayerRoster(seats);
 
+            // TASK-056: dead-seat tracking begins with the roster. Zero every seat's
+            // idle counter and seed _prevRawDir to neutral so the first game-state tick
+            // compares against None (a seat already holding a stick at Join-complete then
+            // reads as one harmless flanco, which only resets an already-zero counter).
+            for (int i = 0; i < 4; i++) { _ticksSinceActivity[i] = 0; _prevRawDir[i] = Direction8.None; }
+
             _roundIndex = 0;
             EnterSimplePhase(SessionPhase.BoardMove);
         }
@@ -623,6 +649,14 @@ namespace Barcade.Core
                     var places = new int[4];
                     for (int i = 0; i < result.Ranks.Length; i++)
                         places[result.Ranks[i].Seat] = result.Ranks[i].Place;
+                    // TASK-056 (GDD §3.2, line 224): an Idle (dead) seat is excluded from
+                    // THIS round's reparto. Zeroing its place makes ApplyCompetitive skip
+                    // it (place 0 == absent == no payout), so no coins are created or
+                    // destroyed for the excluded seat and every other seat's per-place
+                    // payout is untouched. Win-crediting above intentionally still uses
+                    // rank.Place — the win count is a tiebreak, not part of the "reparto".
+                    for (int i = 0; i < AllSlots.Length; i++)
+                        if (_roster.Seats[i] == V2.SeatState.HumanIdle) places[i] = 0;
                     // TASK-052: per-definition table overrides the GDD §6.1 default
                     // when set; ApplyCompetitive's own ValidateTable already throws
                     // if a non-null table isn't exactly 4 entries, so no separate
@@ -659,7 +693,10 @@ namespace Barcade.Core
                     {
                         payout = success ? PayoutRules.DefaultCoopSuccess : PayoutRules.DefaultCoopFail;
                     }
-                    PayoutRules.ApplyCoop(_coins, success, payout, ActiveSeatsMask());
+                    // TASK-056: pay only active, non-Idle seats — a dead seat is excluded
+                    // from the coop reparto too (with no Idle seat this is identical to
+                    // ActiveSeatsMask, so TASK-050/052 coop payouts are unaffected).
+                    PayoutRules.ApplyCoop(_coins, success, payout, PayoutEligibleSeatsMask());
                 }
             }
         }
@@ -788,6 +825,96 @@ namespace Barcade.Core
             for (int i = 0; i < AllSlots.Length; i++)
                 if (_roster.IsActive(AllSlots[i])) mask |= 1 << i;
             return mask;
+        }
+
+        /// <summary>
+        /// TASK-056: seats eligible for a round's coin reparto — active (not
+        /// <see cref="V2.SeatState.Empty"/>) AND not <see cref="V2.SeatState.HumanIdle"/>.
+        /// A Bot counts as eligible; only a dead (Idle) human is excluded. Distinct from
+        /// <see cref="ActiveSeatsMask"/> (which keeps Idle seats — they are still in the
+        /// session for FINAL_WAGER, bonus stars and the final podium, just not paid the
+        /// round they were dead).
+        /// </summary>
+        private int PayoutEligibleSeatsMask()
+        {
+            int mask = 0;
+            for (int i = 0; i < AllSlots.Length; i++)
+            {
+                V2.SeatState seat = _roster.Seats[i];
+                if (seat != V2.SeatState.Empty && seat != V2.SeatState.HumanIdle)
+                    mask |= 1 << i;
+            }
+            return mask;
+        }
+
+        /// <summary>
+        /// TASK-056 (GDD §3.2, line 224). Once the roster exists and we are in a game
+        /// state, accumulate per claimed-human seat the ticks since its last input edge;
+        /// a seat that reaches <see cref="_idleThresholdTicks"/> with no edge is marked
+        /// <see cref="V2.SeatState.HumanIdle"/> (excluded from that round's reparto), and
+        /// any edge resets its counter and resumes an Idle seat to
+        /// <see cref="V2.SeatState.Human"/> ("puede volver pulsando"). A "flanco" is a
+        /// debounced button press/release edge OR a change in the raw stick direction
+        /// since the previous tick — [ASSUMED] the activity source, since the GDD names
+        /// no specific stream (any button edge OR stick movement counts).
+        /// </summary>
+        private void UpdateDeadSeatTracking()
+        {
+            if (_roster.Seats == null) return;       // no roster yet (Attract/Join)
+            if (!IsGameState(_phase)) return;        // only "estados de juego"
+
+            for (int i = 0; i < AllSlots.Length; i++)
+            {
+                V2.SeatState seat = _roster.Seats[i];
+                if (seat != V2.SeatState.Human && seat != V2.SeatState.HumanIdle)
+                    continue; // Empty/Bot seats are not subject to dead-seat detection
+
+                PlayerSlot slot = AllSlots[i];
+                Direction8 raw = _interpreter.RawDirection(slot);
+                bool flanco = _interpreter.ButtonPressedThisTick(slot)
+                           || _interpreter.ButtonReleasedThisTick(slot)
+                           || raw != _prevRawDir[i];
+                _prevRawDir[i] = raw;
+
+                if (flanco)
+                {
+                    _ticksSinceActivity[i] = 0;
+                    if (seat == V2.SeatState.HumanIdle)
+                        _roster.Seats[i] = V2.SeatState.Human; // resume — not eliminated
+                }
+                else if (seat == V2.SeatState.Human)
+                {
+                    _ticksSinceActivity[i]++;
+                    if (_ticksSinceActivity[i] >= _idleThresholdTicks)
+                        _roster.Seats[i] = V2.SeatState.HumanIdle;
+                }
+                // already HumanIdle with no flanco: stays Idle, counter frozen.
+            }
+        }
+
+        /// <summary>
+        /// TASK-056 [ASSUMED] "estados de juego": the round loop
+        /// (BoardMove..Intermission) plus FinalWager/FinalMg — i.e. everything from the
+        /// first board move through the climax. Attract/Join/GameOver are the
+        /// lobby/game-over menus, where a claimed seat's idleness is meaningless, so the
+        /// idle timer neither runs nor accumulates there.
+        /// </summary>
+        private static bool IsGameState(SessionPhase phase)
+        {
+            switch (phase)
+            {
+                case SessionPhase.BoardMove:
+                case SessionPhase.BoardResolve:
+                case SessionPhase.MgIntro:
+                case SessionPhase.MgPlay:
+                case SessionPhase.MgResult:
+                case SessionPhase.Intermission:
+                case SessionPhase.FinalWager:
+                case SessionPhase.FinalMg:
+                    return true;
+                default: // Attract, Join, GameOver
+                    return false;
+            }
         }
 
         private void ResetToAttract()
