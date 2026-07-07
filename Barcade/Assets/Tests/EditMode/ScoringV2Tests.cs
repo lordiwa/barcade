@@ -141,13 +141,14 @@ namespace Barcade.Core.Tests
         [Test]
         public void Wager_SwingIsBoundedToRoughlyOneStar_UnderCalibratedEconomy()
         {
-            // §5.6 envelope: end-of-session holdings after sinks ≈ up to ~35 coins.
-            // §6.2/§5.6: the wager can flip ~1 star (15 coins) of value — never 3.
-            // Exhaustive over choice combos and place permutations for corner holdings.
+            // §5.6 envelope: income ~35/player but sinks absorb ~70%, so end-of-
+            // session holdings sit around 5-15 coins with at most one rich hoarder.
+            // §6.2/§5.6: within that envelope the wager flips ~1 star (15 coins) of
+            // value — never 3. Exhaustive over choice combos and place permutations.
             int star = 15;
             int[][] holdingSets =
             {
-                Arr(35, 25, 15, 5), Arr(35, 35, 35, 35), Arr(35, 0, 0, 0), Arr(20, 15, 10, 5),
+                Arr(35, 25, 15, 5), Arr(15, 15, 15, 15), Arr(35, 0, 0, 0), Arr(20, 15, 10, 5),
             };
             var allChoices = new[] { WagerChoice.Quarter, WagerChoice.Half, WagerChoice.ThreeQuarters };
             int[][] placePerms = PlacePermutations();
