@@ -41,7 +41,7 @@ namespace Barcade.Core.Tests
             Assert.Throws<ArgumentException>(() => PayoutRules.ApplyCompetitive(
                 new int[4], Arr(1, 2, 3, 4), Arr(6, 4, 2, 0)));
             Assert.Throws<ArgumentException>(() => PayoutRules.ApplyCompetitive(
-                new int[4], Arr(1, 2, 3, 4), Arr(6, 4, 2)));
+                new int[4], Arr(1, 2, 3, 4), new[] { 6, 4, 2 }));
             Assert.Throws<ArgumentException>(() => PayoutRules.ApplyCoop(
                 new int[4], true, 0, AllSeats));
         }
