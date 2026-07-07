@@ -125,6 +125,26 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
+        public void Wager_RejectsMalformedFinalPlaces()
+        {
+            // LOW-1 (TASK-037 review fix round): PayoutRules.ApplyCompetitive
+            // already guards place values to 0 (absent) or 1..4; FinalWager.Resolve
+            // did not, and a malformed value (e.g. 5) currently causes a SILENT
+            // value transfer -- the malformed seat's coins get staked into the
+            // pot (since it's not treated as "absent"), but since it can never
+            // match a real place 1..4 in the payout-ordering pass, it never gets
+            // a share back, and its stake silently ends up redistributed to the
+            // other seats instead of erroring loudly on a cabinet.
+            var choices = new WagerChoice?[] { WagerChoice.Half, WagerChoice.Half, WagerChoice.Half, WagerChoice.Half };
+            Assert.Throws<ArgumentException>(
+                () => FinalWager.Resolve(Arr(20, 20, 20, 20), choices, Arr(1, 2, 3, 5)),
+                "a place > 4 must be rejected, not silently transfer that seat's stake to the others");
+            Assert.Throws<ArgumentException>(
+                () => FinalWager.Resolve(Arr(20, 20, 20, 20), choices, Arr(1, 2, 3, -1)),
+                "a negative place must be rejected too");
+        }
+
+        [Test]
         public void Wager_AbsentSeats_NeitherStakeNorShare()
         {
             var choices = new WagerChoice?[] { WagerChoice.Half, null, WagerChoice.Half, null };
@@ -167,8 +187,13 @@ namespace Barcade.Core.Tests
                                         worstGain = Math.Max(worstGain, r.CoinsAfter[s] - holdings[s]);
                                 }
 
+            // LOW-2 (TASK-037 review fix round): the message previously claimed a
+            // "~1-star band," but the actual bound asserted is 2*star (30 coins,
+            // i.e. a 2-star swing) -- reworded to say what's actually checked.
+            // Nothing at runtime enforces the §5.6 envelope this test's
+            // holdingSets are scoped to (calibration risk tracked in TASK-033).
             Assert.That(worstGain, Is.LessThanOrEqualTo(2 * star),
-                "even the most extreme wager outcome stays in the ~1-star band, far from a 3-star (45-coin) flip");
+                "even the most extreme wager outcome stays within a 2-star swing (<=30 coins), short of a 3-star (45-coin) flip");
             Assert.That(worstGain, Is.GreaterThanOrEqualTo(star / 2),
                 "the wager must be able to move a meaningful fraction of a star, or the climax is stakes-free");
         }
@@ -337,6 +362,112 @@ namespace Barcade.Core.Tests
             }
 
             Assert.That(flipped, Is.True, "a 1-star comeback must be reachable through the bonus draw");
+        }
+
+        [Test]
+        public void StarDraw_AllowsTheJustifiableTwoStarComeback()
+        {
+            // MEDIUM-2 (TASK-037 review fix round): the "allowed side" of the >=3
+            // exclusion boundary was only pinned at gap=1 (the test above) — GDD
+            // 6.3 bans ONLY >=3-star flips, so a gap=2 comeback (right at the edge
+            // of what's banned) must ALSO be reachable at the DEFAULT threshold.
+            // Same baseStars/coins shape as StarDraw_ExclusionRule_FiltersFlipsBeyondTheThreshold
+            // (which pins the OPPOSITE side: gap=2 IS filtered when the threshold
+            // is explicitly lowered to 2) but uses the real default (3) here.
+            SessionCounters c = CountersWhereSeatShines(3);
+            int[] baseStars = Arr(3, 1, 0, 1); // seat 0 leads; seat 3 trails by exactly 2
+            int[] coins = Arr(5, 5, 5, 50);    // seat 3 wins any star tie via coins
+
+            bool flipped = false;
+            for (int seed = 0; seed < 300 && !flipped; seed++)
+            {
+                BonusStarResult r = BonusStarDraw.Draw(seed, c, baseStars, coins, Arr(0, 0, 0, 0), AllSeats);
+                int[] places = FinalRanking.Rank(r.StarsAfter, coins, Arr(0, 0, 0, 0), AllSeats);
+                flipped = places[3] == 1;
+            }
+
+            Assert.That(flipped, Is.True, "a 2-star comeback must be reachable through the bonus draw -- GDD 6.3 bans only >=3");
+        }
+
+        [Test]
+        public void StarDraw_WhenEveryComboCrownsADistantTrailer_PicksTheLeastHarmfulNotAnArbitraryOne()
+        {
+            // MEDIUM-2 (TASK-037 review fix round): if exclusion filtering ever
+            // left NOTHING eligible (never happens at the GDD's real star
+            // values/default threshold today -- the class doc says a combo
+            // keeping the pre-bonus leader on top is never excluded -- but
+            // defensive for any future star-value/bonus-count change), the draw
+            // must not silently fall back to an arbitrary/unfiltered pick. It
+            // must prefer whichever combo(s) minimize the crowned gap.
+            //
+            // Rigged with an aggressive threshold=1 and exactly two candidate
+            // trailers (seat 1, seat 2 -- seat 3 holds no counters and is never
+            // crowned), each holding a distinct triple of the six star kinds, so
+            // EVERY one of the 15 combos (pure-seat-1, pure-seat-2, or any mixed
+            // pair) gives at least one of them enough to tie-or-beat the nominal
+            // leader (seat 0) via the coin tiebreak seat 0 always loses. seat 1
+            // and seat 2 start at different baseStars (0 and 1) so a
+            // seat-1-crowning combo (gap 2) and a seat-2-crowning combo (gap 1)
+            // are genuinely different harm levels.
+            //
+            // Rather than hand-deriving each combo's outcome (error-prone), this
+            // test independently recomputes every combo's crowned gap via the
+            // SAME public API surface Draw() itself uses (SessionCounters.WinnerOf
+            // + FinalRanking.Rank), asserts the scenario genuinely forces the
+            // fallback (every gap > 0) and genuinely discriminates (gaps vary),
+            // then asserts Draw()'s observed gap always equals the true minimum
+            // across many seeds.
+            var c = new SessionCounters();
+            c.RecordElimination(1); c.RecordElimination(1);                        // Kamikaze (max) -> seat 1
+            c.RecordWeaponUse(1);                                                   // Cangreja (max) -> seat 1
+            c.RecordZenMetric(1, 1f);                                               // Zen (min) -> seat 1
+            c.RecordZenMetric(0, 9f); c.RecordZenMetric(2, 9f); c.RecordZenMetric(3, 9f);
+            c.RecordReaccionaLatency(2, 100f);                                      // Gatillo (min mean latency) -> seat 2
+            c.RecordReaccionaLatency(0, 300f); c.RecordReaccionaLatency(1, 300f); c.RecordReaccionaLatency(3, 300f);
+            c.RecordInvestment(2, 20);                                              // Inversora (max) -> seat 2
+            c.RecordRobbed(2, 1);                                                   // Fantasma (min robbed) -> seat 2
+            c.RecordRobbed(0, 9); c.RecordRobbed(1, 9); c.RecordRobbed(3, 9);
+
+            int[] baseStars = Arr(2, 0, 1, 0); // seat 0 leads; seat 1 trails by 2, seat 2 by 1, seat 3 irrelevant (holds no counters)
+            int[] coins = Arr(1, 90, 90, 90);  // seat 0 never wins a tiebreak
+            int[] wins = Arr(0, 0, 0, 0);
+            const int maxBaseStars = 2;
+
+            var kinds = (StarKind[])Enum.GetValues(typeof(StarKind));
+            int trueMin = int.MaxValue, trueMax = int.MinValue;
+            for (int i = 0; i < kinds.Length; i++)
+                for (int j = i + 1; j < kinds.Length; j++)
+                {
+                    int[] after = (int[])baseStars.Clone();
+                    int h1 = c.WinnerOf(kinds[i], AllSeats);
+                    int h2 = c.WinnerOf(kinds[j], AllSeats);
+                    if (h1 >= 0) after[h1]++;
+                    if (h2 >= 0) after[h2]++;
+                    int[] places = FinalRanking.Rank(after, coins, wins, AllSeats);
+                    int gap = 0;
+                    for (int seat = 0; seat < 4; seat++)
+                        if (places[seat] == 1)
+                            gap = Math.Max(gap, maxBaseStars - baseStars[seat]);
+                    Assert.That(gap, Is.GreaterThan(0),
+                        $"test setup sanity: combo ({kinds[i]},{kinds[j]}) must crown someone other than seat 0, or this doesn't force the fallback");
+                    trueMin = Math.Min(trueMin, gap);
+                    trueMax = Math.Max(trueMax, gap);
+                }
+            Assert.That(trueMax, Is.GreaterThan(trueMin),
+                "test setup sanity: the 15 combos must have genuinely varying gaps, or this can't discriminate least-harmful from arbitrary");
+
+            for (int seed = 0; seed < 100; seed++)
+            {
+                BonusStarResult r = BonusStarDraw.Draw(seed, c, baseStars, coins, wins, AllSeats, exclusionThreshold: 1);
+                int[] places = FinalRanking.Rank(r.StarsAfter, coins, wins, AllSeats);
+                int observedGap = 0;
+                for (int seat = 0; seat < 4; seat++)
+                    if (places[seat] == 1)
+                        observedGap = Math.Max(observedGap, maxBaseStars - baseStars[seat]);
+
+                Assert.That(observedGap, Is.EqualTo(trueMin),
+                    $"seed {seed}: the fallback must pick a least-harmful combo (gap {trueMin}), not a worse one (observed {observedGap})");
+            }
         }
 
         [Test]
