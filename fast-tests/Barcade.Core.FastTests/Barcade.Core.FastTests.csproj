@@ -61,6 +61,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameSelectorTests.cs" />
     <!-- TASK-044 (GDD §13): PCG32 SeededRandom + stream derivation + analyzer rule -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\Pcg32SeededRandomTests.cs" />
+    <!-- TASK-037 (GDD T-109): §6 scoring — payouts, FINAL_WAGER, bonus stars, tiebreaks -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ScoringV2Tests.cs" />
   </ItemGroup>
 
 </Project>
