@@ -49,11 +49,20 @@ namespace Barcade.EditorTools
         /// already sat at 3-6 s) -- that stale copy would have failed the v2
         /// validator's duration check the moment
         /// MicrogameDefinitionMigrationTool.MigrateAll ran against a fresh
-        /// GenerateAll output. The values below were brought back into the [3, 8]
-        /// bound by matching each entry to its corresponding on-disk
-        /// Assets/Barcade/Content/Microgames/*.asset duration exactly (verified
-        /// 1:1 by id+difficulty), so re-running GenerateAll now reproduces the
-        /// current on-disk assets byte-for-byte rather than introducing new churn.
+        /// GenerateAll output. Duration, id, verbText and difficulty below were
+        /// verified 1:1 against each entry's corresponding on-disk
+        /// Assets/Barcade/Content/Microgames/*.asset (matched by id+difficulty) and
+        /// match exactly -- no diff expected in those four fields.
+        ///
+        /// hintText is a DIFFERENT story (rev-t045 finding): the 12 on-disk assets
+        /// predate the hintText field entirely (added in the same commit that
+        /// introduced the since-fixed 7-10 s durations) and carry no hintText line
+        /// at all today. Re-running GenerateAll therefore WILL touch all 12 assets
+        /// -- it applies the (intended, ~1 line each) Spanish hint copy below for
+        /// the first time, not a no-op confirmation pass. MigrateAll MUST run
+        /// AFTER that regen, not before: migrating the current on-disk assets as-is
+        /// would carry an empty LegacyHintText="" into the v2 JSON.
+        ///
         /// A regression lock (MicrogameContentGeneratorSpecsTests, fast suite)
         /// parses this array's literal source text and asserts every duration
         /// stays in bound and that every entry migrates to a valid v2 definition,
@@ -70,10 +79,12 @@ namespace Barcade.EditorTools
         /// The pipeline order is therefore, and remains: GenerateAll (this class,
         /// writes/refreshes the 12 v1 .asset files) -&gt; MigrateAll (writes v2 JSON
         /// from those v1 files) -&gt; ValidateAll (checks the v2 JSON against
-        /// MicrogameDefinitionValidator). Because Specs now matches the current
-        /// on-disk assets exactly, the next Unity-gate window can re-run all three
-        /// steps as a confirmation pass with no expected diff to the 12 assets and
-        /// no migrator fixture churn (see hand-off for the exact commands).
+        /// MicrogameDefinitionValidator). The next Unity-gate window should expect
+        /// GenerateAll to apply the pending hintText addition to all 12 assets (see
+        /// above -- intended content, not churn to investigate) with no other field
+        /// changing, then run MigrateAll against that freshly-regenerated state so
+        /// the v2 JSON carries the hints, then ValidateAll (see hand-off for the
+        /// exact commands).
         /// </summary>
         private static readonly DefSpec[] Specs = new DefSpec[]
         {
