@@ -11,7 +11,7 @@
     "Ranking edge cases per GDD: simultaneous eliminations share Place; survivors at timeout share 1st (MECH_02); ties handled without fabricated winners",
     "Tests-first (red before impl) for all new/changed rules; fast suite green after, no regression; existing legacy consumers keep compiling"
   ],
-  "status": "blocked",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -54,10 +54,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T15:12:40.209Z",
       "body": "HUMAN RULINGS on the Phase A ambiguities (2026-07-07, via AskUserQuestion; all took the recommended GDD-literal/dev reading). Slices now filed: SLICE 0 = TASK-057 (dispatched), SLICE 1 MECH_02 = TASK-058, SLICE 2 MECH_03 = TASK-059, SLICE 3 MECH_01 = TASK-060, SLICE 4 legacy-ids = TASK-061. TASK-034 is the UMBRELLA — closes only when all five close.\n\nRULING #1+#2 (MECH_03 scope): JUMP-ONLY, one fixed lane per player. Strip RunnerSim's lane-switching, slide/duck, and high-obstacle types — the GDD control scheme is only mash-accelerate + stick-up-tap-jump. Baked into TASK-059 ACs.\nRULING #5 (MECH_02 patterns): engineering [ASSUMED] geometry accepted (Rain=top-down fall / Sides=L-R entry / Cross=diagonal corner-to-corner / Homing_soft=slow-turn toward nearest player, 30°/s cap), reviewer-verified, human tunes at UAT. Baked into TASK-058 ACs.\nRULING #3+#4 (MECH_01 fidelity): dev's call — deterministic seeded-noise substitute (value-noise, not required to be true Perlin) preserving A(t)=A0+ramp·t, plus a small damping term for Euler stability; both [ASSUMED]-tagged + reviewer-verified. Baked into TASK-060 ACs.\n\nCARRY-INS folded into the slices: comment-1 (v1 SequencerDirector P3 re-roll retirement, minimal reading) = TASK-057; the full Framework v1→V2-selector production swap = a separate follow-up dev-t101 is drafting from TASK-057. comment-2 (legacy-id un-debounced-edge reconciliation) = TASK-061. TASK-052 LOW-3 carry-in (null-vs-empty PayoutTable + selector integration test) attaches to whichever slice wires V2 definitions into SessionStateMachine — currently the Framework-swap follow-up, noted here so it isn't lost.\n\nDISPATCH ORDER: TASK-057 in flight. Then TASK-058 (MECH_02) first among mechanics, TASK-060 (MECH_01) parallel-eligible, TASK-059 (MECH_03) LAST (largest delta), TASK-061 (legacy) parallelizable but closes before the umbrella. One dev on master = sequential; reviewers fresh per slice."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T19:02:29.606Z",
+      "body": "UMBRELLA CLOSED (loop mode) — GDD T-107 complete. All 5 slices closed via fresh-context review, each APPROVE / APPROVE-WITH-NITS with 0 HIGH:\n- SLICE 0 = TASK-057 (SequencerDirector P3 re-roll → single-draw) ✓\n- SLICE 1 = TASK-058 (MECH_02 ¡ESQUIVA! on v2) ✓\n- SLICE 2 = TASK-059 (MECH_03 ¡CORRE! on v2, jump-only) ✓\n- SLICE 3 = TASK-060 (MECH_01 ¡MANTÉN! new inverted-pendulum) ✓\n- SLICE 4 = TASK-061 (legacy-id retirement: aporrea/timing/apunta-v1/recolecta) ✓\n\nTASK-034 was an UMBRELLA (per the ratified Phase A split — executed via the 5 sub-tickets, not under its own key); closes now that all five are done. Fast suite 582 green at the last slice's tip (8e0107f).\n\nv1 SequencerDirector retirement (rev-c035 scope addition — 'must not become permanent'): the P3-violating re-roll loop was removed in SLICE 0 (TASK-057, minimal reading); the FULL Framework v1→V2-MicrogameSelector production swap is the ratified deferred follow-up TASK-062 (deps TASK-057+TASK-055) per the human ruling — so the coexistence deviation is time-boxed, not permanent. VERIFICATION NOTE: v1 SequencerDirector still has Framework production consumers TODAY (that swap is exactly TASK-062's scope); this is the sanctioned transition state, not an unclosed T-107 gap. TASK-052 LOW-3 carry-in (null-vs-empty PayoutTable normalization + selector integration test) attaches to TASK-062.\n\ncomment-2 (legacy-id un-debounced ButtonState.Pressed reconciliation) RESOLVED BY RETIREMENT in TASK-061: the 3 un-debounced consumers (Aporrea raw press-count, Timing/Apunta-v1 latch) removed with the code; recolecta stick-only. No raw ButtonState.Pressed ported into any survivor (only SampleTapMicrogame remains, documented).\n\nFOLLOW-UPS SPAWNED from the slices (all filed): TASK-062 (Framework v1→V2 production swap), TASK-063 (slow-tier statistical fairness sweep, covers MECH_01/02/03), TASK-064 (MECH_02 CueEliminated emission), TASK-065 (parked ¡RECOGE! backlog), TASK-066 (RunnerSim/RunnerBootstrap retire-or-keep).\n\nPENDING UNITY-GATE (from TASK-061, next Editor window): delete 9 orphaned on-disk assets + strip the Addressables group entries + GenerateAll→MigrateAll→ValidateAll + PlayMode MicrogamePoolIntegrationTests + flip ExactlyTwelveDefinitionAssetsExist→3 + the 2 LOW doc-nits. Umbrella coordination close; each slice was independently reviewed + closed FULL."
     }
   ],
   "created_at": "2026-07-07T04:20:28.216Z",
-  "updated_at": "2026-07-07T15:12:40.209Z",
+  "updated_at": "2026-07-07T19:02:29.606Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

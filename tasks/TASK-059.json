@@ -10,7 +10,7 @@
     "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
     "Tests-first (red captured); fast suite green, no regression; legacy consumers keep compiling; camera/View UAT deferred to §10.4 work."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -25,11 +25,20 @@
   "depends_on": [
     "TASK-030"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "2e0ee61",
+    "8e0107f"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T19:01:19.513Z",
+      "body": "CLOSED (loop mode, auto_close_on_green_review). rev-t059 fresh-context review of c387caa..8e0107f → APPROVE-WITH-NITS, 0 HIGH / 0 MEDIUM / 4 LOW + 1 nit. Orchestrator INDEPENDENTLY ran the fast suite = 582 passed / 0 failed at 8e0107f (555 baseline + 27 new MECH_03 tests), zero regression. Depth FULL.\n\nCOMMITS: 2e0ee61 (test: red — compile-red for the brand-new type, standard for a new v2 slice, correct order) → 8e0107f (feat: green). New files: V2/CorreMicrogame.cs (+502), V2/CorreParams.cs (+134), V2/MicrogameId.cs (+3), Content/MechanicParamSchema.cs (+22, Mech03Corre entry), Tests/EditMode/CorreMicrogameV2Tests.cs (+835), fast-tests csproj (+2 includes).\n\nAC VERDICTS (all MET): AC1 engine-free v2 IMicrogame, injected SeededRandom, zero-alloc Tick (pinned SteadyStateTick_AllocatesNoManagedMemory:594), one fixed lane, jump-only — lane/slide/high stripped (LateralAndDownStick_HaveNoEffect:263). AC2 v=vBase+vGain·mashNorm (:278) matching InputInterpreter §3.3, stick-up TAP jumps never reverse (:178,:205), 36-tick=0.6s stun no elimination (:296). AC3 single shared _obstaclePos array → identical track all 4 lanes (SameSeed...:376 + AllFourLanes_ShareOneTrack_ByteIdentical:391). AC4 6Hz+perfect-jump finishes unstunned (:433) + rubber-band never-inverts over 1000 seeds (:469). AC5 declares difficultyScaling + passes TASK-030 validator (V2Definition_ForCorre_PassesValidator:676; VBaseOutOfRange_FailsValidator:705 fails-closed). AC6 tests-first, green, no regression, legacy compiles, View deferred.\n\nFAIRNESS ORACLE (deepest check) = SOUND + NON-VACUOUS: 1000-seed loop genuinely runs to natural finish (not reduced); bot drives ONLY the public button surface (no peek at _nextObstacle/RNG/internal state); rubber-band evaluated once/tick from a PRE-TICK shared min-distance snapshot applied uniformly (no seat-order advantage), <=min reduces to ==min so tie-for-last boosts both → identical seats stay bit-identical under exact-equality assertion. Zero-alloc genuinely isolates Tick (v2 InputSnapshot/PlayerInput are readonly struct, window uses GC.GetAllocatedBytesForCurrentThread==0). Determinism discrimination-proof (SameSeed parity :635 + DifferentSeed_Diverges :656).\n\nLOW DISPOSITIONS: LOW-1 (1000-seed test alone vacuous re: rubber-band ENGAGEMENT — but property fully pinned by the PAIR with RubberBand_BoostsLastPlaceBaseSpeed:513; optional boost-fired-in-loop assertion can ride TASK-063's MECH_03 slow-tier fairness sweep) — ADEQUATE, noted. LOW-2 (compile-red not behavioral-red) — standard for a new type, matches prior v2 slices, no action. LOW-3 (AC3 behavioral+structural, no literal one-array assertion) — single-array structure makes a per-lane track unrepresentable, ADEQUATE. LOW-4 (RunnerSim/RunnerState mined but NOT retired — still consumed by Framework/RunnerBootstrap.cs:114,253 + RunnerSimTests, now redundant with Corre) → FILED as follow-up TASK-066 (retire-or-keep decision, low). Nit (stun IsStunned vs frozen-in-place tick offset) — no real off-by-one (effective no-advance = exactly 36 ticks), no action.\n\n[ASSUMED] RATIFICATION: 6 engineering-ratifiable (jump-tap=any upward edge; rubber-band tie=all tied-last boosted equally, ≥2 seats; MinObstacleGap=4.0>span 3.62 bot-validated; FirstObstacleDistance=5.0; RaceToFinish declared-not-read — win coherently by DISTANCE per GetResult:333, field reserved mirroring EsquivaParams.JumpEnabled precedent; presentation constants). 2 ROUTED TO HUMAN: (a) difficultyScaling → obstacle DENSITY (dev chose density; GDD says 'velocidad/densidad'); (b) JumpAirtimeSeconds=0.5 (design tuning gap). Added to the bundle [ASSUMED] ratification list.\n\nReviewer offered 3 optional belt-and-suspenders mutations (zero-alloc alloc-injection, fairness i==0-only boost, per-seat RNG draw) — orchestrator judged them unnecessary given the dual verification (dev mutation-check + reviewer mechanistic trace) and the readonly-struct/single-array structural proofs. T-107 SLICE 2 of 5 DONE."
+    }
+  ],
   "created_at": "2026-07-07T15:11:55.726Z",
-  "updated_at": "2026-07-07T15:11:55.726Z",
+  "updated_at": "2026-07-07T19:01:19.513Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
