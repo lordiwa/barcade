@@ -94,10 +94,32 @@ namespace Barcade.Core
         ///
         /// Anti-repeat rule: if the pool has more than one entry, the same pool index
         /// (and therefore the same <c>Id</c>) will never be returned on two consecutive
-        /// calls. Re-rolls are performed internally until a different index is drawn.
+        /// calls.
         ///
-        /// Single-item pool: the only entry is always returned — the anti-repeat
-        /// condition is skipped to avoid an infinite loop.
+        /// <para>
+        /// <b>TASK-057 (GDD P3: "una decisión -&gt; como máximo una tirada. Prohibido
+        /// 'objeto aleatorio que además falla aleatoriamente'").</b> This used to
+        /// re-roll (redraw) internally until a different index came up -- an
+        /// unbounded number of draws for a single decision, exactly the pattern P3
+        /// forbids, and it measurably happened: 100 decisions on a 2-item pool
+        /// consumed 190 draws under the old algorithm. It now draws EXACTLY once:
+        /// the repeat-excluded index is never even a possible outcome, via the
+        /// standard "exclude one index from a uniform draw" mapping -- draw from
+        /// <c>[0, pool.Count-1)</c> (or the full range when there is no prior pick
+        /// yet, i.e. nothing to exclude), then shift draws landing at-or-past the
+        /// excluded index forward by one, so every other index stays equally
+        /// likely and the excluded one can never be produced. Matches
+        /// <see cref="Barcade.Core.Sequencer.V2.MicrogameSelector"/>'s own
+        /// already-established "filter then single draw" pattern.
+        /// </para>
+        ///
+        /// Single-item pool: the only entry is always returned without consuming
+        /// any RNG draw at all -- the anti-repeat condition is skipped since a
+        /// repeat is unavoidable (there is nothing else to pick). [ASSUMED]: GDD
+        /// §9.2 is silent on a pool of exactly one; this follows the same
+        /// "liveness over constraints" principle <see cref="Barcade.Core.Sequencer.V2.MicrogameSelector"/>
+        /// documents for its own constraint-relaxation order -- the session never
+        /// throws or stalls mid-play.
         ///
         /// Also updates <see cref="CurrentRoundContext"/> with the ramp values for
         /// the current round index.
@@ -109,17 +131,17 @@ namespace Barcade.Core
 
             if (_pool.Count == 1)
             {
-                // Single-item pool: always return the only entry.
+                // Single-item pool: always return the only entry. A repeat is
+                // unavoidable -- never touch the RNG for a decision with only
+                // one possible outcome.
                 idx = 0;
             }
             else
             {
-                // Anti-repeat: re-roll until we get a different index.
-                do
-                {
-                    idx = _rng.NextInt(0, _pool.Count);
-                }
-                while (idx == _lastPickedIndex);
+                bool hasExclusion = _lastPickedIndex >= 0;
+                int candidateCount = hasExclusion ? _pool.Count - 1 : _pool.Count;
+                int draw = _rng.NextInt(0, candidateCount);
+                idx = (hasExclusion && draw >= _lastPickedIndex) ? draw + 1 : draw;
             }
 
             _lastPickedIndex = idx;

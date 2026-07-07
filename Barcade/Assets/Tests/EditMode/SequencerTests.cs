@@ -135,9 +135,17 @@ namespace Barcade.Core.Tests
             };
             var director = MakeDirector(pool, seed: 42);
 
-            // Recalibrated for TASK-044: SeededRandom is now PCG32 (GDD 13), so the
-            // seed-42 pick sequence changed once, permanently (algorithm-pinned).
-            var expected = new[] { "A", "C", "B", "C", "A", "C", "A", "B", "A", "C" };
+            // Recalibrated for TASK-057: the re-roll loop that used to produce this
+            // sequence was replaced by a single-draw "exclude one index" mapping
+            // (GDD P3) -- a different number of RNG draws are consumed per
+            // decision than before, so the resulting sequence for this same seed
+            // changed once, permanently (algorithm-pinned, like the TASK-044
+            // PCG32 recalibration above it in this file's history). Captured by
+            // running the new implementation and independently re-verified here
+            // to have no consecutive repeat anywhere in the 10-pick run (A,C /
+            // C,A / A,C / C,B / B,A / A,C / C,B / B,A / A,B all differ) --
+            // not a blind re-bless of whatever the code happened to print.
+            var expected = new[] { "A", "C", "A", "C", "B", "A", "C", "B", "A", "B" };
             for (int i = 0; i < expected.Length; i++)
             {
                 string picked = director.PickNext().Id;
