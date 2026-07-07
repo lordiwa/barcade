@@ -12,7 +12,7 @@
     "Steady-state Tick performs zero heap allocations and the interpreter is deterministic given the same snapshot sequence (replay-safe)",
     "Tests-first: failing fast-suite tests encoding each rule above are committed (test: commit) strictly before any implementation commit, with the red run captured as evidence; full fast suite green afterwards (baseline 323 tests must not regress)"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "critical",
   "labels": [
     "gdd-v2",
@@ -23,17 +23,28 @@
   ],
   "assignee": null,
   "depends_on": [],
-  "linked_commits": [],
+  "linked_commits": [
+    "1e5e94f",
+    "e20d6f8",
+    "694a04b",
+    "5e55450",
+    "a85cd17"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "developer",
       "at": "2026-07-07T03:43:40.977Z",
       "body": "Implemented tests-first on master, no push (by dev-t101). Commits: 1e5e94f test(core) failing InputInterpreter spec (30 tests; red evidence = CS0246 compile errors against the not-yet-existing types, the expected TDD-red for brand-new types) STRICTLY BEFORE e20d6f8 feat(core) InputInterpreter. Fast suite 323 -> 353, all green, 0 skipped. New Core files under Barcade/Assets/Barcade/Core/Runtime/Input/: Direction8.cs, InputInterpreterConfig.cs (ctor-injected ticksPerSecond/tapWindowTicks/mashMinHz/mashSatHz/mashWindowSeconds; GddDefaults = 60/9/2/9/0.5), InputInterpreter.cs (per-seat edges/tap/hold/mash + MashForce clamp01((hz-min)/(sat-min)), RawDirection, CollapsedCardinal, static ToDirection8 + CollapseDiagonal; Tick(IReadOnlyPlayerInputs); Reset() clears seat state not tick clock). Tests in Assets/Tests/EditMode/InputInterpreterTests.cs incl. zero-alloc proof (GC.GetAllocatedBytesForCurrentThread over 1000 ticks after warmup) and tick-by-tick determinism test. Design notes: 2-consecutive-tick confirm debounce (uniform 1-tick edge latency); diagonal cold-start resolves to horizontal component (mirrors InputSnapshot.CardinalDirection tie-break); stick-to-None does NOT clear dominant-cardinal memory, only Reset() does; 64-slot press-timestamp ring buffer per seat. FLAGGED DELTA vs GDD listing: existing Core InputSnapshot is per-seat (no session wrapper/Tick field), stores continuous StickX/StickY (Direction8 newly added), and upstream ButtonState.Pressed already bakes un-debounced edge detection — interpreter treats Pressed||Held as raw down and re-derives edges itself; legacy consumers (e.g. AporreaMicrogame) still receive un-debounced Pressed — follow-up ticket candidate."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T04:01:30.018Z",
+      "body": "Closed on green review. Fresh-context reviewer rev-t101, depth FULL (rubric inputs: 845 inserted lines across 5 files >= 150 threshold; core tdd-tier logic = mandatory-FULL surface). Initial verdict APPROVE-WITH-NITS (0 HIGH, 2 MEDIUM, 3 LOW); fix round resolved everything actionable: MEDIUM-1 diagonal collapse now always returns a component of the held diagonal (stale unrelated dominant falls back to the horizontal cold-start rule; N->center->SE scenario pinned by integration test), LOW-1 mashMinHz >= 0 guard, MEDIUM-2 four .meta stubs (2-line convention matching newest siblings; GUIDs independently collision-checked repo-wide by reviewer). Reviewer re-ran the fast suite both rounds: 353/353 then 356/356 green (baseline 323 -> 356). TDD two-commit discipline verified in both rounds (test commits strictly precede impl/fix commits; red evidence captured and cross-checked: CS0246 compile-red round 1, 3-failed assertion-red round 2). Tier-audit: tdd confirmed appropriate. Deferred to TASK-029: legacy consumers of un-debounced ButtonState.Pressed + HID adapter deadzone (reviewer LOW-2); LOW-3 (zero-alloc sensor semantics under Unity Mono runner) recorded as advisory. GDD spec file was untracked and is now committed (53e80e1) so future reviews pin against a versioned spec."
     }
   ],
   "created_at": "2026-07-07T03:25:35.873Z",
-  "updated_at": "2026-07-07T03:43:41.429Z",
+  "updated_at": "2026-07-07T04:01:30.018Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

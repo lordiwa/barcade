@@ -1,0 +1,32 @@
+{
+  "key": "TASK-029",
+  "title": "Input hardening follow-ups: debounce for legacy ButtonState consumers + HID adapter deadzone (from TASK-023 review)",
+  "description": "Two deferred items surfaced by TASK-023 (InputInterpreter, GDD T-101). (1) Legacy un-debounced edges: upstream ButtonState.Pressed bakes edge detection in the Unity-side adapter with no debounce guarantee; the new InputInterpreter re-derives debounced edges for itself, but existing consumers of raw ButtonState.Pressed (e.g. AporreaMicrogame) still receive un-debounced signals. Decide: migrate legacy microgames to InputInterpreter-derived edges (preferred, per GDD 3.2 architecture where the interpreter owns edge detection) or add debounce upstream. (2) Deadzone at the trust boundary: InputInterpreter.ToDirection8 uses raw sign with no deadzone (consistent with existing InputSnapshot.CardinalDirection, correct for digital sticks); the Framework HID->InputSnapshot adapter (GDD Annex D.1 row 'Adaptador HID -> InputSnapshot', to be verified against 3.2 in a later ticket) MUST apply a deadzone (e.g. WithDeadZone) before snapshots reach Core, or analog noise of +/-0.0001 mints full directions. Fold item (2) into the adapter verification ticket when it is created; this ticket then covers only item (1). Origin: TASK-023 reviewer findings LOW-2 + developer-flagged delta (review 2026-07-07, APPROVE-WITH-NITS).",
+  "acceptance_criteria": [
+    "Every microgame that consumes button edges gets them debounced: either via migration to InputInterpreter signals or via upstream debounce in the adapter — decision recorded in ticket comments with rationale",
+    "The HID->InputSnapshot adapter applies a deadzone before Core sees stick values (verified by test or recorded as handled in the adapter ticket)",
+    "Fast suite and Unity EditMode suite stay green"
+  ],
+  "status": "todo",
+  "priority": "low",
+  "labels": [
+    "gdd-v2",
+    "core",
+    "input",
+    "follow-up",
+    "tech-debt"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-023"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T03:53:06.243Z",
+  "updated_at": "2026-07-07T03:53:06.243Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[INFERRED:strong]",
+  "source_tier": "T2"
+}

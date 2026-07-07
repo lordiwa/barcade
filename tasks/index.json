@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T03:43:41.429Z",
+  "generated_at": "2026-07-07T04:01:30.018Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -136,7 +136,7 @@
     {
       "key": "TASK-023",
       "title": "GDD T-101 — InputInterpreter: tap/hold/mash derivation, debounce, diagonal collapse (§3.2/§3.3)",
-      "status": "in_review",
+      "status": "done",
       "priority": "critical"
     },
     {
@@ -168,6 +168,12 @@
       "title": "GDD T-105 — Hito 1 integration: minimal session JOIN → 5 microgames → podium, replay determinism (§17 Hito 1)",
       "status": "todo",
       "priority": "high"
+    },
+    {
+      "key": "TASK-029",
+      "title": "Input hardening follow-ups: debounce for legacy ButtonState consumers + HID adapter deadzone (from TASK-023 review)",
+      "status": "todo",
+      "priority": "low"
     }
   ]
 }
