@@ -1,0 +1,38 @@
+name: Slow Sweep
+
+# TASK-063: the slow-tier statistical escapability / fairness sweep
+# (slow-tests/Barcade.Core.SlowTests). Each competitive mechanic's optimal-play
+# oracle is run across 1000+ seeds per pattern and the GDD fairness property is
+# asserted on every seed; any violating seed is surfaced (logged) before the
+# test fails, so a fairness regression lands in the run log for design review.
+#
+# This is DELIBERATELY separate from fast-tests.yml and NEVER runs on push: the
+# per-push fast leg (fast-tests/Barcade.Core.FastTests, 592 green) must stay
+# fast and byte-unchanged. The sweep is a different, slower gate — invoked on
+# demand (workflow_dispatch) and on a weekly schedule.
+#
+# Like the fast leg, it points `dotnet test` at the slow project directory
+# specifically, so it only builds Barcade.Core's pure-C# runtime (mirrored via
+# <Compile Include>) and needs no Unity install/license.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 06:00 UTC every Monday. Cron here is independent of the per-push fast leg.
+    - cron: '0 6 * * 1'
+
+jobs:
+  slow-sweep:
+    name: dotnet test (Barcade.Core.SlowTests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8.0.x
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run slow fairness sweep
+        run: dotnet test slow-tests/Barcade.Core.SlowTests --nologo
