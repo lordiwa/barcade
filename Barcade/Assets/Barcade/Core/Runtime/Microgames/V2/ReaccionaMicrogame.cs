@@ -20,19 +20,27 @@ namespace Barcade.Core.Microgames.V2
     /// </para>
     ///
     /// <para>
-    /// <b>Debounce interaction (orchestrator note for T-103).</b> Press edges come
-    /// from an internal <see cref="InputInterpreter"/> (T-101), whose 2-tick-confirm
-    /// debounce reports every genuine press exactly 1 tick after it physically
-    /// happened — uniformly for every seat (see <c>InputInterpreter.DebounceConfirmTicks</c>).
-    /// The <c>AnticipationThresholdTicks</c> (GDD: 5 ticks / 90 ms) is applied directly
-    /// to this debounce-confirmed latency, with no compensating subtraction. Two
-    /// reasons: (1) the confirmed edge is the only signal Core ever observes — there is
-    /// no access to a "true" pre-debounce tick to correct against; (2) the uniform
-    /// +1-tick offset shifts every seat's measured latency by the same amount, so
-    /// relative ranking (who was fastest) and tie detection are completely unaffected —
-    /// it only means the effective true-physical anticipation threshold is
-    /// ~1 tick tighter than the nominal 90 ms, which is imperceptible to players and
-    /// is the same trade-off already documented on <c>InputInterpreter</c> itself. See
+    /// <b>Debounce interaction (orchestrator note for T-103; recalibrated in the
+    /// TASK-025 fix round).</b> Press edges come from an internal
+    /// <see cref="InputInterpreter"/> (T-101), whose 2-tick-confirm debounce reports
+    /// every genuine press exactly 1 tick after it physically happened — uniformly
+    /// for every seat (see <c>InputInterpreter.DebounceConfirmTicks</c>).
+    /// <c>AnticipationThresholdTicks</c> is applied directly to this
+    /// debounce-confirmed latency, with no compensating subtraction — the confirmed
+    /// edge is the only signal Core ever observes, so there is no "true"
+    /// pre-debounce tick to correct against. Because confirmed latency = true
+    /// physical latency + 1 (the uniform debounce offset), a threshold of N ticks
+    /// on confirmed latency actually rejects physical latencies below (N-1) ticks,
+    /// not below N. The GDD default is <b>6</b> ticks: physical latencies below 5
+    /// ticks (83.3 ms) are anticipation, 5 ticks and up is legitimate — the
+    /// closest tick-quantized value at or under the GDD's 90 ms nominal cutoff
+    /// without exceeding it. (5 ticks was tried first and is wrong: it only
+    /// rejects physical latencies below 4 ticks/66.7 ms — looser toward
+    /// anticipators than the GDD intends, not tighter as an earlier draft of this
+    /// comment claimed.) The uniform +1-tick offset shifts every seat's measured
+    /// latency by the same amount regardless of the threshold's value, so relative
+    /// ranking (who was fastest) and tie detection are completely unaffected by
+    /// this calibration. See
     /// <c>ReaccionaMicrogameTests.AnticipationThreshold_AppliesToDebounceConfirmedLatency_NotRawPressTick</c>.
     /// </para>
     ///
@@ -407,7 +415,19 @@ namespace Barcade.Core.Microgames.V2
                 {
                     float fu = _rng.NextFloat();
                     float fakeoutSeconds = fu * delaySeconds; // always < delaySeconds: strictly before the real signal
-                    _fakeoutTicks[i] = _tandaStartTick + (int)MathF.Floor(fakeoutSeconds * _params.InputConfig.TicksPerSecond);
+                    int fakeoutTick = _tandaStartTick + (int)MathF.Floor(fakeoutSeconds * _params.InputConfig.TicksPerSecond);
+
+                    // Floor(fu*delaySeconds*tps) can still land ON _signalTick's own
+                    // tick when Round(delaySeconds*tps) rounds DOWN (fractional part
+                    // < 0.5) and fu is close to 1 — both quantize to the same integer
+                    // just below the continuous delaySeconds*tps value. Clamp so a
+                    // fakeout never lands on or after the real signal, preserving the
+                    // "strictly before" invariant this method's earlier comment already
+                    // promised. See ReaccionaMicrogameTests's regression test pinned to
+                    // seed 8664, which reproduces this exact collision.
+                    if (fakeoutTick >= _signalTick) fakeoutTick = _signalTick - 1;
+
+                    _fakeoutTicks[i] = fakeoutTick;
                 }
                 else
                 {

@@ -192,15 +192,19 @@ namespace Barcade.Core.Tests
         /// CueSignal event and schedules <paramref name="reactSlot"/>'s confirmed
         /// press <paramref name="latencyAfterSignal"/> ticks after it. Other seats
         /// never press (they resolve via the reaction timeout). Returns the full
-        /// (seat, level, cue) feedback trace and the final result.
+        /// (tick, seat, level, cue) feedback trace and the final result — the tick
+        /// is included (fix, TASK-025 review LOW) so the determinism check compares
+        /// *when* each event fired too, not just its order, since two traces with
+        /// events shifted by a constant tick offset would otherwise still compare
+        /// equal as sequences.
         /// </summary>
-        private static (List<(int Seat, int Level, byte Cue)> Feedback, V2Result Result) RunReactiveTrace(
+        private static (List<(int Tick, int Seat, int Level, byte Cue)> Feedback, V2Result Result) RunReactiveTrace(
             ReaccionaParams p, int seed, PlayerSlot reactSlot, int latencyAfterSignal)
         {
             var mg = new ReaccionaMicrogame(p);
             mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
-            var feedback = new List<(int, int, byte)>();
+            var feedback = new List<(int, int, int, byte)>();
             int pendingConfirmTick = -1;
 
             for (int t = 0; t < 20000 && !mg.IsFinished; t++)
@@ -215,7 +219,7 @@ namespace Barcade.Core.Tests
                 for (int i = 0; i < rs.FeedbackCount; i++)
                 {
                     FeedbackEvent fe = rs.Feedback[i];
-                    feedback.Add((fe.Seat, (int)fe.Level, fe.Cue));
+                    feedback.Add((rs.Tick, fe.Seat, (int)fe.Level, fe.Cue));
                     if (fe.Cue == ReaccionaMicrogame.CueSignal && pendingConfirmTick < 0)
                         pendingConfirmTick = rs.Tick + latencyAfterSignal;
                 }
@@ -462,6 +466,67 @@ namespace Barcade.Core.Tests
             Assert.That(rojoRank.Place, Is.LessThan(azulRank.Place));
         }
 
+        [Test]
+        public void FalseStarter_ReEntersNextTanda_NotPermanentlyExcluded()
+        {
+            // TASK-025 review LOW: the returning half of the false-start rule —
+            // StartTanda() resets every seat's outcome to Pending unconditionally,
+            // so a seat that false-started in one tanda gets a fresh chance in the
+            // next one rather than being latched out for the rest of the round.
+            // Believed correct already; this pins it.
+            var p = new ReaccionaParams(
+                fakeouts: 0, rounds: 3,
+                signalDelayMinSeconds: 1.5f, signalDelayMaxSeconds: 4.5f,
+                anticipationThresholdTicks: 6, reactionTimeoutSeconds: 0.5f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+
+            var mg = new ReaccionaMicrogame(p);
+            mg.Initialize(new SeededRandom(777), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            int tandaIndex = 0; // 0-based; incremented each time a new tanda's CueSignal is observed
+            int pendingConfirmTick = -1;
+            bool falseStartedInTanda0 = false;
+
+            for (int t = 0; t < 20000 && !mg.IsFinished; t++)
+            {
+                bool pressNow;
+                if (tandaIndex == 0 && !falseStartedInTanda0)
+                    pressNow = t == 0 || t == 1; // force a confirmed press well before any signal (min delay 1.5s = 90 ticks)
+                else
+                    pressNow = pendingConfirmTick >= 0 && (t == pendingConfirmTick - 1 || t == pendingConfirmTick);
+
+                inputs.Set(PlayerSlot.Rojo, pressNow);
+                foreach (PlayerSlot slot in AllSlots)
+                    if (slot != PlayerSlot.Rojo) inputs.Set(slot, false);
+
+                mg.Tick(inputs.Build(t));
+
+                RenderState rs = mg.GetRenderState();
+                for (int i = 0; i < rs.FeedbackCount; i++)
+                {
+                    FeedbackEvent fe = rs.Feedback[i];
+                    if (fe.Cue == ReaccionaMicrogame.CueFalseStart && fe.Seat == (int)PlayerSlot.Rojo && tandaIndex == 0)
+                        falseStartedInTanda0 = true;
+                    if (fe.Cue == ReaccionaMicrogame.CueSignal)
+                    {
+                        tandaIndex++;
+                        if (tandaIndex >= 1) // tandas 2 and 3: schedule a legitimate reaction
+                            pendingConfirmTick = rs.Tick + 20;
+                    }
+                }
+
+                if (t == pendingConfirmTick) pendingConfirmTick = -1;
+            }
+
+            Assert.That(falseStartedInTanda0, Is.True, "test setup: Rojo must actually false-start in tanda 1");
+            Assert.That(mg.IsFinished, Is.True);
+
+            PlayerRank rank = FindRank(mg.GetResult(), PlayerSlot.Rojo);
+            Assert.That(rank.Metric, Is.EqualTo(ReaccionaMicrogame.FailurePenaltyTicks + 20 + 20),
+                "a false start in one tanda must not exclude the seat from legitimately reacting in later tandas");
+        }
+
         /// <summary>
         /// Like <see cref="RunReactiveTrace"/> but schedules a fixed per-seat latency
         /// (relative to each tanda's own signal) for multiple seats simultaneously.
@@ -559,23 +624,31 @@ namespace Barcade.Core.Tests
         [Test]
         public void SteadyStateTick_AllocatesNoManagedMemory()
         {
-            var mg = new ReaccionaMicrogame(ReaccionaParams.GddDefaults);
+            // Fix (TASK-025 review, MEDIUM-1): with GddDefaults (reactionTimeoutSeconds
+            // = 3s = 180 ticks), the round used to conclude by ~tick 450 — inside the
+            // original 500-tick warmup — so the measured 500..1500 window only ever
+            // exercised the `if (_isFinished) return;` no-op, a vacuous sensor. A long
+            // ReactionTimeoutSeconds with nobody ever pressing keeps the round genuinely
+            // live (fakeout scheduling during warmup, then the real "waiting for a
+            // reaction that never comes" per-tick check) all the way through both windows
+            // — asserted explicitly below rather than just assumed.
+            var p = new ReaccionaParams(
+                fakeouts: 2, rounds: 1,
+                signalDelayMinSeconds: 1.5f, signalDelayMaxSeconds: 4.5f,
+                anticipationThresholdTicks: 6, reactionTimeoutSeconds: 60f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+            var mg = new ReaccionaMicrogame(p);
             mg.Initialize(new SeededRandom(99), PlayerRoster.AllHuman, 1f);
-            var inputs = new FakeInputs();
-            inputs.Set(PlayerSlot.Rojo, false);
-            inputs.Set(PlayerSlot.Azul, true);
-            inputs.Set(PlayerSlot.Amarillo, true);
-            inputs.Set(PlayerSlot.Verde, false);
+            var inputs = new FakeInputs(); // nobody ever presses
 
-            // Warm up: JIT the hot path (covers signal fire, DNF resolution, and the
-            // finished no-op path since GddDefaults is best-of-1 and reactionTimeout
-            // is comfortably inside this window).
             for (int i = 0; i < 500; i++) mg.Tick(inputs.Build(i));
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: the round must still be live after warmup");
 
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 500; i < 1500; i++) mg.Tick(inputs.Build(i));
             long after = GC.GetAllocatedBytesForCurrentThread();
 
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: the round must still be live after the measured window, or it wasn't measuring the live path");
             Assert.That(after - before, Is.EqualTo(0L));
         }
 

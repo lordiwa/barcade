@@ -24,13 +24,23 @@ namespace Barcade.Core.Microgames.V2
         /// <summary>Lower bound of the uniform signal-delay distribution, in seconds (GDD §4: 1.5).</summary>
         public readonly float SignalDelayMinSeconds;
 
-        /// <summary>Upper bound of the uniform signal-delay distribution, in seconds (GDD §4: 4.5).</summary>
+        /// <summary>
+        /// Upper bound of the uniform signal-delay distribution, in seconds (GDD §4: 4.5).
+        /// <see cref="ISeededRandom.NextFloat"/> (via <see cref="SeededRandom"/>) returns a
+        /// value in the half-open range [0,1), so the drawn delay is in [<see cref="SignalDelayMinSeconds"/>,
+        /// SignalDelayMaxSeconds) — this bound is never actually reached, only approached.
+        /// Immaterial for a continuous uniform distribution (zero probability mass at any
+        /// single point) but documented so the exclusive endpoint isn't mistaken for a bug.
+        /// </summary>
         public readonly float SignalDelayMaxSeconds;
 
         /// <summary>
-        /// Latencies strictly below this many ticks after the signal are anticipation,
-        /// not a genuine reaction (GDD §4: 90 ms ⇒ 5 ticks @ 60 Hz) and are converted
-        /// to a false start.
+        /// Latencies strictly below this many ticks after the signal (as reported by
+        /// the debounce-confirmed edge, not the true physical press tick) are
+        /// anticipation, not a genuine reaction, and are converted to a false start.
+        /// GDD §4 nominal cutoff is 90 ms; see <see cref="ReaccionaMicrogame"/>'s class
+        /// doc ("Debounce interaction") for why the calibrated value here (6 ticks) is
+        /// not simply 90ms/16.6ms=5.4→5.
         /// </summary>
         public readonly int AnticipationThresholdTicks;
 
@@ -39,7 +49,10 @@ namespace Barcade.Core.Microgames.V2
         /// that never pressed is resolved as "did not react" so the tanda can always
         /// conclude. Not specified numerically by GDD §4 (which only bounds the
         /// *pre*-signal wait) — an engineering addition documented as an assumption
-        /// for the reviewer; see ReaccionaMicrogame's class doc.
+        /// for the reviewer; see ReaccionaMicrogame's class doc. No upper bound is
+        /// enforced here — an unreasonably large value is a caller error, not
+        /// something this struct validates against, since "how long is too long"
+        /// isn't a property of the mechanic itself.
         /// </summary>
         public readonly float ReactionTimeoutSeconds;
 
@@ -77,13 +90,20 @@ namespace Barcade.Core.Microgames.V2
             InputConfig = inputConfig;
         }
 
-        /// <summary>GDD §4 default calibration: no fakeouts, best-of-1, 1.5-4.5s signal window, 5-tick (90ms) anticipation threshold, 3s per-seat reaction timeout.</summary>
+        /// <summary>
+        /// GDD §4 default calibration: no fakeouts, best-of-1, a uniform signal delay
+        /// drawn from <c>[1.5, 4.5)</c> seconds (the upper bound is exclusive — see
+        /// <see cref="SignalDelayMaxSeconds"/>), a 6-tick anticipation threshold (the
+        /// closest tick-quantized value to the GDD's 90ms nominal cutoff that doesn't
+        /// exceed it, once the debounce offset is accounted for — see
+        /// <see cref="AnticipationThresholdTicks"/>), and a 3s per-seat reaction timeout.
+        /// </summary>
         public static ReaccionaParams GddDefaults => new ReaccionaParams(
             fakeouts: 0,
             rounds: 1,
             signalDelayMinSeconds: 1.5f,
             signalDelayMaxSeconds: 4.5f,
-            anticipationThresholdTicks: 5,
+            anticipationThresholdTicks: 6,
             reactionTimeoutSeconds: 3.0f,
             inputConfig: InputInterpreterConfig.GddDefaults);
     }
