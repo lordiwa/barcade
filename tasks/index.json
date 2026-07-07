@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T15:18:07.962Z",
+  "generated_at": "2026-07-07T15:21:25.089Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -340,7 +340,7 @@
     {
       "key": "TASK-057",
       "title": "T-107 Slice 0 — remove SequencerDirector P3-violating re-roll loop (single-draw anti-repeat)",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {

@@ -8,7 +8,7 @@
     "Any seed-pinned SequencerDirector tests whose expectations shift due to the changed draw count are retuned with a documented single-draw rationale (not blind reblessing); tests-first for the new rule; red captured.",
     "Fast suite green, no regression; a follow-up ticket is filed for the full Framework v1-SequencerDirector -> V2-MicrogameSelector production swap (out of scope here)."
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -22,17 +22,30 @@
   "depends_on": [
     "TASK-035"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "922e436",
+    "46aff35"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "dev-t101",
       "at": "2026-07-07T15:14:40.765Z",
       "body": "Hand-off. Two commits, strict tdd order: 922e436 test(core) RED -> 46aff35 feat(core). Baseline 559 -> 561/561 (2 new tests).\n\nSEED-STREAM BLAST RADIUS (the specific ask): SequencerDirector owns a FULLY DEDICATED RNG — verified by grep in both construction sites (MicrogameLoopController.BuildDirector() does `new SeededRandom(actualSeed)` solely for the director; SequencerTests.MakeDirector same). Nothing else reads or shares this instance, so changing PickNext's draw count has ZERO ripple into any other consumer's stream — unlike the TASK-044 PCG32 migration (which changed the algorithm under every shared/derived stream). Self-contained.\n\nRED EVIDENCE (empirically measured): added a CountingRandom spy counting NextInt calls — against the unmodified do-while, 100 PickNext decisions on a 2-item pool consumed 190 draws (not 100), concretely confirming the P3 violation. Degenerate single-item pool already consumed 0 draws pre-ticket (existing special-case correct); added an explicit test locking that as intentional.\n\nIMPL (AC1): replaced the do-while with the standard 'exclude one index from a uniform range' mapping — draw from [0, Count-1) (full range when _lastPickedIndex is -1), shift draws at-or-past the excluded index forward by one. Excluded index never produced, all others equally likely, exactly one RNG call per decision, no new allocation (pure-math, no candidate array). AC2 degenerate: Count==1 returns the only entry without touching RNG, [ASSUMED]-tagged (GDD §9.2 silent on a 1-pool), citing MicrogameSelector's own liveness-over-constraints precedent.\n\nRETUNED TEST (AC3): PickNext_FixedSeed_ProducesExactDeterministicSequence (seed 42, 3-item pool) shifted from round 2 — expected (a 3+-item pool's old re-roll draw count was variable per round, so RNG trajectory diverges). NOT blind-reblessed: captured the actual new sequence (A,C,A,C,B,A,C,B,A,B) via a temp diagnostic, independently checked it has no consecutive repeat, wrote it in with an explanatory comment (mirroring the existing 'Recalibrated for TASK-044' comment in that test). Every OTHER test needed zero changes — verified, not assumed (2-item alternation is pigeonhole-forced; long-run + cross-instance tests assert algorithm-invariant structural properties). Mutation check: dropped the exclusion shift (idx=draw), 4 tests genuinely red incl. a caught anti-repeat violation ('Anti-repeat violated at round 7: C repeated after C'), proving the anti-repeat tests still do real work. Reverted before commit.\n\nFOLLOW-UP DRAFTED (AC4, for orchestrator to file): full Framework v1-SequencerDirector -> V2-MicrogameSelector production swap — MicrogameSelector V2 has zero Framework consumers; SessionController/MicrogameLoopController/HudController/PlayerCornerHud all reference v1 today; a swap also means wiring the SessionStateMachine-based scoring into Framework production (not wired anywhere yet), likely bundled with TASK-055's fixed-60Hz Framework host. TASK-057's re-roll removal already satisfies comment-1's 'at minimum' on its own. Surface: SequencerDirector.cs + its tests only."
+    },
+    {
+      "author": "rev-t057",
+      "at": "2026-07-07T15:21:12.502Z",
+      "body": "FULL review verdict (922e436 + 46aff35, pinned worktree at 46aff35): APPROVE-WITH-NITS — 0 HIGH, 0 MEDIUM, 1 LOW (non-blocking). Suite 561/561 firsthand (559+2); red reproduced firsthand at 922e436 (PickNext_MultiItemPool_ConsumesExactlyOneRngDrawPerDecision fails \"Expected: 100, But was: 190\" — the exact 190 draws claimed); mutation-kill reproduced (dropping the exclusion shift -> 4 red incl. the verbatim \"Anti-repeat violated at round 7: 'C' repeated after 'C'\"). Two-commit tdd discipline genuine. Worktree removed.\n\nDISTRIBUTION-UNIFORMITY (load-bearing) — CORRECT, verified analytically AND empirically: the mapping (idx = (hasExclusion && draw >= _lastPickedIndex) ? draw+1 : draw) over NextInt(0, N-1) is a clean bijection from {0..N-2} onto {0..N-1}\\{e}; every non-excluded index gets exactly 1/(N-1), e never produced. Boundaries hold (e=0 all shift up; e=N-1 none shift). First-pick branch correct: _lastPickedIndex==-1 -> hasExclusion=false -> draws FULL [0,N) so the last index IS reachable — NO off-by-one. This is the canonical exclude-one-from-uniform-range algorithm, correct.\n\nOther scrutiny: (2) exactly-one-draw confirmed — one unconditional NextInt in the multi-item branch, zero in single-item, no loop/retry/hidden draw; AdvanceRound never touches RNG. (3) retuned test NOT blind-reblessed — A,C,A,C,B,A,C,B,A,B hand-verified no-consecutive-repeat AND is what the impl produces at seed 42 on [A,B,C]; comment explains why; other tests assert structural properties (spot-checked the 200-round long-run anti-repeat test). (4) blast radius ZERO — sole production construction MicrogameLoopController.cs:231 fed by a dedicated new SeededRandom(actualSeed), never shared. (5) degenerate Count==1 well-judged — returns the entry with 0 draws, [ASSUMED]-tagged, tested twice; forced-repeat over throw is the correct liveness call. (7) zero-alloc holds (pure integer math). (8) AC4 follow-up TASK-062 exists and is correct.\n\nLOW (non-blocking, no change to merge): the exactly-one-draw test asserts the AGGREGATE total (100 over 100 rounds) not a per-iteration delta — equivalent here (a 2-item pool always takes the single-draw branch, so 0 and >1 both impossible) and it caught the 190-draw old code, so not vacuous; a per-iteration delta would be marginally stronger against a hypothetical future 0-and-2-averaging-to-1 regression."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T15:21:25.089Z",
+      "body": "CLOSED on rev-t057 APPROVE-WITH-NITS (0 HIGH / 0 MEDIUM / 1 LOW non-blocking). Review depth FULL; rubric: core tdd-tier SequencerDirector logic (mandatory-FULL surface), 129 changed lines. First slice of the TASK-034 (GDD T-107) umbrella. Delivered: SequencerDirector's GDD-P3-violating do-while re-roll loop replaced by the canonical exclude-one-index-from-a-uniform-range single-draw mapping — exactly one RNG draw per decision, anti-repeat guarantee preserved, distribution uniformity verified analytically AND empirically by the reviewer (clean bijection, no bias, no first-pick off-by-one). Commits 922e436 (red — CountingRandom spy measured the old loop at 190 draws/100 decisions, reproduced firsthand) / 46aff35 (feat). Suite 561/561 reviewer-reproduced; mutation-kill reproduced (exact quoted anti-repeat violation). Blast radius zero (SequencerDirector owns a dedicated RNG — grep-verified both sides). Degenerate 1-pool returns the entry with 0 draws ([ASSUMED], GDD §9.2-silent, liveness call). Satisfies TASK-034 comment-1's 'at minimum' P3 resolution independently; the full Framework v1->V2 production swap is filed as TASK-062 (AC4). Tier tdd honored. LOW (aggregate-vs-per-iteration draw-count assertion) noted, non-blocking, no follow-up needed."
     }
   ],
   "created_at": "2026-07-07T15:05:14.265Z",
-  "updated_at": "2026-07-07T15:15:00.742Z",
+  "updated_at": "2026-07-07T15:21:25.089Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
