@@ -49,6 +49,7 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\AlcocheckSimTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RunnerSimTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputInterpreterTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ReaccionaMicrogameTests.cs" />
   </ItemGroup>
 
 </Project>
