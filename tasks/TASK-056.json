@@ -24,9 +24,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:59:41.406Z",
+      "body": "RIDERS from TASK-052 review (rev-t052 LOW-2 + LOW-4, doc/cosmetic, 2026-07-07 — this is the next ticket expected to touch SessionStateMachine): (1) LOW-2: fix the stale cross-reference in the Coins property doc (SessionStateMachine.cs:352) — it still says \"See class doc for the [ASSUMED] default-payout note\" but TASK-052 rewrote that paragraph to fallback-only wording; one line. (2) LOW-4 (optional, do together if touching the guard): the coop-table shape guard at ~:654 throws ArgumentException with nameof(_activePayoutTable) — a private field, not an argument on the current stack; InvalidOperationException is semantically accurate; the TASK-052 test pins ArgumentException, so change test + throw together or skip."
+    }
+  ],
   "created_at": "2026-07-07T14:53:30.632Z",
-  "updated_at": "2026-07-07T14:53:30.632Z",
+  "updated_at": "2026-07-07T14:59:41.406Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

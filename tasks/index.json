@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:54:10.938Z",
+  "generated_at": "2026-07-07T15:05:19.939Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -202,7 +202,7 @@
     {
       "key": "TASK-034",
       "title": "GDD T-107 — Adaptar MECH_02 ¡ESQUIVA! al contrato; completar MECH_03 ¡CORRE!; crear MECH_01 ¡MANTÉN! (§4)",
-      "status": "in_progress",
+      "status": "blocked",
       "priority": "high"
     },
     {
@@ -310,7 +310,7 @@
     {
       "key": "TASK-052",
       "title": "Thread per-definition payoutTable through the microgame contract into SessionStateMachine payouts",
-      "status": "in_review",
+      "status": "done",
       "priority": "medium"
     },
     {
@@ -336,6 +336,12 @@
       "title": "Dead-seat detection (detección de puesto muerto): idle seat → Idle status, excluded from round payout",
       "status": "todo",
       "priority": "medium"
+    },
+    {
+      "key": "TASK-057",
+      "title": "T-107 Slice 0 — remove SequencerDirector P3-violating re-roll loop (single-draw anti-repeat)",
+      "status": "in_progress",
+      "priority": "high"
     }
   ]
 }

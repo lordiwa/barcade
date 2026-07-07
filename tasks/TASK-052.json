@@ -8,7 +8,7 @@
     "Tests pin the override path: a non-default payoutTable changes CaptureResult payouts accordingly for competitive and coop rounds; climax rounds still skip regular payout.",
     "The [ASSUMED] default-payout paragraph in SessionStateMachine's class doc is updated to describe the fallback-only role and drops the unowned-follow-up wording."
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd",
@@ -20,7 +20,10 @@
   "depends_on": [
     "TASK-051"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "64a9df4",
+    "3d704d2"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -42,10 +45,20 @@
       "author": "dev-t101",
       "at": "2026-07-07T14:44:24.485Z",
       "body": "Hand-off. Two commits on master, strict tdd order: 64a9df4 test(core) RED (genuine compile-time red: error CS1739 \"The best overload for 'SetActiveMicrogame' does not have a parameter named 'payoutTable'\", 5 occurrences at SessionStateMachineTests.cs:972/993/1013/1037/1077) -> 3d704d2 feat(core). Baseline 554 (unchanged by 045 doc fix); final 559/559 (554+5).\n\nDESIGN CALL (flagged for review; documented on SetActiveMicrogame's doc comment): additive optional int[] payoutTable = null trailing parameter on the EXISTING SetActiveMicrogame (backward-compatible with every call site — why AC2's TASK-051 pot tests needed zero changes). Rejected: (a) extending V2.IMicrogame (touches every v2 mechanic's contract for one field); (b) threading the whole MicrogameDefinitionV2 (couples the FSM to Barcade.Core.Content; verb/duration/difficultyMult already flow through this method's parameters). Raw int[] is the minimal shape; a future ticket can widen the channel.\n\nAC1: CaptureResult applies _activePayoutTable when set — passed to PayoutRules.ApplyCompetitive for ranked (its ValidateTable already enforces 4-entry shape); indexed [success, fail] for coop with a NEW length==2 check (ApplyCoop takes a single int; TASK-050's validated shape convention cited by value — the validator's consts are private). AC2: TASK-051 pot/stakes tests untouched, green. AC3: ClimaxRound_IgnoresPayoutTable_NoRegularPayoutApplied uses a distinctive {100,90,80,70} climax table + independently-recomputed FinalWager.Resolve from pre-climax coins — no leak. AC4: class-doc para + CaptureResult doc rewritten — §6.1 defaults now described fallback-only, TASK-052 named as delivered.\n\nMUTATION CHECKS (against this exact diff): competitive-override-ignored -> RegularRound_CompetitivePayoutTable_OverridesSessionDefault red (expected 10, was 6); coop-override short-circuited -> all three coop tests red (incl. wrong-length-throws expecting null instead of exception); climax-applies-unconditionally -> climax test red (expected 6, was 141 — huge table leaking). Each reverted immediately after capturing red; 559/559 clean before every real commit.\n\nZero-alloc: payoutTable field is a reference assignment in SetActiveMicrogame (once per round); CaptureResult's read allocates nothing new."
+    },
+    {
+      "author": "rev-t052",
+      "at": "2026-07-07T14:59:25.513Z",
+      "body": "FULL review verdict (64a9df4 + 3d704d2, pinned worktree at 3d704d2): APPROVE-WITH-NITS — 0 HIGH, 0 MEDIUM, 4 LOW (all non-blocking). Suite 559/559 firsthand (554+5 confirmed); red reproduced firsthand at 64a9df4 as-committed (exactly 5x CS1739 at the claimed lines); commit order test-then-impl verified; worktree removed.\n\nLOAD-BEARING SCRUTINY RESULTS: (1) Coop [success,fail] semantics VERIFIED AGAINST AUTHORITIES — no [ASSUMED] needed: MicrogameDefinitionValidator.cs:80-81 documents \"coop's payoutTable is [success, fail] — 2 entries, not one per place\" (enforced :97-101); GDD §6.1 line 480 gives éxito=4/fallo=1 and the §12 tuning table (line 897) corroborates success-first ordering; FSM's CoopPayoutTableLength=2 matches. (2) Stale-table sweep CLEAN: _activeMicrogame and _activePayoutTable are each assigned at exactly one site, both inside SetActiveMicrogame (:428,:432) — the pair cannot desynchronize; default-null overwrites on every call; both payout branches are inside !isClimax guards (:621,:641); ResetToAttract's non-clearing is pre-existing design for the whole sibling block and the table persists WITH its microgame. (3) Design call SOUND: optional-parameter baking is no hazard (all consumers compile from source in the same units); channel consistent with verb/duration/difficulty flow; rejected alternatives correctly rejected.\n\nFINDINGS: LOW-1 — throw-at-round-end on bad coop table is acceptable (same failure class as PayoutRules.ValidateTable since TASK-051; fail-loud is PayoutRules' documented policy; validator gates content upstream) BUT GDD §14 unattended-kiosk containment for the whole economy-exception family escaping Tick() is unowned -> carried to TASK-039 (kiosk watchdog). LOW-2 — stale doc cross-ref at Coins property (SessionStateMachine.cs:352) pointing to the rewritten class-doc paragraph; one-line fix -> rider on TASK-056. LOW-3 — null-vs-empty asymmetry: MicrogameDefinitionV2.PayoutTable defaults to Array.Empty (MicrogameDefinitionV2.cs:62) while FSM fallback triggers only on null (:630,:644); unreachable for validator-passed content but the eventual selector wiring needs an integration test pinning definition-PayoutTable->Coins + a doc sentence that empty != fallback -> carried to TASK-034 (selector wiring/retirement owner). LOW-4 — ArgumentException with nameof(private field) at :654; InvalidOperationException semantically right; cosmetic, test pins the current type -> folded into the TASK-056 rider.\n\nREMAINING: AC1-AC4 all pass (AC2 via pure-insertion hunk, TASK-051 tests byte-unmodified; AC3's five tests incl. climax exemption via independently recomputed FinalWager.Resolve). Mutation arithmetic verified exactly (10-vs-6 from the {10,8,5,3} fixture; 141-vs-6 recomputed through floor-stakes/50-30-15-5 pot math). Zero-alloc sensor untouched green; once-per-round reference alias only. Pot conservation pinned by exact four-seat arrays. Tier audit: tdd honored."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T15:04:40.210Z",
+      "body": "CLOSED on rev-t052 APPROVE-WITH-NITS (0 HIGH / 0 MEDIUM / 4 LOW, all non-blocking and routed to named owners). Review depth FULL; rubric: 259 changed lines + mandatory FSM surface (core tdd session-loop logic). Delivered: per-definition payoutTable threaded into SessionStateMachine round-end payouts via an additive optional int[] parameter on SetActiveMicrogame (fallback to GDD §6.1 defaults on null); competitive via PayoutRules.ApplyCompetitive/ValidateTable, coop via [success,fail] length-2 (convention verified against MicrogameDefinitionValidator.cs:80-81 + GDD §6.1/§12 — NOT a gap-fill, no [ASSUMED] needed); climax exemption preserved; zero-alloc Tick path intact. Commits 64a9df4 (red, 5x CS1739 reproduced firsthand) / 3d704d2 (feat); suite 559/559 reviewer-reproduced; mutation arithmetic verified exactly (10-vs-6, 141-vs-6). Stale-table sweep clean (single assignment site, default-null overwrites, both payout branches !isClimax-guarded). LOW dispositions: LOW-1 (kiosk containment for the economy-exception throw family escaping Tick) -> TASK-039; LOW-2 (stale Coins-property doc cross-ref) + LOW-4 (ArgumentException->InvalidOperationException at the coop guard) -> TASK-056 riders; LOW-3 (null-vs-empty PayoutTable asymmetry + selector integration test) -> TASK-034 carry-in. Tier tdd honored."
     }
   ],
   "created_at": "2026-07-07T13:42:44.511Z",
-  "updated_at": "2026-07-07T14:44:25.024Z",
+  "updated_at": "2026-07-07T15:04:40.210Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[INFERRED:strong]",
