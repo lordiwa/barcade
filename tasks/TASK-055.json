@@ -1,0 +1,33 @@
+{
+  "key": "TASK-055",
+  "title": "Fixed-60Hz Framework tick driver: decouple session/input sampling from render framerate",
+  "description": "Filed from TASK-054's AC3 audit (dev-t101, item 1 — GDD Annex D.1 'Adaptador HID → InputSnapshot' row requires '60 Hz fijo, desacoplado del render'; §3.2). FINDING: nothing in the Framework enforces a fixed tick. ArcadeInputBridge.Update() samples input per rendered frame; MicrogameLoopController.Update() advances the game via Time.deltaTime (variable timestep). The fixed-60Hz tick model exists only as Core-side config (SessionStateMachineConfig.TicksPerSecond) with no Framework driver honoring it. This breaks the GDD's determinism story at the Framework boundary: replay (.bcrp, T-115/TASK-032) and any tick-pinned behavior assume a fixed cadence that render framerate currently dictates. WORK: implement a fixed-60Hz driver (accumulator over Time.deltaTime with fixed-step consumption, or FixedUpdate with fixedDeltaTime aligned to 1/TicksPerSecond — design call) that samples InputSnapshots and advances SessionStateMachine.Tick at exactly 60 Hz regardless of framerate, replacing MicrogameLoopController's variable-timestep loop; handle spiral-of-death clamping ([ASSUMED]-tag the max-catch-up choice); keep render-side interpolation concerns out of scope unless trivially adjacent (GDD 10.4 interp factor is StagePresenter territory, TASK-027). VERIFICATION: Core tick logic is already fast-tested; the driver itself is Framework → PlayMode tests + Unity gate (same compile caveat as TASK-054).",
+  "acceptance_criteria": [
+    "A Framework driver advances SessionStateMachine (and input sampling feeding it) at a fixed 60 Hz derived from SessionStateMachineConfig.TicksPerSecond, decoupled from render framerate (variable-frame Update no longer drives ticks directly).",
+    "Catch-up behavior under frame hitches is bounded and documented ([ASSUMED]-tagged max ticks per frame); no spiral of death.",
+    "PlayMode tests pin: N render frames at varying deltaTime produce the tick count wall-clock implies (within the clamp), and input sampled between ticks lands in the correct tick's snapshot.",
+    "Fast suite untouched; PlayMode leg + compile verification ride the Unity gate window."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "framework",
+    "determinism",
+    "unity-gate",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-024"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T14:53:13.759Z",
+  "updated_at": "2026-07-07T14:53:13.759Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

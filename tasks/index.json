@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:45:50.649Z",
+  "generated_at": "2026-07-07T14:54:10.938Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -202,7 +202,7 @@
     {
       "key": "TASK-034",
       "title": "GDD T-107 — Adaptar MECH_02 ¡ESQUIVA! al contrato; completar MECH_03 ¡CORRE!; crear MECH_01 ¡MANTÉN! (§4)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
@@ -322,7 +322,19 @@
     {
       "key": "TASK-054",
       "title": "Verify Framework HID→InputSnapshot adapter (ArcadeInputBridge) against GDD Annex D.1; apply stick deadzone",
-      "status": "in_progress",
+      "status": "in_review",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-055",
+      "title": "Fixed-60Hz Framework tick driver: decouple session/input sampling from render framerate",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-056",
+      "title": "Dead-seat detection (detección de puesto muerto): idle seat → Idle status, excluded from round payout",
+      "status": "todo",
       "priority": "medium"
     }
   ]
