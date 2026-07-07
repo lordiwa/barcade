@@ -1,0 +1,42 @@
+name: Fast Suite
+
+# TASK-049 (gap surfaced by rev-c044 LOW-2 during the TASK-044 PCG32 review):
+# runs the engine-free "fast suite" -- fast-tests/Barcade.Core.FastTests, the
+# dotnet mirror of Barcade.Core's pure C# runtime plus a curated subset of
+# EditMode tests (see that .csproj's own <Compile Include> list, TASK-017) --
+# on every push to master and on every pull request. This INCLUDES the GDD
+# §13 analyzer test that guards Barcade.Core against System.Random/
+# UnityEngine.Random creeping back in (TASK-044): that test already existed
+# but nothing ran it automatically before this workflow.
+#
+# Unity's own EditMode/PlayMode suites are intentionally OUT OF SCOPE here --
+# there is no Unity license/runner available in this CI environment. Those
+# stay gated locally through the Unity Editor (the "Unity-gate" steps named
+# in various ticket hand-offs, e.g. TASK-030's MigrateAll/ValidateAll) until a
+# licensed Unity runner is set up as its own, separate ticket.
+#
+# `dotnet test` is pointed at the FastTests project directory specifically
+# (not a repo-wide solution build), so it never touches the Unity-dependent
+# projects (Barcade.Framework/Barcade.Editor/Assembly-CSharp/etc.) -- no
+# Unity install is needed to run this job.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  dotnet-test:
+    name: dotnet test (Barcade.Core.FastTests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8.0.x
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run fast suite
+        run: dotnet test fast-tests/Barcade.Core.FastTests --nologo
