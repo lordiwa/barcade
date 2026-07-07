@@ -1521,5 +1521,295 @@ namespace Barcade.Core.Tests
             Assert.That(fsm.FinalPlaces, Is.Null);
             Assert.That(fsm.Counters.WinnerOf(StarKind.Kamikaze, 0b1111), Is.EqualTo(-1), "a fresh SessionCounters has no eliminations recorded");
         }
+
+        // ── TASK-056: dead-seat ("puesto muerto") detection ───────────────────────
+        //
+        // GDD §3.2, line 224 (verified firsthand): "Detección de puesto muerto: si un
+        // puesto no genera ningún flanco durante 45 s en estados de juego, se marca
+        // `Idle` y se excluye del reparto de la ronda (no elimina al jugador: puede
+        // volver pulsando)." => 45 s (2700 ticks @ 60 Hz) with NO input edge while in
+        // game states => SeatState.HumanIdle; excluded from that round's payout;
+        // NOT eliminated; resumes on the next edge.
+        //
+        // [ASSUMED] activity source (GDD-silent on the exact stream): a "flanco" for a
+        //   seat this tick = a debounced button press OR release edge (InputInterpreter)
+        //   OR a change in the raw 8-way stick direction since the previous tick. Any
+        //   button edge OR stick movement counts as activity.
+        // [ASSUMED] "estados de juego" = BoardMove/BoardResolve/MgIntro/MgPlay/MgResult/
+        //   Intermission plus FinalWager/FinalMg; NOT Attract/Join/GameOver (lobby/
+        //   game-over menus, where a claimed seat's idleness is meaningless).
+        // [ASSUMED] resume ("puede volver pulsando") fires on ANY flanco (button or
+        //   stick), symmetric with the no-flanco detection, evaluated the tick the edge
+        //   is seen; exclusion is evaluated at payout-application (CaptureResult) time.
+        // [ASSUMED] scope = the coin "reparto" only. FINAL_WAGER/climax participation is
+        //   unchanged (Idle seats still stake/receive via their coins), and MicrogameWins
+        //   win-crediting is unchanged (win count is a tiebreak, not "reparto"). HUD/View
+        //   signaling of Idle is out of Core scope (Unity-gated, a later ticket).
+
+        /// <summary>
+        /// A fast session config with a caller-chosen dead-seat window. Every other
+        /// timeout is tiny so a full round completes quickly; only the idle window is
+        /// under test here.
+        /// </summary>
+        private static SessionStateMachineConfig DeadSeatConfig(float idleTimeoutSeconds, int totalRounds = 1) =>
+            new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0.02f, mgResultSeconds: 0.02f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.02f, gameOverSeconds: 0.02f,
+                totalRounds: totalRounds, ticksPerSecond: 60, idleTimeoutSeconds: idleTimeoutSeconds);
+
+        /// <summary>
+        /// Drives the FSM into a persistent MgPlay (never-finishing microgame, long
+        /// ceiling) and then establishes a deterministic "last flanco" for Rojo via a
+        /// single stick pulse (None-&gt;E-&gt;None). A raw-direction change is detected
+        /// immediately (no debounce), so the return-to-None tick is Rojo's last edge and
+        /// its idle counter is 0 right after this returns — every subsequent neutral
+        /// (button held, stick None) tick is a no-flanco game tick.
+        /// </summary>
+        private static (SessionStateMachine fsm, FakeInputs inputs, int nextTick) ReachMgPlayAndResetRojo(
+            SessionStateMachineConfig config, int seed)
+        {
+            var fsm = new SessionStateMachine(new SeededRandom(seed), config);
+            var fake = new FakeMicrogame(finishAfterTicks: int.MaxValue); // never finishes -> MgPlay persists
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 100f); // 6000-tick ceiling
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 60 && fsm.CurrentPhase != SessionPhase.MgPlay; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgPlay), "test setup: must reach a persistent MgPlay");
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human), "test setup: Rojo starts Human");
+
+            int t2 = 1000;
+            inputs.Set(PlayerSlot.Rojo, true, Direction8.E);    fsm.Tick(inputs.Build(t2++)); // flanco: None->E
+            inputs.Set(PlayerSlot.Rojo, true, Direction8.None); fsm.Tick(inputs.Build(t2++)); // flanco: E->None (counter := 0)
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human), "test setup: still Human right after the reset pulse");
+            return (fsm, inputs, t2);
+        }
+
+        [Test]
+        public void GddDefaults_IdleTimeout_Is45Seconds()
+        {
+            Assert.That(SessionStateMachineConfig.GddDefaults.IdleTimeoutSeconds, Is.EqualTo(45f),
+                "GDD §3.2 line 224: 'Detección de puesto muerto ... durante 45 s en estados de juego'");
+        }
+
+        [Test]
+        public void DeadSeat_MarkedIdle_ExactlyAtThreshold_NotOneTickEarly()
+        {
+            // Distinctive small window (0.5 s @ 60 Hz = 30 ticks) so the off-by-one is
+            // pinned cheaply; the real 45 s -> 2700 conversion is pinned separately below.
+            (SessionStateMachine fsm, FakeInputs inputs, int t) = ReachMgPlayAndResetRojo(DeadSeatConfig(0.5f), seed: 200);
+
+            // 29 further neutral (no-flanco) game ticks must keep Rojo Human...
+            for (int i = 0; i < 29; i++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                fsm.Tick(inputs.Build(t++));
+            }
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human),
+                "must NOT be Idle one tick before the 30-tick (0.5 s) threshold");
+
+            // ...the 30th crosses it.
+            inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+            fsm.Tick(inputs.Build(t++));
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle),
+                "must be marked Idle exactly at the 30-tick (0.5 s @ 60 Hz) threshold");
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgPlay), "Idle does not eliminate the seat — the round continues");
+        }
+
+        [Test]
+        public void DeadSeat_RealGddWindow_CrossesAtExactly2700Ticks()
+        {
+            // AC1 firsthand-GDD pin: 45 s @ 60 Hz must convert to exactly 2700 ticks
+            // (off-by-one guard on the seconds->ticks conversion via TicksPerSecond).
+            (SessionStateMachine fsm, FakeInputs inputs, int t) = ReachMgPlayAndResetRojo(DeadSeatConfig(45f), seed: 201);
+
+            for (int i = 0; i < 2699; i++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                fsm.Tick(inputs.Build(t++));
+            }
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human),
+                "still active at 2699 ticks (< 45 s)");
+
+            inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+            fsm.Tick(inputs.Build(t++));
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle),
+                "marked Idle exactly at 2700 ticks (45 s @ 60 Hz)");
+        }
+
+        [Test]
+        public void DeadSeat_ButtonEdgeCountsAsActivity_KeepsSeatAlive()
+        {
+            // A seat that keeps producing button edges (press/release) never crosses the
+            // idle window even though its stick stays neutral — the button flanco alone
+            // is activity.
+            (SessionStateMachine fsm, FakeInputs inputs, int t) = ReachMgPlayAndResetRojo(DeadSeatConfig(0.5f), seed: 202);
+
+            // Toggle Rojo's button every 3 ticks (well inside the 30-tick window). The
+            // interpreter's 2-tick debounce still confirms an edge each toggle.
+            for (int i = 0; i < 120; i++)
+            {
+                bool down = (i / 3) % 2 == 0;
+                inputs.Set(PlayerSlot.Rojo, down, Direction8.None);
+                fsm.Tick(inputs.Build(t++));
+            }
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human),
+                "sustained button edges are activity — the seat must stay alive well past the window");
+        }
+
+        [Test]
+        public void IdleSeat_ExcludedFromCompetitiveRoundPayout_OthersUnaffected()
+        {
+            // AC2: an Idle seat "se excluye del reparto de la ronda". Its per-place
+            // payout is withheld; every other seat's payout is unchanged; no coins are
+            // created or destroyed for the excluded seat.
+            var config = DeadSeatConfig(0.1f); // 6-tick window
+            var fsm = new SessionStateMachine(new SeededRandom(210), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 20,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(fake, "R1", playDurationSeconds: 1f); // 60-tick MgPlay ceiling
+
+            var inputs = new FakeInputs();
+            fsm.InsertCredit();
+            for (int t = 0; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);           // neutral -> goes Idle
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;  // flanco every tick -> stays active
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager), "test setup: reached end of the single regular round");
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle),
+                "Rojo produced no input during the round and must be Idle at payout time");
+
+            // Default competitive payout {6,4,2,1} for places [1,2,3,4]; Idle Rojo
+            // (place 1) is excluded (0), the other three keep their per-place payout.
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 0, 4, 2, 1 }),
+                "Idle Rojo (place 1) is excluded from the reparto; Azul/Amarillo/Verde keep their per-place payout");
+        }
+
+        [Test]
+        public void IdleSeat_ExcludedFromCoopRoundPayout_OthersStillPaid()
+        {
+            // AC2, coop shape: a coop success pays every ACTIVE, non-Idle seat; the Idle
+            // seat receives nothing.
+            var config = DeadSeatConfig(0.1f);
+            var fsm = new SessionStateMachine(new SeededRandom(211), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 20,
+                result: new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0));
+            fsm.SetActiveMicrogame(fake, "R1", playDurationSeconds: 1f);
+
+            var inputs = new FakeInputs();
+            fsm.InsertCredit();
+            for (int t = 0; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle));
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 0, 4, 4, 4 }),
+                "coop success (default 4) pays each active non-Idle seat; Idle Rojo is excluded");
+        }
+
+        [Test]
+        public void IdleSeat_ResumesOnInput_AndRejoinsNextRoundPayout()
+        {
+            // AC2: an Idle seat is NOT eliminated — it resumes on the next input edge and
+            // is included in the following round's payout.
+            var config = DeadSeatConfig(0.1f, totalRounds: 2);
+            var fsm = new SessionStateMachine(new SeededRandom(220), config);
+            var r1 = new FakeMicrogame(finishAfterTicks: 20, result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(r1, "R1", playDurationSeconds: 1f);
+
+            var inputs = new FakeInputs();
+            fsm.InsertCredit();
+
+            // Round 1: Rojo silent -> Idle -> excluded from R1 payout.
+            for (int t = 0; fsm.CurrentPhase != SessionPhase.Intermission && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission), "test setup: reached end of round 1");
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle), "Rojo Idle after a silent round 1");
+            Assert.That(fsm.Coins[(int)PlayerSlot.Rojo], Is.EqualTo(0), "Idle Rojo is excluded from round 1's payout");
+            int rojoAfterR1 = fsm.Coins[(int)PlayerSlot.Rojo];
+
+            // Round 2: Rojo now gives input -> resumes to Human and is paid again.
+            var r2 = new FakeMicrogame(finishAfterTicks: 20, result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(r2, "R2", playDurationSeconds: 1f);
+            for (int t = 1000; fsm.CurrentPhase != SessionPhase.FinalWager && t < 3000; t++)
+            {
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Rojo, true, wig); // Rojo active again
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager), "test setup: reached end of round 2");
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human),
+                "Rojo resumed to Human on input — never eliminated");
+            Assert.That(fsm.Coins[(int)PlayerSlot.Rojo], Is.EqualTo(rojoAfterR1 + 6),
+                "resumed Rojo (place 1) is included in round 2's payout (+6)");
+        }
+
+        [Test]
+        public void SessionWithIdleSeat_PreservesPotConservation_AndNonNegativeBalances()
+        {
+            // AC3: dead-seat exclusion must not corrupt the pot math — the FINAL_WAGER
+            // still conserves every coin (sum of shares == pot) and no balance goes
+            // negative, exactly as the TASK-051/052 invariants require.
+            var config = new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0.02f, mgResultSeconds: 0.02f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.2f, gameOverSeconds: 0.02f,
+                totalRounds: 1, ticksPerSecond: 60, idleTimeoutSeconds: 0.1f);
+            var fsm = new SessionStateMachine(new SeededRandom(230), config);
+            var r1 = new FakeMicrogame(finishAfterTicks: 20, result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(r1, "R1", playDurationSeconds: 1f);
+
+            var inputs = new FakeInputs();
+            fsm.InsertCredit();
+            for (int t = 0; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None); // idle target
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle), "test setup: Rojo Idle for the regular round");
+
+            var climax = new FakeMicrogame(finishAfterTicks: 20, result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climax, "FINAL", playDurationSeconds: 1f);
+            for (int t = 1000; fsm.CurrentPhase != SessionPhase.GameOver && t < 4000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.N); // everyone stakes Half
+                inputs.Set(PlayerSlot.Azul, true, Direction8.N);
+                inputs.Set(PlayerSlot.Amarillo, true, Direction8.N);
+                inputs.Set(PlayerSlot.Verde, true, Direction8.N);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup: reached GameOver");
+
+            int totalShares = 0;
+            foreach (int s in fsm.LastWagerResult.Shares) totalShares += s;
+            Assert.That(totalShares, Is.EqualTo(fsm.LastWagerResult.Pot),
+                "GDD 5.3/6.2 pot conservation must hold even with an Idle seat in the session");
+            foreach (int c in fsm.LastWagerResult.CoinsAfter)
+                Assert.That(c, Is.GreaterThanOrEqualTo(0), "no balance may go negative");
+        }
     }
 }

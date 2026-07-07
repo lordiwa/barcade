@@ -56,6 +56,20 @@ namespace Barcade.Core
         /// <summary>Fixed simulation tick rate (GDD §3.2: 60 Hz), used to translate every *Seconds field into ticks.</summary>
         public readonly int TicksPerSecond;
 
+        /// <summary>
+        /// Dead-seat ("puesto muerto") detection window, in seconds (GDD §3.2, line
+        /// 224: "si un puesto no genera ningún flanco durante 45 s en estados de
+        /// juego, se marca <c>Idle</c> y se excluye del reparto de la ronda"). A
+        /// claimed human seat that produces no input edge (flanco) for this many
+        /// seconds of game-state time is marked <see cref="Barcade.Core.Microgames.V2.SeatState.HumanIdle"/>
+        /// and excluded from that round's payout (but not eliminated — it resumes on
+        /// the next input edge). Converted to a tick count via
+        /// <see cref="TicksPerSecond"/> inside <see cref="SessionStateMachine"/>.
+        /// GDD's exact 45 s; an optional constructor argument so existing call sites
+        /// keep the GDD default while tests can inject a shorter window.
+        /// </summary>
+        public readonly float IdleTimeoutSeconds;
+
         public SessionStateMachineConfig(
             float joinTimeoutSeconds,
             int joinMinReady,
@@ -65,7 +79,8 @@ namespace Barcade.Core
             float finalWagerSeconds,
             float gameOverSeconds,
             int totalRounds,
-            int ticksPerSecond)
+            int ticksPerSecond,
+            float idleTimeoutSeconds = 45f)
         {
             if (joinTimeoutSeconds <= 0f) throw new ArgumentOutOfRangeException(nameof(joinTimeoutSeconds), "must be positive.");
             if (joinMinReady < 1) throw new ArgumentOutOfRangeException(nameof(joinMinReady), "must be at least 1.");
@@ -76,6 +91,7 @@ namespace Barcade.Core
             if (gameOverSeconds <= 0f) throw new ArgumentOutOfRangeException(nameof(gameOverSeconds), "must be positive.");
             if (totalRounds < 1) throw new ArgumentOutOfRangeException(nameof(totalRounds), "must be at least 1.");
             if (ticksPerSecond <= 0) throw new ArgumentOutOfRangeException(nameof(ticksPerSecond), "must be positive.");
+            if (idleTimeoutSeconds <= 0f) throw new ArgumentOutOfRangeException(nameof(idleTimeoutSeconds), "must be positive.");
 
             JoinTimeoutSeconds = joinTimeoutSeconds;
             JoinMinReady = joinMinReady;
@@ -86,6 +102,7 @@ namespace Barcade.Core
             GameOverSeconds = gameOverSeconds;
             TotalRounds = totalRounds;
             TicksPerSecond = ticksPerSecond;
+            IdleTimeoutSeconds = idleTimeoutSeconds;
         }
 
         /// <summary>GDD §2.1/§2.2/§6.2 calibration — see each field's own doc comment for its exact source.</summary>
@@ -98,6 +115,7 @@ namespace Barcade.Core
             finalWagerSeconds: 5f,
             gameOverSeconds: 20f,
             totalRounds: 7,
-            ticksPerSecond: 60);
+            ticksPerSecond: 60,
+            idleTimeoutSeconds: 45f);
     }
 }
