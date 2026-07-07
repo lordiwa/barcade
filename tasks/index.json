@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T20:56:20.533Z",
+  "generated_at": "2026-07-07T21:21:02.722Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -118,7 +118,7 @@
     {
       "key": "TASK-020",
       "title": "Esquiva 3D — hardening follow-ups from TASK-019 review (LOW)",
-      "status": "todo",
+      "status": "in_review",
       "priority": "low"
     },
     {

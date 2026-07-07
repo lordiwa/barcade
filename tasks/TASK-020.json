@@ -11,7 +11,7 @@
     "From TASK-022 review (NIT-2): add a DodgeSim test that RequestJump() while State==Lost/Won is a no-op; optionally expose jumpDuration as a serialized Bootstrap field so designers can tune airtime from the Inspector (currently only jumpApex is)",
     "Fast dotnet suite stays green after changes"
   ],
-  "status": "todo",
+  "status": "in_review",
   "priority": "low",
   "labels": [
     "demo",
@@ -24,9 +24,15 @@
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T21:20:56.919Z",
+      "body": "REACHABLE HALF DONE + REVIEWED → WAITING-ON-GATE (not closed; loop mode). The DodgeSim fast-suite ACs are complete, green, and independently reviewed; the DodgeGameBootstrap MonoBehaviour ACs ride the Unity gate.\n\nDONE (fast-suite, commit 936179e — test-only, DodgeSim.cs UNCHANGED): AC2 diagonal-normalization LOCK (Tick_DiagonalInput_NormalisedToPlayerSpeed, mutation-verified non-vacuous — removing the mag>1 normalization gives 7.07 vs 5); AC5 strengthened jump fly-over-void immunity (Jump_RecoverBackInside_LandOnSolidSurvives now multi-substep, frame-1 asserts airborne-over-void+Playing, mutation-verified — removing the immunity guard flips Lost vs Playing); AC6-test no-op-jump-in-terminal-state (RequestJump_WhenLost/WhenWon_IsNoOp — honestly disclosed by dev + reviewer as a WEAK contract lock, not a bug-catcher, since Tick short-circuits before consuming a pending jump in a terminal state; accepted as a regression guard against a future consume-before-terminal-check refactor); AC3 comment fixes (stale grace=0 → graceDelay; epsilon note on the AtContactRadius boundary test — the ticket's 'line 138' pointer was blank so the AtContactRadius float-boundary test was annotated instead). Orchestrator independently verified fast suite = 595 green (592+3), zero regression. rev-t020 APPROVE-WITH-NITS (1 LOW, the disclosed AC6 weak-lock).\n\nREMAINING → UNITY GATE (DodgeGameBootstrap MonoBehaviour, needs Editor compile + PlayMode/Inspector — this ticket stays OPEN for them): AC1 guard fallSpeed<=0 (clamp in Start / race the death-fall WaitUntil with a max-time WaitForSeconds); AC4 resolve _obstacleBaselineY per-obstacle (partial/mixed-model-load primitive-fallback obstacles inherit modelGroundY 0 and sit half-buried); AC6-field expose jumpDuration as a serialized Bootstrap field; AC3 obstacle-snap sub-item (snap a dying obstacle's fall to its last grid-cell XZ — determined to be PRESENTATION at DodgeGameBootstrap.cs:528-538, not DodgeSim). Do these in a Unity-gate window alongside the TASK-061 asset cleanup + TASK-027/028/047 gate work."
+    }
+  ],
   "created_at": "2026-06-27T01:09:55.978Z",
-  "updated_at": "2026-06-27T01:09:55.978Z",
+  "updated_at": "2026-07-07T21:21:02.722Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[INFERRED:strong]",
