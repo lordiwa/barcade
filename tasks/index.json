@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T13:03:57.769Z",
+  "generated_at": "2026-07-07T13:10:51.279Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -298,13 +298,13 @@
     {
       "key": "TASK-050",
       "title": "Validator/PayoutRules contract drift: payoutTable length must be exactly 4 for competitive definitions",
-      "status": "todo",
+      "status": "in_review",
       "priority": "medium"
     },
     {
       "key": "TASK-051",
       "title": "Wire ScoringV2 into the session loop: FINAL_WAGER choice capture + SessionCounters feeds from mechanics",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     }
   ]

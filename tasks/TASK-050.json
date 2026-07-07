@@ -7,7 +7,7 @@
     "Validator and PayoutRules agree on the contract (no input can validate green and then throw in PayoutRules); coop payout shape unaffected",
     "Fast suite green, no regression"
   ],
-  "status": "todo",
+  "status": "in_review",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -22,9 +22,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer",
+      "at": "2026-07-07T13:10:49.560Z",
+      "body": "Delivered tests-first on master by dev-t101: 6d22b07 test(core) red — 12 GENUINE assertion failures against the no-length-check validator (all three dynamics + a direct cross-check test) -> d652d73 fix(core). Suite 518 -> 530/530. DESIGN CALL (flagged): GDD 6.1 describes two payout shapes under the same field — competitive 4-entry (one per place) vs coop 2-entry ([success, fail], confirmed against PayoutRules.ApplyCoop's signature and the pre-existing 2-element coop test). Asym1v3 has NO separate GDD-described payout shape and TASK-035's RoundRecord.Places uses ranked 1..4 for every dynamics, so asym1v3 requires 4 entries too (not just literal Dynamics.Competitive) — flagged in case 'competitive-mode' in the AC meant something narrower. Implementation: ValidatePayoutTable now takes MicrogameDynamics, checks Length against 4 (competitive/asym1v3) or 2 (coop) BEFORE the per-entry minimum-payout check, failing loudly with field name + actual vs required length. AC2 anti-drift sensor: PayoutTable_LengthContractMatchesPayoutRules_NoValidatedInputEverThrows sweeps lengths 0-6 across all three dynamics asserting validate-green implies apply-never-throws — catches FUTURE drift, not just the [6,4,2] case. Coop path unchanged (both pre-existing coop tests pass untouched)."
+    }
+  ],
   "created_at": "2026-07-07T12:41:50.787Z",
-  "updated_at": "2026-07-07T12:41:50.787Z",
+  "updated_at": "2026-07-07T13:10:50.507Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
