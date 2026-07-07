@@ -55,6 +55,14 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionV2Tests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionValidatorTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionMigratorTests.cs" />
+    <!-- TASK-024 (GDD T-102): SessionStateMachine full session FSM -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SessionStateMachineTests.cs" />
+    <!-- TASK-035 (GDD T-108): v2 microgame selector (quotas, anti-repeat, bias) -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameSelectorTests.cs" />
+    <!-- TASK-044 (GDD §13): PCG32 SeededRandom + stream derivation + analyzer rule -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\Pcg32SeededRandomTests.cs" />
+    <!-- TASK-037 (GDD T-109): §6 scoring — payouts, FINAL_WAGER, bonus stars, tiebreaks -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ScoringV2Tests.cs" />
   </ItemGroup>
 
 </Project>

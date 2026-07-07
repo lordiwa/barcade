@@ -9,7 +9,7 @@
     "A CI/analyzer check fails the build if System.Random or UnityEngine.Random is referenced inside Barcade.Core",
     "Determinism: same seed => same sequence across two process runs (test), documenting the platform scope per GDD 13"
   ],
-  "status": "todo",
+  "status": "in_review",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -18,13 +18,22 @@
     "rng",
     "13"
   ],
-  "assignee": null,
+  "assignee": "developer-cloud",
   "depends_on": [],
-  "linked_commits": [],
+  "linked_commits": [
+    "21fe765",
+    "3fb67ac"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer-cloud",
+      "at": "2026-07-07T10:05:00.000Z",
+      "body": "[developer-cloud] TASK-044 delivered on branch claude/gdd-hito1-cloud, tests-first. 21fe765 test(core): failing spec, red = CS1729/CS1061/CS0117 on the new PCG32 surface (plus the analyzer test genuinely red against the System.Random wrapper). 3fb67ac feat(core): PCG-XSH-RR 64/32 rewrite. Suite 482 -> 492 green. Notes for reviewer: (1) Reference vectors pinned = pcg32_srandom(42,54) canonical demo outputs, recomputed independently from the reference algorithm in this session before pinning (0xa15c02b7...). (2) Public API preserved exactly; SeededRandom(int) maps to (ulong)seed on DefaultStream=54 so the published vectors also pin the int path. (3) NextInt keeps System.Random's edge contract (empty range returns min, inverted throws) and now uses pcg32_boundedrand_r rejection (no modulo bias — new uniformity test). (4) Stream derivation: Derive(sessionSeed, round, RngStream) — SplitMix64 mixes (seed<<32|round) into state, subsystem enum selects the PCG stream/increment; independence pinned by test. RngStream values documented as replay-format-stable (append, never renumber). (5) AC4 analyzer: implemented as an executable fast-suite test that comment-strips every Core/Runtime .cs and fails on \\bRandom\\b / UnityEngine.Random usage; walks up from the test dir so it also runs under Unity EditMode. A separate CI grep is redundant with this but trivial to add later. (6) Seed-pinning churn was exactly 2 tests (SequencerTests pinned sequences), recalibrated with values computed from the reference algorithm — every other test in the suite was already seed-agnostic (probe-based). (7) Cross-process determinism AC: satisfied by the pinned algorithm vectors (documented in the test header); no subprocess spawning needed. (8) TASK-032 (.bcrp replay) de-facto dependency now satisfied. (9) MicrogameSelector (TASK-035) still uses its own Combine() mixing — migrating it to Derive(...RngStream.Draws) is a 1-line-per-callsite cleanup best done when a ticket next touches it, since it would shift that ticket's statistical corpus."
+    }
+  ],
   "created_at": "2026-07-07T04:46:07.014Z",
-  "updated_at": "2026-07-07T04:46:07.014Z",
+  "updated_at": "2026-07-07T10:05:00.000Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

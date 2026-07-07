@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T05:48:17.230Z",
+  "generated_at": "2026-07-07T10:45:00.000Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -142,7 +142,7 @@
     {
       "key": "TASK-024",
       "title": "GDD T-102 — SessionStateMachine: full session FSM with per-state timeouts (§2.1/§2.2)",
-      "status": "todo",
+      "status": "in_review",
       "priority": "high"
     },
     {
@@ -208,7 +208,7 @@
     {
       "key": "TASK-035",
       "title": "GDD T-108 — Sequencer: cuotas, anti-repetición y bias anti-frustración (§9.2, §6.4)",
-      "status": "todo",
+      "status": "in_review",
       "priority": "high"
     },
     {
@@ -220,7 +220,7 @@
     {
       "key": "TASK-037",
       "title": "GDD T-109 — ScoreModel: estrellas bonus con exclusión + apuesta final (§6.2/§6.3) [gate Hito 2]",
-      "status": "todo",
+      "status": "in_review",
       "priority": "high"
     },
     {
@@ -262,7 +262,7 @@
     {
       "key": "TASK-044",
       "title": "SeededRandom must be PCG32 per GDD §13 (currently wraps System.Random) — replay/determinism prerequisite",
-      "status": "todo",
+      "status": "in_review",
       "priority": "medium"
     },
     {
