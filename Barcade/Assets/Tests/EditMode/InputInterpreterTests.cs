@@ -82,6 +82,15 @@ namespace Barcade.Core.Tests
             Assert.That(config.MashWindowTicks, Is.EqualTo(30));
         }
 
+        [Test]
+        public void Constructor_NegativeMashMinHz_Throws()
+        {
+            // A negative floor would make MashForce report a phantom positive force
+            // at 0 Hz (no presses at all) — must be rejected at construction.
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new InputInterpreterConfig(ticksPerSecond: 60, tapWindowTicks: 9, mashMinHz: -1f, mashSatHz: 9f, mashWindowSeconds: 0.5f));
+        }
+
         // ── AC1/AC2 — press/release edges, tap vs hold ─────────────────────────
 
         [Test]
@@ -289,6 +298,43 @@ namespace Barcade.Core.Tests
             Assert.That(InputInterpreter.CollapseDiagonal(Direction8.SE, CardinalDir.None), Is.EqualTo(CardinalDir.Right));
             Assert.That(InputInterpreter.CollapseDiagonal(Direction8.NW, CardinalDir.None), Is.EqualTo(CardinalDir.Left));
             Assert.That(InputInterpreter.CollapseDiagonal(Direction8.SW, CardinalDir.None), Is.EqualTo(CardinalDir.Left));
+        }
+
+        [Test]
+        public void CollapseDiagonal_PreviousDominantNotAComponentOfDiagonal_FallsBackToHorizontalRule()
+        {
+            // Up is not a component of SE (Down/Right) — a stale, unrelated dominant must not leak through.
+            Assert.That(InputInterpreter.CollapseDiagonal(Direction8.SE, CardinalDir.Up), Is.EqualTo(CardinalDir.Right));
+            // Down is not a component of NW (Up/Left).
+            Assert.That(InputInterpreter.CollapseDiagonal(Direction8.NW, CardinalDir.Down), Is.EqualTo(CardinalDir.Left));
+            // Left is not a component of NE (Up/Right).
+            Assert.That(InputInterpreter.CollapseDiagonal(Direction8.NE, CardinalDir.Left), Is.EqualTo(CardinalDir.Right));
+            // Right is not a component of SW (Down/Left).
+            Assert.That(InputInterpreter.CollapseDiagonal(Direction8.SW, CardinalDir.Right), Is.EqualTo(CardinalDir.Left));
+        }
+
+        [Test]
+        public void CollapsedCardinal_NthenCenterThenSE_FallsBackToEastNotStaleNorth()
+        {
+            var interp = new InputInterpreter(InputInterpreterConfig.GddDefaults);
+            var inputs = new FakeInputs();
+
+            inputs.Set(PlayerSlot.Rojo, new InputSnapshot(0f, 1f, ButtonState.Released)); // N
+            interp.Tick(inputs);
+            Assert.That(interp.CollapsedCardinal(PlayerSlot.Rojo), Is.EqualTo(CardinalDir.Up));
+
+            inputs.Set(PlayerSlot.Rojo, new InputSnapshot(0f, 0f, ButtonState.Released)); // centered — dominant memory persists
+            interp.Tick(inputs);
+            Assert.That(interp.CollapsedCardinal(PlayerSlot.Rojo), Is.EqualTo(CardinalDir.None));
+
+            inputs.Set(PlayerSlot.Rojo, new InputSnapshot(1f, -1f, ButtonState.Released)); // SE held
+            interp.Tick(inputs);
+            Assert.That(interp.CollapsedCardinal(PlayerSlot.Rojo), Is.EqualTo(CardinalDir.Right),
+                "Up is not a component of SE; a stale dominant from an unrelated axis must not leak into it");
+
+            // Continuing to hold SE must keep reporting East, not drift back to the stale North.
+            interp.Tick(inputs);
+            Assert.That(interp.CollapsedCardinal(PlayerSlot.Rojo), Is.EqualTo(CardinalDir.Right));
         }
 
         [Test]
