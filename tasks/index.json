@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T17:10:16.339Z",
+  "generated_at": "2026-07-07T17:22:55.045Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -382,6 +382,12 @@
     {
       "key": "TASK-064",
       "title": "MECH_02 ESQUIVA emits no CueEliminated feedback on player elimination",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "key": "TASK-065",
+      "title": "[BACKLOG/PARKED] Design + build ¡RECOGE! collect mechanic (GDD §4.1 reserve bank)",
       "status": "todo",
       "priority": "low"
     }

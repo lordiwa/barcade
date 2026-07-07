@@ -26,9 +26,20 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T17:18:20.895Z",
+      "body": "PHASE A RATIFIED (dev-t101 report, read-only, full GDD §4 + Annex D.1 + the 4 sources + wiring points read firsthand). Disposition: all 4 legacy ids RETIRE.\n\nORCHESTRATOR-RATIFIED (pure engineering, grounded in GDD Annex D.1 which has NO row for these ids + existing v2 implementations that supersede them): aporrea RETIRE (mash belongs to MECH_03 which has its own RunnerSim prototype; Aporrea's press-count race shares nothing with CORRE's endless-run — a 'rewrite to MECH_03' would be building CORRE from RunnerSim = a different already-tracked ticket, TASK-059); timing RETIRE (no MECH_XX matches single-tap-vs-moving-marker; closest cousin APUNTA's charge meter is already built as v2 MECH_04); apunta-v1 RETIRE (superseded — v2 MECH_04 ApuntaMicrogame is a full GDD-compliant implementation; id namespaces don't collide so it's a clean retirement, not a migration).\n\nROUTED TO HUMAN (genuine content/roadmap decision, not engineering): recolecta — maps to NO MECH_01-09; the §4.1 'Banco de reserva' names '¡RECOGE!' but that list is explicitly POST-prototype with no formula/AC/win-condition anywhere, so a 'rewrite' would be inventing a mechanic's design, not adapting to a spec. Asking the human: retire now (recoverable via git) vs keep the code live/wired as a ¡RECOGE! head-start. Recolecta never reads ButtonState.Pressed (confirmed) so its fate doesn't touch the TASK-029 debounce concern either way.\n\nVACUOUS AC2 IS THE CORRECT OUTCOME (dev flagged, orchestrator confirms): under all-RETIRE, TASK-061 AC2 ('surviving/rewritten mechanic consumes InputInterpreter-derived edges') is satisfied vacuously — nothing survives as a rewrite, so there is no v2 InputInterpreter integration work in this slice. That is exactly what TASK-029's carry-in intended ('an explicit retirement removes the concern with the code'). The 3 real un-debounced consumers (Aporrea raw-count, Timing/Apunta-v1 latch) are all resolved by removal. Not forcing any into a v2 rewrite — that would invent a mechanic the GDD doesn't ask for.\n\nEXECUTION: 2 units per dev recommendation. UNIT A = aporrea+timing+apunta-v1 retirement in ONE diff (mechanically identical 5-wiring-point pattern x3; tests-after via negative assertion = grep-proves no dangling reference + full suite green) — DISPATCHED NOW (ratified, disjoint from rev-t060's MECH_01 surface and the held MECH_03). UNIT B = recolecta, dispatched/dispositioned after the human rules. ADDED WIRING POINT (dev found, not in the ticket's list): Assets/Tests/PlayMode/Framework/MicrogamePoolIntegrationTests.cs references these ids by string (Unity-gated). SPLIT: Core .cs+test deletions + Specs source shrink + the MicrogameContentGeneratorSpecsTests regex-lock update are fast-suite-testable; MicrogameHost registry edits + the 4 View deletions + on-disk .asset deletions + GenerateAll/MigrateAll/ValidateAll + PlayMode MicrogamePoolIntegrationTests all ride the Unity gate. Do NOT touch ShapeFactory.cs (shared by Esquiva which stays)."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T17:22:43.092Z",
+      "body": "HUMAN RULING on recolecta (2026-07-07, AskUserQuestion): RETIRE NOW — fold into Unit A as the 4th id (removed from live registry/Specs/on-disk assets), keeping the mechanic registry canonical (GDD MECH_01-09 only); recolecta's code is preserved in git history and a lightweight backlog note is filed so a future ¡RECOGE! design (GDD §4.1 reserve bank) can start from it. So Unit A is now ALL 4 ids (aporrea+timing+apunta-v1+recolecta) in one diff. recolecta adds: RecolectaMicrogame.cs/RecolectaMicrogameTests.cs (Core, fast-suite), RecolectaView.cs+.meta (Framework, gated), MicrogameHost registry entry (gated), 3 Specs entries + 3 on-disk assets recolecta-d1-09/d2-10/d3-11+.meta (gated) — recolecta is the only one with 3 variants. recolecta is stick-only (no ButtonState.Pressed) so no debounce concern. Backlog note filed as TASK-065 (parked ¡RECOGE! idea, low, cites recolecta's code in git history). After Unit A: TASK-061 (Slice 4) closes covering all 4 retirements; the Specs array shrinks from 12 to 3 (esquiva's only)."
+    }
+  ],
   "created_at": "2026-07-07T15:12:20.777Z",
-  "updated_at": "2026-07-07T17:10:16.339Z",
+  "updated_at": "2026-07-07T17:22:43.092Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

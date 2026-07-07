@@ -1,0 +1,30 @@
+{
+  "key": "TASK-065",
+  "title": "[BACKLOG/PARKED] Design + build ¡RECOGE! collect mechanic (GDD §4.1 reserve bank)",
+  "description": "PARKED IDEA — not active work; captured per the human's 2026-07-07 ruling when retiring the legacy 'recolecta' prototype under TASK-061. The GDD §4.1 'Banco de reserva' (post-prototype idea list) names '¡RECOGE!' (recoger = collect) but gives NO simulation formula, acceptance criteria, or win-condition — unlike the fully-specced MECH_01-09. So building it requires DESIGNING the mechanic first (a spec/formula/win-condition), not just implementing. PRIOR ART: the retired v1 'recolecta' prototype (RecolectaMicrogame.cs — move avatar, collect good/bad items, net score >= quota; stick-only input, 3 difficulty variants) is preserved in git history prior to the TASK-061 Unit A retirement commit and can be mined as a starting reference. When/if this is promoted to active work: first a spec (Socratic/discuss), then a v2 IMicrogame implementation on the canonical §10.2 contract following the MECH_01/02 pattern (engine-free Core sim, injected SeededRandom, zero-alloc Tick, escapability/fairness oracle if competitive, difficultyScaling + validator + zero-alloc sensor). Do NOT schedule ahead of the specced Annex-D roadmap items.",
+  "acceptance_criteria": [
+    "(Deferred — parked idea) A ¡RECOGE! mechanic spec exists (formula, win-condition, competitive/coop framing) before any implementation.",
+    "If built: v2 IMicrogame on the §10.2 contract with the full mechanic-slice quality bar (zero-alloc sensor, determinism lock, difficultyScaling + TASK-030 validator, fairness oracle if competitive).",
+    "recolecta's retired prototype code is referenced from git history as prior art."
+  ],
+  "status": "todo",
+  "priority": "low",
+  "labels": [
+    "backlog",
+    "parked",
+    "gdd-v2",
+    "microgame",
+    "future"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T17:22:55.045Z",
+  "updated_at": "2026-07-07T17:22:55.045Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[INFERRED:weak]",
+  "source_tier": "T3"
+}
