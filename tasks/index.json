@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T21:36:54.335Z",
+  "generated_at": "2026-07-07T22:23:16.777Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -184,7 +184,7 @@
     {
       "key": "TASK-031",
       "title": "GDD T-113 — BoardModel: anillo, medidor de parada, casillas, economía (§5.1–5.3, §5.6)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "high"
     },
     {
