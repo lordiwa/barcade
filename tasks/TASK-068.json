@@ -1,0 +1,36 @@
+{
+  "key": "TASK-068",
+  "title": "Wire BoardModel into SessionStateMachine BOARD_MOVE/BOARD_RESOLVE + reconcile coin pools (GDD §5.6)",
+  "description": "Filed from the TASK-031 review (rev-t031 FULL, AC6 seam ruling + LOW-5) and dev-t031's flagged design fork. TASK-031 delivered BoardModel as an engine-free Core model with a COMPATIBLE-BUT-UNWIRED seam: SessionStateMachine's BoardMove/BoardResolve phases are still 1-tick pass-through stubs (SessionPhase.cs documents them \"Pass-through stub until BoardModel (Hito 4) is wired\"), and BoardModel is referenced nowhere in runtime outside Core/Runtime/Board/. rev-t031 ruled AC6 SATISFIED on the seam reading (the IBoardModel surface matches what SessionStateMachine.Tick(in V2.InputSnapshot) already forwards; the additive BeginResolvePhase/TickResolve/ResolveFinished trio mirrors the Move trio) but recommended the actual wiring land as a separate step. THIS TICKET is that step. WORK: (1) Replace the BoardMove case body so it ticks BoardModel.TickMove(in InputSnapshot) until MoveFinished, and the BoardResolve case body so it drives the additive resolve trio (the <=4s Inversion stick window) then applies Resolve(rng)'s BoardResolution — WITHOUT adding any new SessionPhase enum member or changing the transition graph (AC6's \"without FSM shape changes\" carries forward). (2) Reconcile the coin pools: BoardModel currently owns self-contained balances (SetBalances, default 0, BoardModel.cs:99) independent of SessionStateMachine.Coins (fed today by microgame payouts only). GDD §5.6 implies a single shared economy (~60% microgames / ~40% board). Decide the ownership model (BoardModel reads/writes the session pool, or the session reconciles at phase boundaries) so coin flow has one source of truth. Coordinates with TASK-024 (FSM) and the fixed-60Hz driver work (TASK-055). Core wiring + reconciliation is fast-testable; any PlayMode session-integration leg rides a Unity gate window. Read GDD §5.2/§5.6 + §2.2 + Annex D.2 and re-read the TASK-031 Board/ module before coding.",
+  "acceptance_criteria": [
+    "BoardMove/BoardResolve FSM phases drive the real BoardModel (TickMove until MoveFinished; the additive resolve trio for the <=4s Inversion window; BoardResolution applied) with NO new SessionPhase and no transition-graph change; §2.2 timeout budget respected",
+    "Coin economy is a single source of truth: BoardModel balances and SessionStateMachine.Coins are reconciled per §5.6; no coins created or destroyed across the microgame<->board boundary (conservation test spanning a full simulated session)",
+    "Determinism preserved end-to-end: same (seed, input sequence) yields an identical session final-state hash across the board phases",
+    "Tests-first for the wiring/reconciliation logic (fast-suite where engine-free; PlayMode/Unity-gate for session integration); fast suite green, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-4",
+    "core",
+    "framework",
+    "board",
+    "integration",
+    "follow-up",
+    "T-113"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-031"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T22:42:11.373Z",
+  "updated_at": "2026-07-07T22:42:11.373Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
