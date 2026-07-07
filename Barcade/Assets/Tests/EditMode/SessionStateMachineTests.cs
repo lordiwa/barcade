@@ -128,9 +128,11 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Attract));
-            fsm.InsertCredit();
 
             var seq = new List<SessionPhase> { fsm.CurrentPhase };
+            fsm.InsertCredit();
+            if (fsm.CurrentPhase != seq[seq.Count - 1]) seq.Add(fsm.CurrentPhase);
+
             bool looped = false;
             for (int t = 0; t < 20000 && !looped; t++)
             {
@@ -505,17 +507,23 @@ namespace Barcade.Core.Tests
             }
             Assert.That(fake.IsFinished, Is.False, "sensor setup: must still be live after warmup");
 
+            // No Assert.* calls inside the measured window itself -- NUnit's
+            // constraint machinery (Is.EqualTo etc.) allocates on every call, which
+            // would contaminate the very thing being measured. Track liveness with
+            // plain booleans instead and assert on them only after the window closes.
+            bool everLeftMgPlay = false;
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int t = 264; t < 464; t++)
             {
                 inputs.Set(PlayerSlot.Rojo, (t % 2) == 0, Direction8.NE);
                 inputs.Set(PlayerSlot.Amarillo, (t % 3) == 0, Direction8.SW);
                 fsm.Tick(inputs.Build(t));
-                Assert.That(fake.IsFinished, Is.False, "sensor setup: must remain live for the whole measured window, or it wasn't measuring the live path");
-                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgPlay), "sensor setup: must remain in MgPlay for the whole measured window");
+                if (fsm.CurrentPhase != SessionPhase.MgPlay) everLeftMgPlay = true;
             }
             long after = GC.GetAllocatedBytesForCurrentThread();
 
+            Assert.That(fake.IsFinished, Is.False, "sensor setup: must remain live for the whole measured window, or it wasn't measuring the live path");
+            Assert.That(everLeftMgPlay, Is.False, "sensor setup: must remain in MgPlay for the whole measured window");
             Assert.That(after - before, Is.EqualTo(0L));
         }
     }
