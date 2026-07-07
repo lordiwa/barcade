@@ -409,6 +409,59 @@ namespace Barcade.Core.Tests
                 $"expected IsFinished by tick {bound} (durationTicks {durationTicks} + flightTicks {flightTicks} + slack), but it took until {finishedAtTick}");
         }
 
+        [Test]
+        public void AutoFiredShot_LandingDuringOvertime_StillScores()
+        {
+            // TASK-048 AC3 (TASK-026 review residual, MEDIUM-2c): GDD "nadie se
+            // queda sin su tiro" -- a shot fired by the timeout auto-fire
+            // necessarily lands after the round's nominal duration, since firing
+            // is gated shut at _tick == durationTicks-1 but ResolveArrivals() runs
+            // unconditionally every tick (including overtime, per the HIGH-1 fix).
+            // This pins that the auto-fired shot doesn't just fly -- it actually
+            // resolves and scores once it arrives, and IsFinished correctly waits
+            // for it rather than ending the round while it's still in flight.
+            //
+            // Rigged geometry rather than hunting a seed: a single target pinned
+            // at exactly the arena center (centralZoneMin == centralZoneMax ==
+            // 0.5) and a fixed projectile speed (min == max) chosen so ANY charge
+            // power fired along Rojo's cold-start default aim (NE, its
+            // corner-to-center diagonal) lands exactly on it. The auto-fire's
+            // exact charge/power value is therefore irrelevant to whether the shot
+            // scores -- this test is about overtime timing, not charge-power
+            // precision (already covered by
+            // TimeoutAutoFire_StillHeldButtonFiresWithInstantaneousPower).
+            const float diag = 0.70710678f; // DirectionToUnit(NE); (0,0) + diag*diag == (0.5, 0.5)
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 1, targetMovingEnabled: false, targetMovingSpeed: 0f,
+                windAccel: 0f, projectileSpeedMin: diag, projectileSpeedMax: diag,
+                projectileFlightSeconds: 10f / 60f, // long flight relative to the round -- arrival lands well past durationTicks
+                durationSeconds: 5f / 60f, // short round: durationTicks == 5, well inside 2-tick debounce confirm
+                hitRadius: 0.05f, centralZoneMin: 0.5f, centralZoneMax: 0.5f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+            int durationTicks = (int)MathF.Round(p.DurationSeconds * p.InputConfig.TicksPerSecond); // 5
+            int flightTicks = (int)MathF.Round(p.ProjectileFlightSeconds * p.InputConfig.TicksPerSecond); // 10
+
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            // Hold Rojo's button from tick 0 and never release manually -- the
+            // stick stays at None so the cold-start default aim (NE) is never
+            // disturbed -- so the timeout auto-fire is the only thing that fires
+            // this shot.
+            for (int t = 0; t < 200 && !mg.IsFinished; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, Direction8.None, true);
+                foreach (PlayerSlot slot in AllSlots)
+                    if (slot != PlayerSlot.Rojo) inputs.Set(slot, Direction8.None, false);
+                mg.Tick(inputs.Build(t));
+            }
+
+            Assert.That(mg.IsFinished, Is.True, "test setup sanity: the round must finish within the probe bound");
+            Assert.That(mg.ShotsFired(PlayerSlot.Rojo), Is.EqualTo(1), "test setup sanity: only the timeout auto-fire should have fired -- the shot must have landed after durationTicks (" + durationTicks + ") + flightTicks (" + flightTicks + "), i.e. during overtime");
+            Assert.That(mg.HitCount(PlayerSlot.Rojo), Is.EqualTo(1), "an auto-fired shot landing during overtime must still score -- GDD 'nadie se queda sin su tiro'");
+        }
+
         // ── AC6 — same-tick contested target ────────────────────────────────────
 
         [Test]
