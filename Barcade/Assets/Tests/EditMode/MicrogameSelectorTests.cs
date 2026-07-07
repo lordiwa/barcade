@@ -58,9 +58,50 @@ namespace Barcade.Core.Tests
         private static int[] Places(int p0, int p1, int p2, int p3) => new[] { p0, p1, p2, p3 };
 
         /// <summary>
+        /// Competitive-only pool (no Coop/Asym1v3 definitions at all) for the two
+        /// bias trigger-exactness tests below (TASK-035 review fix round, LOW-1 +
+        /// LOW-3). With <see cref="FullPool"/>, the session-level schedule
+        /// (CoopRound/AsymRound, both seed-derived) can coincidentally land Coop
+        /// or Asym1v3 as the DESIRED dynamics for the exact round under test —
+        /// silently filtering the candidate set down to sujeta/persigue only and
+        /// excluding "esquiva" (the mechanic these tests bias toward) for
+        /// whichever seeds happen to collide that way. That made the tests'
+        /// correctness quietly depend on a specific seed's schedule NOT colliding
+        /// (e.g. the original seed=7 relied on CoopRound(7)!=4, undocumented) —
+        /// and it approximately halved the measured bias-shift statistical
+        /// margin, since draws where the round was force-filtered to
+        /// Coop-only could never hit "esquiva" regardless of bias. An
+        /// all-competitive pool makes the schedule irrelevant: even if
+        /// Coop/Asym1v3 is "desired" for the tested round, filtering for it
+        /// yields zero candidates and falls back to Competitive immediately (see
+        /// MicrogameSelector.Select's fallback chain), so these tests are
+        /// decoupled from the scheduling RNG entirely — including from TASK-044's
+        /// Derive migration this same fix round folds in.
+        /// </summary>
+        private static List<MicrogameDefinitionV2> CompetitiveOnlyPool()
+        {
+            var pool = new List<MicrogameDefinitionV2>();
+            foreach (string mech in new[] { "esquiva", "apunta", "reacciona", "aporrea" })
+                for (int v = 1; v <= 3; v++)
+                    pool.Add(Def($"{mech}_v{v}", mech, MicrogameDynamics.Competitive));
+            return pool;
+        }
+
+        /// <summary>
         /// Plays a full 7-round session for one seed: selects each round, appends
-        /// a synthetic history record (places rotate with round+seed so bias
-        /// occasionally engages), and returns every selection including the final.
+        /// a synthetic history record, and returns every selection including the
+        /// final.
+        ///
+        /// MEDIUM-1(a) (TASK-035 review fix round): the rotation period was
+        /// previously 1 (<c>rot=(seed+round)&amp;3</c>), which changes every round
+        /// -- since consecutive rounds then NEVER share a rotation, the same seat
+        /// can never land in 4th place twice in a row, so the GDD 6.4
+        /// two-consecutive-4th bias trigger could NEVER fire from this corpus
+        /// (the old doc comment's "bias occasionally engages" claim was
+        /// provably false). Period 2 (<c>round/2</c>, integer division) makes
+        /// several adjacent round pairs share the same rotation across the
+        /// 1000-seed corpus, so the same seat's place repeats and the trigger
+        /// genuinely engages for at least some seeds -- making the claim true.
         /// </summary>
         private static List<RoundSelection> PlaySession(
             IReadOnlyList<MicrogameDefinitionV2> pool, int seed, out List<RoundRecord> history)
@@ -73,7 +114,7 @@ namespace Barcade.Core.Tests
                 RoundSelection sel = MicrogameSelector.SelectRound(pool, seed, round, RoundsTotal, history);
                 selections.Add(sel);
 
-                int rot = (seed + round) & 3;
+                int rot = (seed + round / 2) & 3;
                 history.Add(new RoundRecord(
                     sel.Definition.Mechanic,
                     sel.Definition.Id,
@@ -153,15 +194,23 @@ namespace Barcade.Core.Tests
                             Assert.That(i + 1, Is.EqualTo(3).Or.EqualTo(4),
                                 $"seed {seed}: coop special landed in round {i + 1}; GDD 7.1 says round 3 or 4");
                             break;
-                        case MicrogameDynamics.Asym1v3: asym++; break;
+                        case MicrogameDynamics.Asym1v3: asym++;
+                            Assert.That(i + 1, Is.EqualTo(5).Or.EqualTo(6),
+                                $"seed {seed}: asymmetric round landed in round {i + 1}; GDD 7.2 says round 5 or 6");
+                            break;
                         default: competitive++; break;
                     }
                 }
 
+                // MEDIUM-1(b)/(c) (TASK-035 review fix round): the old "remainder
+                // competitive" assert was tautological -- competitive is computed
+                // as everything the switch didn't count as coop/asym, so
+                // competitive==RoundsTotal-coop-asym held by construction, not as
+                // a real invariant check. GDD 7.2 says the asymmetric round is
+                // "1 por sesion" (exactly 1, not merely >=1, closing the AC's own
+                // looser wording) -- mirrors the coop assert immediately above.
                 Assert.That(coop, Is.EqualTo(1), $"seed {seed}: exactly 1 coop special per session (GDD 9.2)");
-                Assert.That(asym, Is.GreaterThanOrEqualTo(1), $"seed {seed}: >= 1 asymmetric per session (GDD 9.2)");
-                Assert.That(competitive, Is.EqualTo(RoundsTotal - coop - asym),
-                    $"seed {seed}: the remainder must be competitive (GDD 9.2)");
+                Assert.That(asym, Is.EqualTo(1), $"seed {seed}: exactly 1 asymmetric round per session (GDD 7.2: '1 por sesion')");
             }
         }
 
@@ -186,7 +235,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void Bias_EngagesExactlyOnTwoConsecutiveFourthPlaces()
         {
-            var pool = FullPool();
+            var pool = CompetitiveOnlyPool();
 
             RoundSelection triggered = MicrogameSelector.SelectRound(pool, 7, 4, RoundsTotal, TriggeredHistory());
             Assert.That(triggered.BiasSeat, Is.EqualTo(2), "seat 2 placed 4th in the last two rounds");
@@ -201,7 +250,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void Bias_ShiftsSelectionProbability_WithoutGuaranteeingTheMechanic()
         {
-            var pool = FullPool();
+            var pool = CompetitiveOnlyPool();
             int biasedHits = 0, unbiasedHits = 0;
             const int trials = 2000;
 
@@ -322,6 +371,24 @@ namespace Barcade.Core.Tests
         {
             Assert.Throws<ArgumentNullException>(() => new RoundRecord("m", "v", null));
             Assert.Throws<ArgumentException>(() => new RoundRecord("m", "v", new[] { 1, 2, 3 }));
+        }
+
+        [Test]
+        public void RoundRecord_ClonesThePlacesArray_MutatingTheCallersArrayDoesNotAffectIt()
+        {
+            // LOW-2 (TASK-035 review fix round, replay purity): RoundRecord used to
+            // alias the caller's array directly. Session history is long-lived and
+            // fed back into future SelectRound calls -- if a caller mutated the
+            // array it originally passed in (e.g. reusing a scratch buffer across
+            // rounds), every already-recorded RoundRecord would silently change
+            // too, corrupting replay determinism.
+            var places = new[] { 1, 2, 3, 4 };
+            var record = new RoundRecord("esquiva", "esquiva_v1", places);
+
+            places[0] = 99;
+
+            Assert.That(record.Places[0], Is.EqualTo(1), "RoundRecord must not alias the caller's array");
+            Assert.That(record.Places, Is.EqualTo(new[] { 1, 2, 3, 4 }));
         }
     }
 }
