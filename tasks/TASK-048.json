@@ -8,7 +8,7 @@
     "A regression test pins that an auto-fired shot which lands during the overtime window still scores (GDD 'nobody loses their shot')",
     "No presenter (TASK-027+) consumes RenderState before this contract is settled"
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -22,11 +22,25 @@
   "depends_on": [
     "TASK-026"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "90e2a67",
+    "45c6259"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer",
+      "at": "2026-07-07T12:10:26.778Z",
+      "body": "Delivered on master by dev-t101 (tests-after): 90e2a67 refactor(core) contract regularization -> 45c6259 test(core) AC3 regression pin. Suite 465 -> 466/466. Took the dedicated-channel path (orchestrator-recommended): NEW additive field RenderEntity.Progress01 (float [0,1], mechanic-defined, presentation-only — per-entity analog of HudState.Meters); VisualVariant doc comment tightened to the GDD 10.4 contract (discrete EntityKind+VisualVariant -> prefab/skin selector, small cardinality; Reacciona's Waiting/FalseStarted/Reacted codes named as the canonical legitimate example); future continuous values pointed at Progress01. ApuntaMicrogame PlayerAvatar now sets VisualVariant=0 + Progress01=interp; Target/Projectile explicitly zero Progress01 — RenderEntity array is a reused struct pool, every producer must set every field every tick or leak stale slot values; same zeroing applied to ReaccionaMicrogame PlayerAvatar defensively (doesn't use the field). Two existing 0..255-encoding assertions migrated to [0,1]. AC3 pin AutoFiredShot_LandingDuringOvertime_StillScores: rigged geometry (zero-span central zone pins target at center; fixed projectile speed) isolates overtime timing from charge-power precision; NON-VACUITY PROVEN: temporarily re-gating ResolveArrivals behind _tick < durationTicks (reverting TASK-026 HIGH-1 fix) makes the test fail as expected (AnyProjectileActive never false), reverted with zero git delta before staging. AC4 by inspection: no StagePresenter exists, nothing consumes RenderState. Constraint honored: nothing under Core/Runtime/Loop/ touched (surface = V2/{RenderEntity,ApuntaMicrogame,ReaccionaMicrogame} + ApuntaMicrogameV2Tests). Note: ReaccionaMicrogame touched (field-zeroing only) — TASK-025 is closed, no open review on that surface."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T12:19:53.916Z",
+      "body": "CLOSED on rev-t048 verdict APPROVE-WITH-NITS (2026-07-07 ~12:30Z). Review depth FULL — rubric inputs: 130 changed lines (115+/15−, under the 150 threshold) BUT mandatory-FULL surface: shared V2 render contract (RenderEntity) + files created/last-modified by tdd-tier tickets (TASK-025/026). Findings: 0 HIGH, 0 MEDIUM, 1 LOW (RenderEntity.cs:30 doc cites 'Annex D.1's worked example' for entityPrefabSet — the worked example is GDD §11.1; substantive claim accurate). LOW-1 disposition: NON-BLOCKING per reviewer; one-word citation fix deferred to the next touch of RenderEntity.cs — note appended to TASK-027 so the presenter author picks it up. Reviewer verifications (all firsthand, detached worktree at 45c6259): suite 466/466 (exactly +1 test, none removed); AC3 sensor mutation-tested TWICE (developer's claimed mutation reproduced exactly + an independent subtler resolve-without-scoring mutation, both caught — genuine two-sided sensor); rigged geometry independently verified in Fire() math (min==max speed makes power irrelevant; flightTicks 10 > durationTicks 5 forces overtime landing); GDD §10.4 cross-check confirms the new VisualVariant doc contract is an accurate reading and Annex D.2's extension rule explicitly sanctions the additive Progress01 field; stale-slot hygiene complete (all four V2 entity-emission sites set Progress01; _renderState per-instance); AC2 migration preserved sensor strength + added a strengthening VisualVariant==0 assertion; no presenter consumes RenderState (AC4); commit shape correct for tests-after, no test weakened; tier audit PASS (Reacciona zero-write acceptably uncovered — structural invariant, behavioral test would be vacuous). GDD quotes verified verbatim ('nadie se queda sin su tiro', 'interpoladas a 0.25 s'). Contract now settled: TASK-027 StagePresenter is unblocked on the render-contract dependency."
+    }
+  ],
   "created_at": "2026-07-07T11:31:52.422Z",
-  "updated_at": "2026-07-07T11:31:52.422Z",
+  "updated_at": "2026-07-07T12:19:53.916Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",

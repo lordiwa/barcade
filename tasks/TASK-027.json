@@ -26,9 +26,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T12:19:56.817Z",
+      "body": "Render-contract dependency SETTLED (TASK-048 closed 2026-07-07): RenderEntity.VisualVariant is now documented as the GDD 10.4 discrete prefab/skin selector (EntityKind+VisualVariant -> prefab, small cardinality, no scalar packing); continuous per-entity presentation values ride the new additive RenderEntity.Progress01 (float [0,1], mechanic-defined, presentation-only, defaults 0). Apunta publishes aim-interp progress there; HudState.Meters carries the per-seat charge meter. The presenter must consume BOTH channels. CARRY-IN NIT from rev-t048 (LOW, one word): RenderEntity.cs:30's doc comment cites 'Annex D.1's worked example' for stageProfile.entityPrefabSet — the worked example actually lives in GDD 11.1 (Annex D.1 only references StageProfile generally). Fix the citation on the first touch of RenderEntity.cs during this ticket."
+    }
+  ],
   "created_at": "2026-07-07T03:26:33.247Z",
-  "updated_at": "2026-07-07T03:26:33.247Z",
+  "updated_at": "2026-07-07T12:19:56.817Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
