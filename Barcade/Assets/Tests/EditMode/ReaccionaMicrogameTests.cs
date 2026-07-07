@@ -597,6 +597,62 @@ namespace Barcade.Core.Tests
             Assert.That(roster.IsActive(PlayerSlot.Verde), Is.True);
         }
 
+        [Test]
+        public void GddDefaults_AnticipationThresholdTicks_Is6NotFive()
+        {
+            // GDD §4 nominal cutoff is 90 ms. But confirmed latency = true physical
+            // latency + 1 (InputInterpreter's uniform debounce offset — see
+            // ReaccionaMicrogame's class doc "Debounce interaction"), so a threshold
+            // of N ticks on confirmed latency actually rejects physical latencies
+            // below (N-1) ticks. 5 ticks (the value this ticket originally shipped
+            // with) only rejects physical latencies below 4 ticks/66.7ms — looser
+            // toward anticipators than the GDD intends. 6 ticks rejects physical
+            // latencies below 5 ticks/83.3ms, the closest tick-quantized value at or
+            // under the GDD's 90ms cutoff without exceeding it.
+            Assert.That(ReaccionaParams.GddDefaults.AnticipationThresholdTicks, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Fakeout_NeverLandsOnOrAfterTheRealSignalTick_RegressionSeed()
+        {
+            // Seed 8664 (found by a brute-force search over StartTanda's exact RNG
+            // draw sequence with fakeouts=1) reproduces the bug: the raw formula
+            // (delayTicks = Round(delaySeconds*tps), fakeoutTick = Floor(fu*delaySeconds*tps))
+            // can land the fakeout on the SAME tick as the signal when delayTicks
+            // rounds down (fractional part < 0.5) and fu is close to 1 — here
+            // delaySeconds=1.5574962s gives delayTicks=Round(93.4498)=93, and
+            // fu=0.99622816 gives fakeoutTick=Floor(93.098)=93, colliding exactly.
+            // A fakeout on the signal's own tick violates the "strictly before the
+            // real signal" invariant (StartTanda's own comment) and would flash
+            // CueFakeout and CueSignal on the same tick to the presenter.
+            var p = new ReaccionaParams(
+                fakeouts: 1, rounds: 1,
+                signalDelayMinSeconds: 1.5f, signalDelayMaxSeconds: 4.5f,
+                anticipationThresholdTicks: 5, reactionTimeoutSeconds: 3f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+
+            var mg = new ReaccionaMicrogame(p);
+            mg.Initialize(new SeededRandom(8664), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            int fakeoutTick = -1, signalTick = -1;
+            for (int t = 0; t < 5000 && !mg.IsFinished; t++)
+            {
+                mg.Tick(inputs.Build(t));
+                RenderState rs = mg.GetRenderState();
+                for (int i = 0; i < rs.FeedbackCount; i++)
+                {
+                    if (rs.Feedback[i].Cue == ReaccionaMicrogame.CueFakeout) fakeoutTick = rs.Tick;
+                    if (rs.Feedback[i].Cue == ReaccionaMicrogame.CueSignal) signalTick = rs.Tick;
+                }
+                if (signalTick >= 0) break;
+            }
+
+            Assert.That(fakeoutTick, Is.Not.EqualTo(-1), "seed 8664 must schedule a fakeout");
+            Assert.That(signalTick, Is.Not.EqualTo(-1), "seed 8664 must fire a signal");
+            Assert.That(fakeoutTick, Is.LessThan(signalTick), "the fakeout must never land on or after the real signal's own tick");
+        }
+
         // ── v2 InputSnapshot / PlayerInput sanity ──────────────────────────────
 
         [Test]
