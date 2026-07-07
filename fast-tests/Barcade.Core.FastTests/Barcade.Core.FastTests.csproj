@@ -76,6 +76,9 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CorreMicrogameV2Tests.cs" />
     <!-- TASK-031 (T-113, hito 4): BoardModel: ring, stop-meter, casillas, economia -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\BoardModelTests.cs" />
+    <!-- TASK-038 (T-110, GDD Annex D.3/§16): IBotPolicy + 3 calibrations + statistical harness -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\BotsTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SessionStateMachineBotSeatFillTests.cs" />
   </ItemGroup>
 
 </Project>
