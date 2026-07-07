@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T13:02:00.153Z",
+  "generated_at": "2026-07-07T13:02:54.241Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -262,7 +262,7 @@
     {
       "key": "TASK-044",
       "title": "SeededRandom must be PCG32 per GDD §13 (currently wraps System.Random) — replay/determinism prerequisite",
-      "status": "in_review",
+      "status": "done",
       "priority": "medium"
     },
     {
