@@ -1,0 +1,36 @@
+{
+  "key": "TASK-061",
+  "title": "T-107 Slice 4 — legacy-id reconciliation (aporrea/timing/apunta-v1/recolecta)",
+  "description": "Slice 4 of the TASK-034 (GDD T-107) split — owns comment-2 carry-in (TASK-029 deferral). The four pre-GDD legacy microgame ids (aporrea, timing, apunta-v1, recolecta) map to NO canonical MECH_01-09 mechanic (recolecta especially has no home in the set). This slice decides and executes each id's fate individually. START WITH A PHASE-A DISPOSITION PROPOSAL (per-id: retire vs v2-native rewrite, with rationale mapped to the GDD mechanic set) for orchestrator ratification (human where a rewrite implies new gameplay) BEFORE implementation — do not guess. Then per id: a v2-native rewrite gets its own owned InputInterpreter (edge detection per §3.2; the 2-tick debounce-confirm delay is a real behavior change vs raw edges — retune tests); a retirement removes the un-debounced ButtonState.Pressed concern along with the code. NEVER port raw ButtonState.Pressed into a survivor. Wiring points: MicrogameHost.cs registry (Register calls), MicrogameContentGenerator.cs Specs + the 12 on-disk assets for whichever ids retire, and each id's existing test files. The MicrogameHost registry touch is compile-Unity-gated; Core-side rewrite/delete is fast-suite testable.",
+  "acceptance_criteria": [
+    "A per-id disposition (retire vs v2-native rewrite) is proposed with GDD-mapped rationale and ratified before implementation; every one of aporrea/timing/apunta-v1/recolecta has a named, executed fate.",
+    "Any surviving/rewritten mechanic consumes InputInterpreter-derived edges (owned interpreter, §3.2), NOT raw ButtonState.Pressed; the un-debounced edge concern from TASK-029/TASK-023 is resolved for each id (by rewrite or by removal).",
+    "Retirements remove the id cleanly from the MicrogameHost registry, MicrogameContentGenerator Specs, and the on-disk assets, with no dangling references; the TASK-030 validator/migrator stays green.",
+    "Tests: rewrites are tdd with retuned debounce-aware expectations (documented, not blind-reblessed); retirements prove no production consumer references the removed id. Fast suite green; Framework registry compile verification rides the Unity gate."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "legacy",
+    "T-107",
+    "slice",
+    "unity-gate"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030",
+    "TASK-029"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T15:12:20.777Z",
+  "updated_at": "2026-07-07T15:12:20.777Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

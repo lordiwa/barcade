@@ -1,0 +1,37 @@
+{
+  "key": "TASK-058",
+  "title": "T-107 Slice 1 — MECH_02 ¡ESQUIVA! on the v2 contract (adapt EsquivaMicrogame)",
+  "description": "Slice 1 of the TASK-034 (GDD T-107) split. Adapt the v1 EsquivaMicrogame.cs (the 4-player one-hit-eliminates FFA dodge sim — NOT DodgeSim/Esquiva-3D, which GDD §10.4 keeps as a View/style reference only) to the canonical §10.2 v2 IMicrogame contract: engine-free Core sim, injected SeededRandom, zero-alloc steady Tick, normalized [0,1]² arena. HAZARD PATTERNS (human-ruled 2026-07-07, engineering [ASSUMED] geometry, reviewer-verified, human tunes at UAT): Rain = hazards fall top→bottom; Sides = enter from left & right edges; Cross = diagonal corner→opposite corner; Homing_soft = drift toward nearest player with turn rate capped 30°/s (escapable by construction). Min spawn separation 0.08; one hit eliminates; ranking by survival tick with GDD shared-elimination + timeout-survivors-share-1st rules. Declare difficultyScaling params in the v2 definition; pass the TASK-030 validator. Conserve or migrate existing dodge tests.",
+  "acceptance_criteria": [
+    "MECH_02 implements the canonical v2 IMicrogame contract as an engine-free Core sim with injected SeededRandom and zero-alloc steady Tick; normalized [0,1]² arena.",
+    "The four hazard patterns are implemented per the ruled [ASSUMED] geometry (Rain top-down / Sides L-R / Cross diagonal / Homing_soft slow-turn toward nearest player, 30°/s cap), each [ASSUMED]-tagged; no overlapping spawns (min separation 0.08).",
+    "Escapability test: an optimal bot survives the full duration on every seed in the test set (Homing_soft's 30°/s cap guarantees escape).",
+    "Result is Ranked by survival tick; simultaneous eliminations share Place and survivors at timeout share 1st, with no fabricated winners.",
+    "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
+    "Tests-first (red captured before impl); existing dodge tests conserved or migrated; fast suite green, no regression; legacy consumers keep compiling. StagePresenter/View wiring is out of scope (separate §10.4 work)."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "microgame",
+    "MECH_02",
+    "T-107",
+    "slice"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T15:11:44.238Z",
+  "updated_at": "2026-07-07T15:11:44.238Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

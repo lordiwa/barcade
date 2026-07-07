@@ -1,0 +1,37 @@
+{
+  "key": "TASK-060",
+  "title": "T-107 Slice 3 — MECH_01 ¡MANTÉN! new inverted-pendulum balance mechanic",
+  "description": "Slice 3 of the TASK-034 (GDD T-107) split — new mechanic. Inverted-pendulum balance per GDD §4 MECH_01, on the canonical §10.2 v2 IMicrogame contract (engine-free Core sim, injected SeededRandom, zero-alloc Tick). AlcocheckSim.cs is prior art to mine, not a constraint. FIDELITY RULED (human 2026-07-07, both [ASSUMED]-tagged + reviewer-verified for determinism and feel): (a) perturbation uses a DETERMINISTIC seeded-noise substitute (value-noise / interpolated, not required to be true Perlin) preserving the ramping amplitude A(t) = A0 + ramp·t — a new engine-free noise helper is in-scope since none exists in Core; (b) keep a small DAMPING term for Euler integration stability, as a documented deviation from the GDD's literal undamped ODE. Model: θ'' = (g/L)·sin(θ) + perturbation(t) − k·input (+ damping); fail at |θ| > θmax (35° default); L/R torque only; victory = last standing or lowest mean |θ|. Declare difficultyScaling; pass the TASK-030 validator.",
+  "acceptance_criteria": [
+    "MECH_01 implements the v2 IMicrogame contract as an engine-free Core sim (injected SeededRandom, zero-alloc Tick); L/R torque only; fail at |theta| > 35° (default, configurable).",
+    "Perturbation is a deterministic seeded-noise substitute with ramping amplitude A(t)=A0+ramp·t; the noise helper and the retained damping term are both [ASSUMED]-tagged as deviations from the GDD-literal ODE.",
+    "With null input, every pendulum falls before duration on all test seeds; with simulated perfect correction, 100% survive.",
+    "A replay determinism test passes (two independently constructed sims with the same seed produce identical θ trajectories and outcome).",
+    "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
+    "Tests-first (red captured); victory resolution (last-standing or lowest mean |theta|) handles ties without fabricated winners; fast suite green, no regression; legacy consumers keep compiling."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "microgame",
+    "MECH_01",
+    "T-107",
+    "slice"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T15:12:07.239Z",
+  "updated_at": "2026-07-07T15:12:07.239Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

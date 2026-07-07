@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T15:05:19.939Z",
+  "generated_at": "2026-07-07T15:12:40.209Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -342,6 +342,30 @@
       "title": "T-107 Slice 0 — remove SequencerDirector P3-violating re-roll loop (single-draw anti-repeat)",
       "status": "in_progress",
       "priority": "high"
+    },
+    {
+      "key": "TASK-058",
+      "title": "T-107 Slice 1 — MECH_02 ¡ESQUIVA! on the v2 contract (adapt EsquivaMicrogame)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-059",
+      "title": "T-107 Slice 2 — MECH_03 ¡CORRE! on the v2 contract (adapt RunnerSim, jump-only)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-060",
+      "title": "T-107 Slice 3 — MECH_01 ¡MANTÉN! new inverted-pendulum balance mechanic",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-061",
+      "title": "T-107 Slice 4 — legacy-id reconciliation (aporrea/timing/apunta-v1/recolecta)",
+      "status": "todo",
+      "priority": "medium"
     }
   ]
 }

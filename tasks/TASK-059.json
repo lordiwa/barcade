@@ -1,0 +1,37 @@
+{
+  "key": "TASK-059",
+  "title": "T-107 Slice 2 — MECH_03 ¡CORRE! on the v2 contract (adapt RunnerSim, jump-only)",
+  "description": "Slice 2 of the TASK-034 (GDD T-107) split — largest delta. CONTROL SCOPE RULED (human 2026-07-07): jump-only, one FIXED lane per player. STRIP RunnerSim's lane-switching, slide/duck, and high-obstacle types entirely — the GDD control scheme is only mash-accelerate + stick-up-tap-jump ('nunca al revés'). Adapt RunnerSim.cs to the canonical §10.2 v2 IMicrogame contract (engine-free, injected SeededRandom, zero-alloc Tick): button MASH accelerates via the §3.3 curve from InputInterpreter (v = vBase + vGain·mashNorm) — replacing RunnerSim's auto-accelerate; stick-up TAP jumps; obstacle hit = 0.6 s stun (NOT elimination); rubber-band +8% vBase for last place; and re-architect spawn generation so ONE seed produces an IDENTICAL obstacle track shared across all 4 players' lanes (RunnerSim currently gives each instance its own RNG stream — this must change). Declare difficultyScaling; pass the TASK-030 validator. The pending human camera UAT is View-level (§10.4) and stays out of this Core slice. Sequence this LAST among the mechanic slices.",
+  "acceptance_criteria": [
+    "MECH_03 implements the v2 IMicrogame contract as an engine-free Core sim (injected SeededRandom, zero-alloc Tick); one fixed lane per player, NO lane-switching, NO slide, NO high obstacles (ruled jump-only).",
+    "Mash accelerates via the InputInterpreter §3.3 curve (v = vBase + vGain·mashNorm); stick-up tap jumps (never the reverse mapping); obstacle hit = 0.6 s stun, no elimination.",
+    "The same seed produces an identical obstacle track in all 4 lanes (single shared generation, verified by test).",
+    "A bot at constant 6 Hz mash with perfect jumps finishes unstunned; rubber-band (+8% vBase last place) never inverts the result between two players with identical mash over 1000 seeds (statistical test).",
+    "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
+    "Tests-first (red captured); fast suite green, no regression; legacy consumers keep compiling; camera/View UAT deferred to §10.4 work."
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-2",
+    "core",
+    "microgame",
+    "MECH_03",
+    "T-107",
+    "slice"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-030"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T15:11:55.726Z",
+  "updated_at": "2026-07-07T15:11:55.726Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}
