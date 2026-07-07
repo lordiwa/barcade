@@ -10,7 +10,7 @@
     "D(r) ramp attached per round with D_final = 1.5 for the climax microgame",
     "Existing Sequencer consumers keep compiling; tests-first; fast suite green after, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -23,7 +23,12 @@
   "depends_on": [
     "TASK-030"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "3416adc",
+    "bb2abcb",
+    "1d84408",
+    "563922f"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -40,10 +45,15 @@
       "author": "developer",
       "at": "2026-07-07T12:56:47.030Z",
       "body": "INTEGRATION + FIX ROUND complete on master (dev-t101): cherry-picks 3416adc (test) / bb2abcb (feat), fix round 1d84408 (test, red) -> 563922f (fix). Suite at Phase B end: 495 green, zero local regressions. Fix round: rotation period 2 (round/2) — confirmed the OLD formula genuinely could never fire the bias trigger (adjacent rounds never shared a rotation), not cosmetic; asym==Exactly(1) + round-in-{5,6} asserts (mirrors coop pattern); CompetitiveOnlyPool() for the two trigger-exactness tests; RoundRecord clones its places array (genuine red against the aliasing bug). Combine() -> SeededRandom.Derive(sessionSeed, roundNumber, RngStream.Draws) migration done in the same pair; sentinel round-numbers (-1, -2) for the two schedule decisions so they cannot collide with real per-round draws. All tightened assertions incl. the 1000-seed corpus passed on the FIRST post-migration run — no recalibration needed (corpus asserts invariants, not stream-specific values). Awaiting rev-c035 re-verify."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T13:03:56.568Z",
+      "body": "CLOSED on rev-c035 integration re-verify verdict CLOSE (2026-07-07 ~14:50Z). Review depth FULL — rubric inputs: core tdd-tier logic (mandatory-FULL), new Sequencer.V2 surface. Two-stage review: (1) cloud tree pinned at 4bd442c — APPROVE-WITH-NITS (0 HIGH / 1 MEDIUM / 3 LOW), 482/482 firsthand, red reproduced, GDD 9.2/7.1/7.2/6.4 and nesting-prohibition P3 cross-checked, v1 SequencerDirector re-roll loop confirmed (T-107 retirement condition on TASK-034); (2) integrated re-verify — 495/495 at 563922f firsthand; pick fidelity via git range-diff (feat patch-identical; test pick differs only by dropped bookkeeping hunks); red at 1d84408 observed as EXACTLY one failure (the RoundRecord clone sensor, failing against the aliasing impl for the right reason); drift check 563922f..head empty on this surface. MEDIUM-1 verified EMPIRICALLY with a scratch probe against the fixed sources: rotation period 2 makes round pairs share rotations -> 3000 trigger fires across the 1000-session corpus (3/session), 2023 genuine bias engagements, 998/1000 sessions engage — corpus now heavily exercises bias-vs-quota-vs-anti-rep interaction; tautological assert replaced by asym==Exactly(1) (tightening past the AC per GDD 7.2) + window-in-{5,6} assert. LOW-1 competitive-only pool decouples both trigger tests from scheduling RNG entirely. LOW-2 clone genuine. SCOPE ADDITION verified: Combine() deleted, one derivation idiom repo-wide; sentinel rounds -1/-2 PROVABLY collision-free (injective 64-bit packing + SplitMix64 bijection). First-run-green claim fully explained causally (corpus asserts are stream-independent by construction; the one stream-dependent test survived because LOW-1 made it RNG-free BEFORE the migration; statistical margin now ~10 sigma: 55.4% vs 29.0% against a 10% threshold). Doc nit carried to TASK-032 note: RngStream.Session's comment still claims schedule draws (they now live on Draws with sentinels) — trim on next touch. Commits: cloud-authored 3416adc/bb2abcb + fix round 1d84408/563922f. T-108 selector done; consumed by T-107 (TASK-034, must retire v1) and the FSM difficultyMult seam (TASK-024's SetActiveMicrogame)."
     }
   ],
   "created_at": "2026-07-07T04:20:38.128Z",
-  "updated_at": "2026-07-07T12:56:47.030Z",
+  "updated_at": "2026-07-07T13:03:56.568Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
