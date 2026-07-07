@@ -6,10 +6,12 @@ using Barcade.Core.Microgames.V2;
 // Barcade.Core.Tests is lexically nested inside Barcade.Core, so an unqualified
 // name resolves against Barcade.Core's own members before "using"-imported ones —
 // see the identical note in ReaccionaMicrogameTests.cs. Renamed aliases sidestep
-// the MicrogameResult/IMicrogame/InputSnapshot collisions.
+// the MicrogameResult/IMicrogame/InputSnapshot/ApuntaMicrogame collisions (the v1
+// Barcade.Core.ApuntaMicrogame from TASK-011 shares this v2 mechanic's simple name).
 using V2Result = Barcade.Core.Microgames.V2.MicrogameResult;
 using V2Microgame = Barcade.Core.Microgames.V2.IMicrogame;
 using V2Snapshot = Barcade.Core.Microgames.V2.InputSnapshot;
+using V2Apunta = Barcade.Core.Microgames.V2.ApuntaMicrogame;
 
 namespace Barcade.Core.Tests
 {
@@ -50,7 +52,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void Contract_InitialState_IdAndShapeAreCorrect()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             Assert.That(mg, Is.InstanceOf<V2Microgame>());
             Assert.That(mg.Id, Is.EqualTo(MicrogameId.Apunta));
             Assert.That(mg.IsFinished, Is.False);
@@ -59,7 +61,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void Contract_GetResult_BeforeFinished_Throws()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
             Assert.Throws<InvalidOperationException>(() => mg.GetResult());
         }
@@ -67,7 +69,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void Contract_RenderState_PublishesTurretsAndTargets()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
             mg.Tick(inputs.Build(0));
@@ -91,7 +93,7 @@ namespace Barcade.Core.Tests
             var corners = new HashSet<(float, float)>();
             foreach (PlayerSlot slot in AllSlots)
             {
-                (float x, float y) = ApuntaMicrogame.TurretCorner(slot);
+                (float x, float y) = V2Apunta.TurretCorner(slot);
                 Assert.That(x, Is.EqualTo(0f).Or.EqualTo(1f));
                 Assert.That(y, Is.EqualTo(0f).Or.EqualTo(1f));
                 corners.Add((x, y));
@@ -102,7 +104,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void CurrentAim_ColdStart_FacesFromCornerTowardCenter()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             mg.Initialize(new SeededRandom(2), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs(); // stick left at None for everyone
             mg.Tick(inputs.Build(0));
@@ -118,7 +120,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void CurrentAim_StickReturnsToNone_KeepsLastAim()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             mg.Initialize(new SeededRandom(3), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
 
@@ -136,22 +138,22 @@ namespace Barcade.Core.Tests
         [Test]
         public void ChargePower_IsPureFunctionOfHoldDuration()
         {
-            float p1 = ApuntaMicrogame.ChargePower(holdTicks: 18, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
-            float p2 = ApuntaMicrogame.ChargePower(holdTicks: 18, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
+            float p1 = V2Apunta.ChargePower(holdTicks: 18, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
+            float p2 = V2Apunta.ChargePower(holdTicks: 18, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
             Assert.That(p2, Is.EqualTo(p1));
 
             // p(t) = 0.5*(1 + sin(w*t)); at t_hold=0 the oscillating meter starts at 0.5.
-            float p0 = ApuntaMicrogame.ChargePower(holdTicks: 0, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
+            float p0 = V2Apunta.ChargePower(holdTicks: 0, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
             Assert.That(p0, Is.EqualTo(0.5f).Within(0.0001f));
 
             // Quarter of the cycle (0.3s = 18 ticks @60Hz) -> sin(pi/2) = 1 -> power = 1.
-            float pQuarter = ApuntaMicrogame.ChargePower(holdTicks: 18, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
+            float pQuarter = V2Apunta.ChargePower(holdTicks: 18, chargeCycleSeconds: 1.2f, ticksPerSecond: 60);
             Assert.That(pQuarter, Is.EqualTo(1f).Within(0.001f));
 
             // Always within [0,1].
             for (int t = 0; t < 200; t++)
             {
-                float p = ApuntaMicrogame.ChargePower(t, 1.2f, 60);
+                float p = V2Apunta.ChargePower(t, 1.2f, 60);
                 Assert.That(p, Is.InRange(0f, 1f));
             }
         }
@@ -159,9 +161,9 @@ namespace Barcade.Core.Tests
         [Test]
         public void Determinism_HoldOfSameDuration_FiresAtSameDistanceEveryTime()
         {
-            var mg1 = new ApuntaMicrogame(DefaultParams);
+            var mg1 = new V2Apunta(DefaultParams);
             mg1.Initialize(new SeededRandom(7), PlayerRoster.AllHuman, 1f);
-            var mg2 = new ApuntaMicrogame(DefaultParams);
+            var mg2 = new V2Apunta(DefaultParams);
             mg2.Initialize(new SeededRandom(7), PlayerRoster.AllHuman, 1f);
 
             HoldAndRelease(mg1, PlayerSlot.Rojo, Direction8.E, chargeTicksAtRelease: 18);
@@ -173,12 +175,12 @@ namespace Barcade.Core.Tests
 
         /// <summary>
         /// Holds <paramref name="slot"/>'s button (aiming <paramref name="stick"/>)
-        /// until <see cref="ApuntaMicrogame.CurrentChargeTicks"/> reaches exactly
+        /// until <see cref="V2Apunta.CurrentChargeTicks"/> reaches exactly
         /// <paramref name="chargeTicksAtRelease"/>, then releases (2 ticks) to fire.
         /// Discovers debounce timing via the observable accessor rather than
         /// hand-computing tick offsets.
         /// </summary>
-        private static void HoldAndRelease(ApuntaMicrogame mg, PlayerSlot slot, Direction8 stick, int chargeTicksAtRelease, int maxTicks = 2000)
+        private static void HoldAndRelease(V2Apunta mg, PlayerSlot slot, Direction8 stick, int chargeTicksAtRelease, int maxTicks = 2000)
         {
             var inputs = new FakeInputs();
             int t = 0;
@@ -209,9 +211,9 @@ namespace Barcade.Core.Tests
                 durationSeconds: 5f, hitRadius: 0.18f, centralZoneMin: 0.4f, centralZoneMax: 0.6f,
                 inputConfig: InputInterpreterConfig.GddDefaults);
 
-            var mgA = new ApuntaMicrogame(noWind);
+            var mgA = new V2Apunta(noWind);
             mgA.Initialize(new SeededRandom(9), PlayerRoster.AllHuman, 1f);
-            var mgB = new ApuntaMicrogame(withWind);
+            var mgB = new V2Apunta(withWind);
             mgB.Initialize(new SeededRandom(9), PlayerRoster.AllHuman, 1f);
 
             HoldAndRelease(mgA, PlayerSlot.Rojo, Direction8.NE, 18);
@@ -233,7 +235,7 @@ namespace Barcade.Core.Tests
 
             for (int seed = 0; seed < seedCount; seed++)
             {
-                var mg = new ApuntaMicrogame(p);
+                var mg = new V2Apunta(p);
                 mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
                 var inputs = new FakeInputs();
                 mg.Tick(inputs.Build(0)); // publish target positions into RenderState
@@ -248,7 +250,7 @@ namespace Barcade.Core.Tests
 
                 foreach (PlayerSlot slot in AllSlots)
                 {
-                    (float cx, float cy) = ApuntaMicrogame.TurretCorner(slot);
+                    (float cx, float cy) = V2Apunta.TurretCorner(slot);
                     foreach ((float tx, float ty) in targetPositions)
                     {
                         bool reachable = CanReach(cx, cy, tx, ty, p);
@@ -261,7 +263,7 @@ namespace Barcade.Core.Tests
 
         /// <summary>
         /// Brute-force numerical solver using the exact same 8-direction/landing-
-        /// distance formula as production firing (<see cref="ApuntaMicrogame.DirectionToUnit"/>
+        /// distance formula as production firing (<see cref="V2Apunta.DirectionToUnit"/>
         /// + the linear power-to-distance mapping) — samples power finely enough
         /// that any gap versus continuous power is well inside <c>hitRadius</c>.
         /// </summary>
@@ -276,7 +278,7 @@ namespace Barcade.Core.Tests
             const int powerSamples = 400;
             foreach (Direction8 d in dirs)
             {
-                (float dx, float dy) = ApuntaMicrogame.DirectionToUnit(d);
+                (float dx, float dy) = V2Apunta.DirectionToUnit(d);
                 for (int i = 0; i <= powerSamples; i++)
                 {
                     float power = (float)i / powerSamples;
@@ -301,7 +303,7 @@ namespace Barcade.Core.Tests
                 durationSeconds: 0.2f /* short round for a fast test */, hitRadius: 0.18f,
                 centralZoneMin: 0.4f, centralZoneMax: 0.6f, inputConfig: InputInterpreterConfig.GddDefaults);
 
-            var mg = new ApuntaMicrogame(p);
+            var mg = new V2Apunta(p);
             mg.Initialize(new SeededRandom(4), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
 
@@ -322,36 +324,40 @@ namespace Barcade.Core.Tests
         [Test]
         public void SameTickContestedTarget_MorePreciseWins_LoserPassesToNextRemainingTarget()
         {
-            // Force a single-target, two-seat scenario: Rojo and Azul both aim at
-            // the same target with the same flight time so their shots arrive on
-            // the identical tick; Rojo is closer (more precise) and must win it.
+            // Force a single-target, two-seat scenario where both shots arrive on
+            // the identical tick (same flight time, released on the same tick) but
+            // land at different distances from the sole target — Rojo aims exactly
+            // at it (NE from corner (0,0) points straight at (0.5,0.5)) while Azul
+            // deliberately aims off-target (N instead of the true NW line from
+            // corner (1,0)), so Rojo is unambiguously more precise. Mirror-image
+            // aims (e.g. both firing along their exact corner-to-target diagonal)
+            // would tie by symmetry and not actually exercise the "more precise
+            // wins" rule, hence the asymmetric choice here.
             var p = new ApuntaParams(
                 chargeCycleSeconds: 1.2f, targetCount: 1, targetMovingEnabled: false, targetMovingSpeed: 0f,
-                windAccel: 0f, projectileSpeedMin: 0.3f, projectileSpeedMax: 0.3f, projectileFlightSeconds: 0.2f,
-                durationSeconds: 5f, hitRadius: 0.5f /* generous: both must be candidates for the sole target */,
-                centralZoneMin: 0.5f, centralZoneMax: 0.5f /* single fixed target position */,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.2f,
+                durationSeconds: 5f, hitRadius: 0.65f /* generous: both must be candidates for the sole target */,
+                centralZoneMin: 0.5f, centralZoneMax: 0.5f /* single fixed target position, exactly (0.5,0.5) */,
                 inputConfig: InputInterpreterConfig.GddDefaults);
 
-            var mg = new ApuntaMicrogame(p);
+            var mg = new V2Apunta(p);
             mg.Initialize(new SeededRandom(50), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
 
-            // Both fire on the very first tick with a fresh (untouched, count=0) charge
-            // so both shots use the same power and therefore the same fixed distance
-            // (projectileSpeedMin == projectileSpeedMax here), arriving the same tick.
-            // Rojo (0,0) aims E: lands at (0.3, 0). Azul (1,0) aims W: lands at (0.7, 0).
-            // Neither lands exactly on target (0.5,0.5) but both are within the
-            // generous hitRadius, and Rojo's distance to target is smaller.
-            inputs.Set(PlayerSlot.Rojo, Direction8.E, true);
-            inputs.Set(PlayerSlot.Azul, Direction8.W, true);
+            // Both press then release after the same minimal hold (2 ticks pressed,
+            // 2 ticks released) so both fire with the identical charge power and
+            // therefore the identical distance, and both arrive on the same tick.
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, true);
+            inputs.Set(PlayerSlot.Azul, Direction8.N, true);
             mg.Tick(inputs.Build(0));
-            inputs.Set(PlayerSlot.Rojo, Direction8.E, false);
-            inputs.Set(PlayerSlot.Azul, Direction8.W, false);
             mg.Tick(inputs.Build(1));
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, false);
+            inputs.Set(PlayerSlot.Azul, Direction8.N, false);
             mg.Tick(inputs.Build(2));
+            mg.Tick(inputs.Build(3));
 
             // Run until both shots have resolved (flight time elapses).
-            for (int t = 3; t < 200; t++)
+            for (int t = 4; t < 200; t++)
             {
                 inputs.Set(PlayerSlot.Rojo, Direction8.None, false);
                 inputs.Set(PlayerSlot.Azul, Direction8.None, false);
@@ -360,8 +366,8 @@ namespace Barcade.Core.Tests
 
             Assert.That(mg.HitCount(PlayerSlot.Rojo) + mg.HitCount(PlayerSlot.Azul), Is.EqualTo(1),
                 "only one seat may score the sole, single target");
-            Assert.That(mg.HitCount(PlayerSlot.Rojo), Is.EqualTo(1), "Rojo's shot lands closer to the target and must win the contest");
-            Assert.That(mg.HitCount(PlayerSlot.Azul), Is.EqualTo(0), "Azul's shot loses the contest and has no other target to pass to");
+            Assert.That(mg.HitCount(PlayerSlot.Rojo), Is.EqualTo(1), "Rojo aimed straight at the target and must win the contest");
+            Assert.That(mg.HitCount(PlayerSlot.Azul), Is.EqualTo(0), "Azul's off-target shot loses the contest and has no other target to pass to");
         }
 
         // ── AC7 — ranking ────────────────────────────────────────────────────────
@@ -380,17 +386,22 @@ namespace Barcade.Core.Tests
                 windAccel: 0f, projectileSpeedMin: 0.3f, projectileSpeedMax: 0.3f, projectileFlightSeconds: 0.05f,
                 durationSeconds: 0.3f, hitRadius: 0.5f, centralZoneMin: 0.5f, centralZoneMax: 0.5f,
                 inputConfig: InputInterpreterConfig.GddDefaults);
-            var mg = new ApuntaMicrogame(p);
+            var mg = new V2Apunta(p);
             mg.Initialize(new SeededRandom(51), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
 
-            inputs.Set(PlayerSlot.Rojo, Direction8.E, true);
+            // NE from corner (0,0) points straight at the fixed target (0.5,0.5);
+            // at the fixed distance 0.3 this lands ~0.41 from the target's center,
+            // comfortably inside hitRadius 0.5. Press held for 2 ticks (debounce
+            // needs 2 consecutive samples to confirm), then released for 2 ticks.
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, true);
             mg.Tick(inputs.Build(0));
-            inputs.Set(PlayerSlot.Rojo, Direction8.E, false);
             mg.Tick(inputs.Build(1));
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, false);
             mg.Tick(inputs.Build(2));
+            mg.Tick(inputs.Build(3));
 
-            for (int t = 3; t < 200 && !mg.IsFinished; t++)
+            for (int t = 4; t < 200 && !mg.IsFinished; t++)
             {
                 inputs.Set(PlayerSlot.Rojo, Direction8.None, false);
                 mg.Tick(inputs.Build(t));
@@ -408,7 +419,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void Ranking_AllZeroHits_TieAtPlaceOne()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
             for (int t = 0; t < 320 && !mg.IsFinished; t++) // GddDefaults duration=5s=300 ticks, nobody fires
@@ -434,7 +445,7 @@ namespace Barcade.Core.Tests
         [Test]
         public void SteadyStateTick_AllocatesNoManagedMemory()
         {
-            var mg = new ApuntaMicrogame(DefaultParams);
+            var mg = new V2Apunta(DefaultParams);
             mg.Initialize(new SeededRandom(123), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
             inputs.Set(PlayerSlot.Rojo, Direction8.E, true);
