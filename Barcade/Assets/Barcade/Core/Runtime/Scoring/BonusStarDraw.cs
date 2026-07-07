@@ -23,7 +23,12 @@ namespace Barcade.Core.Scoring
     /// ever change, and the threshold is parameterized so tests prove the filter
     /// works. If filtering ever left nothing (unreachable today: a combination
     /// that keeps the pre-bonus leader on top is never excluded), the draw falls
-    /// back to the unfiltered pool — liveness first.
+    /// back to the LEAST-HARMFUL combo(s) — whichever minimize the worst crowned
+    /// gap — rather than an unfiltered pick (MEDIUM-2, TASK-037 review fix
+    /// round): silently drawing an arbitrarily-bad outcome is the worst option
+    /// on a live cabinet, but so is throwing mid-reveal, so this keeps the
+    /// "liveness first" spirit (never crashes) while still honoring the
+    /// invariant as closely as the situation allows.
     ///
     /// No UnityEngine dependency — safe for the dotnet fast-test runner.
     /// C# 9 compatible (Unity 6).
@@ -85,7 +90,37 @@ namespace Barcade.Core.Scoring
                         eligible.Add((first, second));
                 }
 
-            List<(int First, int Second)> drawPool = eligible.Count > 0 ? eligible : all;
+            List<(int First, int Second)> drawPool;
+            if (eligible.Count > 0)
+            {
+                drawPool = eligible;
+            }
+            else
+            {
+                // MEDIUM-2 fallback: every combo crowns a distant trailer. Prefer
+                // whichever combo(s) minimize the worst crowned gap instead of an
+                // unfiltered pick (see class doc).
+                int bestGap = int.MaxValue;
+                var leastHarmful = new List<(int First, int Second)>(all.Count);
+                for (int i = 0; i < all.Count; i++)
+                {
+                    (int First, int Second) combo = all[i];
+                    int gap = WorstCrownedGap(
+                        holders[combo.First], holders[combo.Second], baseStars, coins, microgameWins,
+                        activeSeatsMask, maxBaseStars, starsScratch);
+                    if (gap < bestGap)
+                    {
+                        bestGap = gap;
+                        leastHarmful.Clear();
+                        leastHarmful.Add(combo);
+                    }
+                    else if (gap == bestGap)
+                    {
+                        leastHarmful.Add(combo);
+                    }
+                }
+                drawPool = leastHarmful;
+            }
 
             var rng = SeededRandom.Derive(sessionSeed, 0, RngStream.Draws);
             (int First, int Second) picked = drawPool[rng.NextInt(0, drawPool.Count)];
@@ -103,13 +138,26 @@ namespace Barcade.Core.Scoring
         private static bool CrownsADistantTrailer(
             int firstHolder, int secondHolder, int[] baseStars, int[] coins, int[] wins,
             int activeSeatsMask, int maxBaseStars, int threshold, int[] starsScratch)
+            => WorstCrownedGap(firstHolder, secondHolder, baseStars, coins, wins, activeSeatsMask, maxBaseStars, starsScratch) >= threshold;
+
+        /// <summary>
+        /// The largest pre-bonus star deficit among seats this combo would crown
+        /// (place == 1 after applying it); 0 if the pre-bonus leader (or a
+        /// zero-deficit seat) stays on top. Used both by the threshold check above
+        /// and by the MEDIUM-2 least-harmful fallback, which needs the actual
+        /// value rather than just a boolean.
+        /// </summary>
+        private static int WorstCrownedGap(
+            int firstHolder, int secondHolder, int[] baseStars, int[] coins, int[] wins,
+            int activeSeatsMask, int maxBaseStars, int[] starsScratch)
         {
             ApplyCombo(firstHolder, secondHolder, baseStars, starsScratch);
             int[] places = FinalRanking.Rank(starsScratch, coins, wins, activeSeatsMask);
+            int worst = 0;
             for (int seat = 0; seat < 4; seat++)
-                if (places[seat] == 1 && maxBaseStars - baseStars[seat] >= threshold)
-                    return true;
-            return false;
+                if (places[seat] == 1)
+                    worst = Math.Max(worst, maxBaseStars - baseStars[seat]);
+            return worst;
         }
 
         private static void ApplyCombo(int firstHolder, int secondHolder, int[] baseStars, int[] into)

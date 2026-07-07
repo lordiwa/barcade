@@ -52,11 +52,20 @@ namespace Barcade.Core.Scoring
             int pot = 0;
             for (int seat = 0; seat < 4; seat++)
             {
-                if (finalPlaces[seat] < 1)
+                int place = finalPlaces[seat];
+                if (place == 0)
                 {
                     after[seat] = coins[seat];
                     continue;
                 }
+                // LOW-1 (TASK-037 review fix round): mirrors PayoutRules.ApplyCompetitive's
+                // guard. Without it, a malformed place (e.g. 5) silently stakes this
+                // seat's coins into the pot but never gives it a share back, since it
+                // can never match a real place 1..4 in the ordering pass below --
+                // a silent value transfer to the other seats instead of a loud error.
+                if (place < 1 || place > 4)
+                    throw new ArgumentException($"finalPlaces[{seat}]={place} out of range; expected 0 (absent) or 1..4", nameof(finalPlaces));
+
                 int percent = (int)(choices[seat] ?? DefaultChoice);
                 stakes[seat] = coins[seat] * percent / 100;
                 pot += stakes[seat];
