@@ -433,6 +433,98 @@ namespace Barcade.Core.Tests
             }
         }
 
+        // ── AC1: zero heap allocation in steady-state Tick (rev-t058 M1) ─────────
+
+        [Test]
+        public void SteadyStateTick_AllocatesNoManagedMemory()
+        {
+            // HomingSoft specifically, so BOTH SteerHoming (runs every tick any
+            // HomingSoft hazard is alive) and the spawn-retry loop (TrySpawnHazard,
+            // called from Tick's own while loop) execute inside the measured
+            // window -- a Rain/Sides/Cross round would never touch SteerHoming at
+            // all, the path most likely to hide an allocation.
+            //
+            // EscapeBot (see below) allocates per Decide() call (`new
+            // List<(float,float)>()`), so it cannot drive input here without
+            // corrupting the measurement with test-code allocations instead of
+            // production-code ones. Instead, all 4 players stay stationary at the
+            // arena center (0.5, 0.5) and never move (Direction8.None every tick
+            // -- InputBridge.ToUnitVector maps that to (0,0), a genuine no-op
+            // avatar-movement step, not a workaround). A stationary target needs
+            // zero steering correction from InitialHomingDirection's
+            // already-optimal initial aim, so the worst-case (closest possible)
+            // spawn-to-target distance is EXACT, not approximate: the closest any
+            // perimeter point can be to the center is 0.5 (an edge midpoint). At
+            // hazardSpeed 0.05, covering 0.5 takes 10s -- longer than
+            // HomingLifetimeTicks' 4s cap -- so every hazard despawns via its
+            // lifetime cap before it can possibly reach a player (worst-case
+            // remaining distance at expiry: 0.5 - 0.05*4 = 0.3, still comfortably
+            // outside the 0.06 combined collision radius). That makes the round's
+            // liveness (nobody ever eliminated, never all-eliminated, never
+            // timed out inside the measured window) a mathematical guarantee, not
+            // a probabilistic one tied to a lucky seed.
+            var p = new EsquivaParams(
+                spawnRateBasePerSec: 1f, spawnRampCoef: 0f, hazardSpeed: 0.05f,
+                hazardPattern: EsquivaHazardPattern.HomingSoft, avatarSpeed: 0.35f,
+                avatarRadius: 0.03f, hazardRadius: 0.03f, durationSeconds: 25f, jumpEnabled: false);
+
+            var mg = new V2Esquiva(p);
+            mg.SetForcedAvatarPositions(new (float, float)[] { (0.5f, 0.5f), (0.5f, 0.5f), (0.5f, 0.5f), (0.5f, 0.5f) });
+            mg.Initialize(new SeededRandom(42), PlayerRoster.AllHuman, 1f);
+
+            var inputs = new FakeInputs(); // every seat defaults to Direction8.None -- nobody ever moves
+
+            for (int i = 0; i < 100; i++) mg.Tick(inputs.Build(i));
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: the round must still be live after warmup");
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 100; i < 1100; i++) mg.Tick(inputs.Build(i));
+            long after = GC.GetAllocatedBytesForCurrentThread();
+
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: the round must still be live after the measured window, or it wasn't measuring the live path");
+            Assert.That(after - before, Is.EqualTo(0L));
+        }
+
+        // ── Replay determinism (rev-t058 L2; also needed by TASK-032's .bcrp replay work) ──
+
+        [Test]
+        public void Determinism_SameSeedAndInputScript_ProducesIdenticalTraceAndResult()
+        {
+            // Unlike ReaccionaMicrogame's own determinism lock (which compares
+            // Feedback-event traces), CueEliminated is declared here but never
+            // actually emitted via EmitFeedback anywhere in this mechanic, so
+            // there is no feedback stream to compare. This compares a per-tick
+            // RenderState trace instead: EntityCount plus every entity's
+            // Kind/OwnerSeat/X/Y, for a full round including a HomingSoft
+            // pattern, plus the final GetResult() Ranks. Input is a FIXED
+            // per-seat cycling schedule -- a deterministic function of (seat,
+            // tick) only, never read back from RenderState -- so nothing here is
+            // reactive/adaptive; this isolates the SIM's own determinism
+            // (SeededRandom + the fixed-tick model), not a bot's.
+            var p = new EsquivaParams(
+                spawnRateBasePerSec: 0.6f, spawnRampCoef: 0.15f, hazardSpeed: 0.15f,
+                hazardPattern: EsquivaHazardPattern.HomingSoft, avatarSpeed: 0.35f,
+                avatarRadius: 0.03f, hazardRadius: 0.03f, durationSeconds: 8f, jumpEnabled: false);
+
+            var runA = RunDeterminismTrace(p, seed: 17);
+            var runB = RunDeterminismTrace(p, seed: 17);
+
+            Assert.That(runB.Frames.Count, Is.EqualTo(runA.Frames.Count),
+                "same seed + same input script must produce the same number of ticks/entities");
+            for (int i = 0; i < runA.Frames.Count; i++)
+                Assert.That(runB.Frames[i], Is.EqualTo(runA.Frames[i]),
+                    $"per-tick RenderState trace diverged at frame {i} (tick {runA.Frames[i].Tick})");
+
+            Assert.That(runB.Result.Kind, Is.EqualTo(runA.Result.Kind));
+            Assert.That(runB.Result.Ranks.Length, Is.EqualTo(runA.Result.Ranks.Length));
+            for (int i = 0; i < runA.Result.Ranks.Length; i++)
+            {
+                Assert.That(runB.Result.Ranks[i].Seat, Is.EqualTo(runA.Result.Ranks[i].Seat), $"rank[{i}] seat diverged");
+                Assert.That(runB.Result.Ranks[i].Place, Is.EqualTo(runA.Result.Ranks[i].Place), $"rank[{i}] place diverged");
+                Assert.That(runB.Result.Ranks[i].Metric, Is.EqualTo(runA.Result.Ranks[i].Metric), $"rank[{i}] metric diverged");
+            }
+        }
+
         // ── AC5: v2 definition + TASK-030 validator/schema pass ──────────────────
 
         [Test]
@@ -489,6 +581,41 @@ namespace Barcade.Core.Tests
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
+
+        private static (List<(int Tick, int EntityCount, EntityKind Kind, int OwnerSeat, float X, float Y)> Frames, V2Result Result)
+            RunDeterminismTrace(EsquivaParams p, int seed)
+        {
+            var mg = new V2Esquiva(p);
+            mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
+
+            var frames = new List<(int, int, EntityKind, int, float, float)>();
+            var inputs = new FakeInputs();
+            int t = 0;
+            while (!mg.IsFinished && t < 600)
+            {
+                foreach (PlayerSlot slot in AllSlots)
+                    inputs.Set(slot, ScheduledDirection((int)slot, t));
+                mg.Tick(inputs.Build(t));
+
+                RenderState rs = mg.GetRenderState();
+                for (int i = 0; i < rs.EntityCount; i++)
+                    frames.Add((t, rs.EntityCount, rs.Entities[i].Kind, rs.Entities[i].OwnerSeat, rs.Entities[i].X, rs.Entities[i].Y));
+
+                t++;
+            }
+
+            return (frames, mg.GetResult());
+        }
+
+        private static readonly Direction8[] ScheduleCycle =
+        {
+            Direction8.N, Direction8.NE, Direction8.E, Direction8.SE,
+            Direction8.S, Direction8.SW, Direction8.W, Direction8.NW,
+        };
+
+        /// <summary>Fixed, non-reactive per-seat schedule -- a pure function of (seat, tick), never RenderState-derived.</summary>
+        private static Direction8 ScheduledDirection(int seat, int tick)
+            => ScheduleCycle[(tick + seat * 3) % ScheduleCycle.Length];
 
         private static float FindAvatarX(RenderState rs, int seat)
         {

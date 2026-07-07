@@ -96,8 +96,12 @@ namespace Barcade.Core.Microgames.V2
     /// eventually breaks a bounded-turn-rate pursuer's lock by moving
     /// perpendicular to its heading). See
     /// <c>EsquivaMicrogameV2Tests</c>'s escapability bot for the actual solver
-    /// (a real reactive policy — inverse-distance-weighted repulsion from every
-    /// alive hazard, not a hardcoded path) and its seed sweep.
+    /// (a two-layer reactive policy, not a hardcoded path: a strategic
+    /// wall-avoidance layer with enter/exit hysteresis thresholds — to prevent
+    /// the boundary-hugging oscillation a single hard threshold would cause —
+    /// suppressed under imminent hazard danger, layered under a tactical
+    /// one-ply lookahead that picks whichever candidate move maximizes the
+    /// minimum resulting distance to any alive hazard) and its seed sweep.
     /// </para>
     ///
     /// <para>
