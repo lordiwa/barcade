@@ -128,7 +128,7 @@ namespace Barcade.Core.Tests
             Assert.That(actual.DifficultyScaling, Is.EqualTo(expected.DifficultyScaling));
             Assert.That(DeepEqual(actual.Params, expected.Params), Is.True, "params mismatch");
             Assert.That(actual.PayoutTable, Is.EqualTo(expected.PayoutTable));
-            CollectionAssert.AreEquivalent(expected.Assets, actual.Assets);
+            Assert.That(actual.Assets, Is.EquivalentTo(expected.Assets));
             Assert.That(actual.StageProfile.Camera, Is.EqualTo(expected.StageProfile.Camera));
             Assert.That(actual.StageProfile.Environment, Is.EqualTo(expected.StageProfile.Environment));
             Assert.That(actual.StageProfile.EntityPrefabSet, Is.EqualTo(expected.StageProfile.EntityPrefabSet));
