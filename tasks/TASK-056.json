@@ -29,10 +29,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T14:59:41.406Z",
       "body": "RIDERS from TASK-052 review (rev-t052 LOW-2 + LOW-4, doc/cosmetic, 2026-07-07 — this is the next ticket expected to touch SessionStateMachine): (1) LOW-2: fix the stale cross-reference in the Coins property doc (SessionStateMachine.cs:352) — it still says \"See class doc for the [ASSUMED] default-payout note\" but TASK-052 rewrote that paragraph to fallback-only wording; one line. (2) LOW-4 (optional, do together if touching the guard): the coop-table shape guard at ~:654 throws ArgumentException with nameof(_activePayoutTable) — a private field, not an argument on the current stack; InvalidOperationException is semantically accurate; the TASK-052 test pins ArgumentException, so change test + throw together or skip."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T15:18:07.962Z",
+      "body": "IMPLEMENTER NUANCE (from rev-t054b's TASK-054 audit, 2026-07-07): a HumanIdle value already exists on the SeatState enum (Core/.../Microgames/V2/SeatState.cs:12) and is referenced in PlayerRoster.cs:21 — but NOTHING anywhere assigns or transitions a seat into it. So the target state exists; this ticket supplies the missing detection+transition logic (per-seat last-activity tracking -> mark HumanIdle after the GDD threshold -> exclude from that round's payout). Reuse the existing enum value rather than inventing a new status; grep for existing HumanIdle references first to see what already branches on it (if anything). This also confirms the 'dead-seat detection missing' premise firsthand."
     }
   ],
   "created_at": "2026-07-07T14:53:30.632Z",
-  "updated_at": "2026-07-07T14:59:41.406Z",
+  "updated_at": "2026-07-07T15:18:07.962Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
