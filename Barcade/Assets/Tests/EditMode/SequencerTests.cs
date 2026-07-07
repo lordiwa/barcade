@@ -41,6 +41,30 @@ namespace Barcade.Core.Tests
                 ramp ?? RampSettings.Default);
         }
 
+        /// <summary>
+        /// TASK-057: wraps a real <see cref="SeededRandom"/> and counts
+        /// <see cref="NextInt"/> calls, so a test can assert exactly how many
+        /// RNG draws <see cref="SequencerDirector.PickNext"/> consumes per
+        /// decision (GDD P3: "una decisión -&gt; como máximo una tirada").
+        /// </summary>
+        private sealed class CountingRandom : ISeededRandom
+        {
+            private readonly SeededRandom _inner;
+            public int NextIntCallCount { get; private set; }
+
+            public CountingRandom(int seed) => _inner = new SeededRandom(seed);
+
+            public float NextFloat() => _inner.NextFloat();
+
+            public int NextInt(int minInclusive, int maxExclusive)
+            {
+                NextIntCallCount++;
+                return _inner.NextInt(minInclusive, maxExclusive);
+            }
+
+            public Direction2D NextDirection() => _inner.NextDirection();
+        }
+
         // ────────────────────────────────────────────────────────────────────────
         // ScoreModel.RecordRound validation (TASK-003 carry-forward)
         // ────────────────────────────────────────────────────────────────────────
@@ -183,6 +207,55 @@ namespace Barcade.Core.Tests
                     $"Round {i}: single-item pool must always return 'SOLO'");
                 director.AdvanceRound(new bool[] { true, false, false, false });
             }
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // TASK-057 (GDD P3): PickNext consumes at most one RNG draw per decision
+        // ────────────────────────────────────────────────────────────────────────
+
+        [Test]
+        public void PickNext_MultiItemPool_ConsumesExactlyOneRngDrawPerDecision()
+        {
+            // AC1 (GDD P3: "una decisión -> como máximo una tirada. Prohibido
+            // 'objeto aleatorio que además falla aleatoriamente'"): PickNext()
+            // must never consume more than one RNG draw per decision. A 2-item
+            // pool over many rounds makes at least one repeat-collision under
+            // the OLD re-roll algorithm a near statistical certainty (~50%
+            // chance every round), so this genuinely exercises the re-roll
+            // path rather than getting lucky and never re-rolling.
+            var pool = new[] { Desc("X"), Desc("Y") };
+            var rng = new CountingRandom(seed: 12345);
+            var director = new SequencerDirector(pool, rng, RampSettings.Default);
+
+            const int rounds = 100;
+            for (int i = 0; i < rounds; i++)
+            {
+                director.PickNext();
+                director.AdvanceRound(new bool[] { false, false, false, false });
+            }
+
+            Assert.That(rng.NextIntCallCount, Is.EqualTo(rounds),
+                "each PickNext() decision must consume exactly one RNG draw -- a re-roll loop would exceed this");
+        }
+
+        [Test]
+        public void PickNext_SingleItemPool_ConsumesNoRngDraws()
+        {
+            // AC2 (degenerate single-candidate case): a repeat is unavoidable
+            // with only one microgame in the pool -- PickNext() must return it
+            // directly without ever touching the RNG.
+            var pool = new[] { Desc("SOLO") };
+            var rng = new CountingRandom(seed: 999);
+            var director = new SequencerDirector(pool, rng, RampSettings.Default);
+
+            for (int i = 0; i < 20; i++)
+            {
+                director.PickNext();
+                director.AdvanceRound(new bool[] { true, false, false, false });
+            }
+
+            Assert.That(rng.NextIntCallCount, Is.EqualTo(0),
+                "a single-item pool must never consume an RNG draw -- the pick is forced regardless");
         }
 
         // ────────────────────────────────────────────────────────────────────────
