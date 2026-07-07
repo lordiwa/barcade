@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T13:42:44.511Z",
+  "generated_at": "2026-07-07T13:47:10.830Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -274,7 +274,7 @@
     {
       "key": "TASK-046",
       "title": "Consolidate the duplicated v2 InputBridge (Reacciona/Apunta) into shared V2 infrastructure",
-      "status": "in_review",
+      "status": "done",
       "priority": "medium"
     },
     {
@@ -310,6 +310,12 @@
     {
       "key": "TASK-052",
       "title": "Thread per-definition payoutTable through the microgame contract into SessionStateMachine payouts",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-053",
+      "title": "Replace SessionStateMachine's nested sign-pure InputBridge with the shared V2 InputBridge",
       "status": "todo",
       "priority": "medium"
     }

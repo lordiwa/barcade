@@ -8,7 +8,7 @@
     "Zero-alloc steady-state behavior preserved and re-verified through both mechanics' existing allocation sensors",
     "Full fast suite green with no behavioral regression (both mechanics' existing tests pass unchanged)"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -22,17 +22,30 @@
     "TASK-025",
     "TASK-026"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "e4cfc4b",
+    "347cbae"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "developer",
       "at": "2026-07-07T13:37:38.778Z",
       "body": "Delivered on master by dev-t101 (tests-after): e4cfc4b refactor(core) — shared Barcade.Core.Microgames.V2.InputBridge extracted, both mechanics' private nested copies DELETED -> 347cbae test(core) — AC2 regression locks (canonical convention pin, 9-value Direction8 round-trip through a REAL InputInterpreter, cross-mechanic check against a real ApuntaMicrogame). Suite 538 -> 544/544 (6 new). Both mechanics' _inputBridge field declarations needed ZERO changes (same type name, now resolving to the shared top-level type); straight before/after run confirms neither mechanic's existing suite — including both zero-alloc sensors (AC3) — needed a single edit (AC4). CONVENTION CALL (documented on the shared type): NORMALIZED unit vectors, not sign-pure — the cabinet stick is digital 8-way (GDD 1.3), so uniform magnitude 1 for every pressed direction is the physically honest representation; sign-pure's diagonal magnitude sqrt(2) has no hardware meaning and would make InputSnapshot's existing Magnitude()/WithDeadZone() read diagonals as 'harder pressed' if a deadzone ever lands — exactly the future magnitude-sensitive hazard rev-t026 flagged. ToDirection8 classifies by sign either way, so behavior is identical today. FOUND + DELIBERATELY LEFT (flagged): ApuntaMicrogame.DirectionToUnit carries the exact same values as the new InputBridge.ToUnitVector (Apunta's old bridge called it for input-bridging too) — judged merging them as scope creep (conceptually different roles: aim geometry vs raw stick reading); clean low-risk follow-up if wanted. SessionStateMachine's Loop/ surface untouched per constraint."
+    },
+    {
+      "author": "rev-t046",
+      "at": "2026-07-07T13:46:43.491Z",
+      "body": "FULL review verdict (diff 53a0622..347cbae, suite 544/544 verified firsthand in detached worktree at 347cbae, 538 baseline + 6 new): APPROVE-WITH-NITS — 0 HIGH, 1 MEDIUM (follow-up, outside AC scope, not blocking), 1 LOW (doc-only).\n\nMEDIUM-1: a THIRD nested InputBridge copy survives at Loop/SessionStateMachine.cs:713-742 using the SIGN-PURE convention (ToStickXY, diagonals ±1/±1) — now contradicting the convention documented as canonical on the shared type. Behaviorally identical today (ToDirection8 is sign-only; no magnitude consumer anywhere), but it is exactly the latent drift hazard this ticket exists to kill, alive in one more place; its doc comment (705-711) also cites a duplication rationale this ticket just removed. Leaving it untouched here was CORRECT sequencing (file is in Loop/ under rev-t051's open review, and AC1 scopes to per-mechanic copies). Fix shape: follow-up ticket to replace the nested class with the shared V2 InputBridge (SessionStateMachine already consumes V2.PlayerInput[], likely drop-in) and delete ToStickXY.\n\nLOW-1: ApuntaMicrogame.DirectionToUnit (V2/ApuntaMicrogame.cs:418) lacks a cross-reference doc comment (\"mirrors InputBridge.ToUnitVector's values but is aim geometry, not the input convention — do not fold\"); the intentional-independence rationale lives only in the commit message. Rides along with any next touch of the file.\n\nDIRECTIONTOUNIT DISPOSITION: accept the leave-alone (with LOW-1's comment). The two tables coincide numerically but are semantically independent — the bridge's table is an input-representation CONVENTION; DirectionToUnit is ballistics GEOMETRY pinned by Apunta's solver tests. Folding them would couple projectile trajectories to the input convention — the exact bug class this ticket prevents. Scope discipline was right.\n\nPOSITIVE VERIFICATIONS (firsthand from pinned worktree): AC1 — exactly one InputBridge type in Barcade.Core.Microgames.V2, both nested copies deleted, both mechanics consume it, nothing shadows the top-level type, fresh unique .meta GUID. CONVENTION — normalized judged the right call against the GDD directly: §1.3 \"exactamente 1 palanca digital de 8 direcciones... No hay ejes analógicos\" (uniform magnitude 1 is the honest encoding; sign-pure's sqrt(2) diagonals encode a distinction the hardware cannot produce); §3.2 carries Direction8 enum at contract level so the float pair is adapter-internal; rationale documented on the type with GDD citation. REGRESSION SWEEP (Reacciona sign-pure -> normalized) clean: InputInterpreter.ToDirection8 strictly sign-based and is the ONLY read of bridge-fed StickX/StickY; Magnitude()/Normalized()/WithDeadZone() have zero production callers; both v2 mechanics route the bridge exclusively into _interpreter.Tick; other StickX/StickY readers in repo are v1 fed by hardware ArcadeInputBridge. AC2 — 9-value round-trip uses REAL InputInterpreter + real Tick; cross-mechanic check drives a REAL ApuntaMicrogame through all 8 directions; both pins discriminate (X/Y swap and dropped-diagonal both fail); convention double-pinned (±0.70710678 within 1e-6; magnitude-exactly-1). AC3 — both zero-alloc sensors byte-unmodified and strict; bridge allocates only at construction, For returns structs, no boxing. AC4 — both mechanics' existing test files absent from diff. Commit shape (tests-after) clean both directions: e4cfc4b production-only (type-name preservation verified), 347cbae test-side only. rev-t051 isolation verified: no Loop/ or Scoring/ files touched. Recurring HIGH-class sweep: nothing found."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T13:47:10.830Z",
+      "body": "CLOSED on rev-t046 APPROVE-WITH-NITS (0 HIGH). Review depth FULL; rubric inputs: tests-after tier but the diff touches core tdd-lineage mechanics surface (Apunta/Reacciona v2 input path — mandatory-FULL) and carries a cross-mechanic stick-convention change (Reacciona sign-pure -> NORMALIZED) requiring a repo-wide magnitude-consumer regression sweep, which the reviewer ran firsthand and found clean. Delivered: single shared Barcade.Core.Microgames.V2.InputBridge (e4cfc4b) with canonical NORMALIZED convention documented against GDD §1.3/§3.2, both per-mechanic nested copies deleted, both mechanics consuming it; regression locks 347cbae (9-value round-trip via real InputInterpreter, cross-mechanic real-Apunta pin, convention double-pinned, 6 locks). Suite 544/544 (538+6) verified firsthand by reviewer in a detached worktree. Zero-alloc sensors byte-unmodified and passing; AC4 honored (no existing-test edits). Dispositions: rev-t046 MEDIUM-1 (third nested sign-pure InputBridge copy inside SessionStateMachine — outside AC1's per-mechanic scope, correct sequencing to leave under rev-t051's open review) -> filed as TASK-053 (depends 046+051); LOW-1 (DirectionToUnit do-not-fold doc comment) -> carry-in rider on TASK-053; DirectionToUnit leave-alone ACCEPTED (input convention vs ballistics geometry — semantically independent, folding would couple trajectories to the input convention). [ASSUMED] normalized-stick convention remains on the human ratification list."
     }
   ],
   "created_at": "2026-07-07T05:31:16.070Z",
-  "updated_at": "2026-07-07T13:37:38.933Z",
+  "updated_at": "2026-07-07T13:47:10.830Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
