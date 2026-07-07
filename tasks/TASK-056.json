@@ -8,7 +8,7 @@
     "Tests (tdd tier) pin: idle-threshold crossing, payout exclusion for the idle round, resume behavior, and no regression to pot conservation or existing TASK-051/052 scoring pins.",
     "Fast suite green; any Framework/HUD signaling surface is scoped out or Unity-gated separately."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -22,7 +22,10 @@
     "TASK-024",
     "TASK-051"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "fd3ad8d",
+    "8fc43bb"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -34,10 +37,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T15:18:07.962Z",
       "body": "IMPLEMENTER NUANCE (from rev-t054b's TASK-054 audit, 2026-07-07): a HumanIdle value already exists on the SeatState enum (Core/.../Microgames/V2/SeatState.cs:12) and is referenced in PlayerRoster.cs:21 — but NOTHING anywhere assigns or transitions a seat into it. So the target state exists; this ticket supplies the missing detection+transition logic (per-seat last-activity tracking -> mark HumanIdle after the GDD threshold -> exclude from that round's payout). Reuse the existing enum value rather than inventing a new status; grep for existing HumanIdle references first to see what already branches on it (if anything). This also confirms the 'dead-seat detection missing' premise firsthand."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T19:51:17.762Z",
+      "body": "CLOSED (loop mode, auto_close_on_green_review). rev-t056 fresh-context review of 1296d42..8fc43bb → APPROVE, ZERO findings (0 HIGH/0 MEDIUM/0 LOW). Orchestrator INDEPENDENTLY ran the fast suite = 590 passed / 0 failed (582 + 8 dead-seat tests), zero regression. Depth FULL.\n\nCOMMITS: fd3ad8d (test: GENUINE BEHAVIORAL red — reviewer verified its SessionStateMachine.cs diff is EMPTY; the inert IdleTimeoutSeconds config field it carries only lets the tests compile, no marking behavior) → 8fc43bb (feat: green). Files: SessionStateMachine.cs (+129, detection/exclusion + LOW-2 doc), SessionStateMachineConfig.cs (+22, IdleTimeoutSeconds default 45f), SessionStateMachineTests.cs (+290, 8 tests). No new files, no csproj change.\n\nAC VERDICTS (all MET): AC1 45s→2700-tick threshold (SessionStateMachine.cs:322, cites GDD §3.2 l.224), pinned both sides (Human@2699/Idle@2700 + 30-tick window). AC2 competitive place-zeroing (:658-659) + coop PayoutEligibleSeatsMask() (:699) + resume-on-flanco (:882-885); tests assert {0,4,2,1} competitive, {0,4,4,4} coop, +6 R2 resume. AC3 pot-conservation test + TASK-051/052 pins green. AC4 Core-only, HUD via public Roster.Seats for a later Unity-gated ticket.\n\nPOT-CONSERVATION = HOLDS, with an IMPORTANT REVIEWER CORRECTION recorded: regular-round competitive payout is an ADDITIVE MINT (faucet), NOT a fixed-pot split — GDD l.224 says 'se excluye del reparto' (excluded), NOT 'redistribuido'. So the FAITHFUL behavior is pure WITHHOLDING of the idle seat's own mint (touches ONLY the excluded seat; other seats' places untouched → identical payouts). REDISTRIBUTING the idle share to others would be WRONG (invent coins / alter others' pay). The one true fixed-pot invariant (FINAL_WAGER) is entirely untouched — ActiveSeatsMask deliberately KEEPS idle seats for staking/podium; SessionWithIdleSeat test verifies Σshares==Pot + non-negative balances. TASK-051/052 pins hold LOGICALLY (exclusion reuses the pre-existing place-0=absent branch; PayoutEligibleSeatsMask ≡ ActiveSeatsMask when no seat is Idle).\n\nHumanIdle reuse confirmed (SeatState.cs:12, no new status); transition IN only Human→Idle during game states after threshold, OUT on any flanco (resume, never elimination); Bot/Empty never tracked; counters re-seeded at roster build (no stale cross-session state).\n\nRIDER: LOW-2 FIXED consistent (Coins doc :366 repointed at the real class-doc note at :96). LOW-4 deliberately SKIPPED, LEFT CONSISTENT (coop guard still ArgumentException byte-identical to TASK-052; throw+test mutually consistent — flipping to InvalidOperationException would force editing the pinned test in lockstep for a cosmetic change; correct per 'don't half-do it').\n\n[ASSUMED] RATIFICATION (all reviewer-judged ratify-OK; added to bundle list): (1) edge source = debounced button edge OR raw 8-way stick-direction change (stick-only move counts as activity); (2) IsGameState scope = BoardMove..Intermission + FinalWager/FinalMg, excl. Attract/Join/GameOver; (3) RESUME SAME-TICK, no same-round latch — a seat resuming one tick before MgResult IS paid that round (player-friendly; SOFT NEEDS-HUMAN one-line confirm — a designer might prefer a latch); (4) FINAL_WAGER staking unchanged for Idle seats (reparto-only exclusion; win-credit still uses rank.Place, inert since a silent seat won't rank #1); (5) HUD/View Idle signaling deferred (Unity-gated). Item (3) flagged to the human ratification list as the one worth confirming.\n\nReviewer offered an optional >=→> boundary mutation — already provided as evidence in the dev's hand-off (both threshold tests fail under it), so not re-run."
     }
   ],
   "created_at": "2026-07-07T14:53:30.632Z",
-  "updated_at": "2026-07-07T15:18:07.962Z",
+  "updated_at": "2026-07-07T19:51:17.762Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

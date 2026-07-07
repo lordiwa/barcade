@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T19:02:29.606Z",
+  "generated_at": "2026-07-07T19:51:17.762Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -334,7 +334,7 @@
     {
       "key": "TASK-056",
       "title": "Dead-seat detection (detección de puesto muerto): idle seat → Idle status, excluded from round payout",
-      "status": "todo",
+      "status": "done",
       "priority": "medium"
     },
     {
