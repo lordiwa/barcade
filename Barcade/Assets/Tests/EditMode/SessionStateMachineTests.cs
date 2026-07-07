@@ -58,6 +58,7 @@ namespace Barcade.Core.Tests
 
             public int TickCount { get; private set; }
             public bool InitializeCalled { get; private set; }
+            public float LastDifficultyMult { get; private set; } = float.NaN;
 
             public FakeMicrogame(int finishAfterTicks, V2Result? result = null)
             {
@@ -70,6 +71,7 @@ namespace Barcade.Core.Tests
             public void Initialize(SeededRandom rng, PlayerRoster roster, float difficultyMult)
             {
                 InitializeCalled = true;
+                LastDifficultyMult = difficultyMult;
                 _ticksSeen = 0;
             }
 
@@ -109,11 +111,23 @@ namespace Barcade.Core.Tests
             totalRounds: totalRounds,
             ticksPerSecond: 60);
 
+        /// <summary>
+        /// Claims all 4 seats so Join exits within its debounce-confirm window
+        /// regardless of the exact exit rule -- used by every test that just wants
+        /// to get PAST Join quickly to exercise some other state, not to test
+        /// Join's own mechanics (those use a bespoke <see cref="FakeInputs"/>
+        /// instance with precise per-seat control instead; see the "AC1: Join
+        /// semantics" tests below). Post-MEDIUM-1 (TASK-024 review fix round),
+        /// claiming only 2 seats would no longer exit Join quickly -- Join now
+        /// stays open until all 4 claim or the timeout elapses.
+        /// </summary>
         private static FakeInputs JoinReadyInputs()
         {
             var inputs = new FakeInputs();
             inputs.Set(PlayerSlot.Rojo, true);
             inputs.Set(PlayerSlot.Azul, true);
+            inputs.Set(PlayerSlot.Amarillo, true);
+            inputs.Set(PlayerSlot.Verde, true);
             return inputs;
         }
 
@@ -159,17 +173,67 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
-        public void Join_TwoReadyPlayers_AdvancesLongBeforeTimeout()
+        public void Join_TwoReadyPlayers_StaysOpenUntilAllFourOrTimeout()
         {
+            // MEDIUM-1 (TASK-024 review fix round, [ASSUMED] orchestrator ruling):
+            // reaching GDD §2.1's documented ">=2 listos" minimum used to close
+            // Join the instant it was reached, locking out seats 3/4 mid-claim.
+            // GDD §2.1's ">=2 listos" label is ambiguous between "the minimum to
+            // proceed" and "closes the window right then"; GDD §9.3 budgets up to
+            // 30s for color choice; and the social-cabinet premise makes the
+            // lockout the worst reading. Join now stays open with only 2 ready
+            // until either all 4 claim or the 30s timeout elapses (unchanged).
             var fsm = new SessionStateMachine(new SeededRandom(2), FastConfig(totalRounds: 1));
-            var inputs = JoinReadyInputs();
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, true);
+            inputs.Set(PlayerSlot.Azul, true);
             fsm.InsertCredit();
 
+            for (int t = 0; t < 100; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Join), "2 ready seats must not close Join early under the new semantics");
+            Assert.That(fsm.ReadyCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Join_ThirdAndFourthPlayerCanStillJoinAfterMinimumReached()
+        {
+            // MEDIUM-1 pin: a seat claiming AFTER the >=2 minimum is already
+            // reached must still register -- proves Join is genuinely still
+            // reading input, not just idling until the timeout.
+            var fsm = new SessionStateMachine(new SeededRandom(3), FastConfig(totalRounds: 1));
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, true);
+            inputs.Set(PlayerSlot.Azul, true);
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 10; t++) fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Join));
+            Assert.That(fsm.ReadyCount, Is.EqualTo(2));
+
+            // Amarillo claims after the minimum is already reached; held long
+            // enough to clear the 2-tick-confirm debounce.
+            inputs.Set(PlayerSlot.Amarillo, true);
+            for (int t = 10; t < 20; t++) fsm.Tick(inputs.Build(t));
+
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Join), "must still be open -- only 3 of 4 seats have claimed");
+            Assert.That(fsm.ReadyCount, Is.EqualTo(3), "the 3rd seat's claim after the minimum was reached must still register");
+        }
+
+        [Test]
+        public void Join_AllFourClaimed_AdvancesBeforeTimeout()
+        {
+            // MEDIUM-1 pin: the new early-exit condition (all 4 claimed).
+            var fsm = new SessionStateMachine(new SeededRandom(4), FastConfig(totalRounds: 1));
+            var inputs = JoinReadyInputs(); // claims all 4
+
+            fsm.InsertCredit();
             for (int t = 0; t < 10 && fsm.CurrentPhase == SessionPhase.Join; t++)
                 fsm.Tick(inputs.Build(t));
 
-            Assert.That(fsm.CurrentPhase, Is.Not.EqualTo(SessionPhase.Join), "2 ready seats must exit Join well before the 30s timeout");
-            Assert.That(fsm.ReadyCount, Is.EqualTo(2));
+            Assert.That(fsm.CurrentPhase, Is.Not.EqualTo(SessionPhase.Join), "all 4 seats claimed must advance well before the 30s timeout");
+            Assert.That(fsm.ReadyCount, Is.EqualTo(4));
         }
 
         // ── AC2: zero input, zero injection — still reaches GameOver ────────────
@@ -230,6 +294,25 @@ namespace Barcade.Core.Tests
             // own) — see SessionStateMachine's class doc for the [ASSUMED] reading.
             // This test pins the interpretation as implemented: input reaches the
             // active microgame in exactly these two states and nowhere else.
+            //
+            // LOW-3 (TASK-024 review fix round): checks every single tick's
+            // TickCount delta, not just a total-count match over the whole
+            // session -- a total-count match can hold even under a boundary
+            // off-by-one (forwarding one tick too early and missing one tick too
+            // late) as long as the over/under-count happens to cancel out.
+            //
+            // The exact per-tick predicate the implementation satisfies at both
+            // boundaries (verified by reading TickRoundSubLoop/TickFinalMg):
+            // MgPlay forwards on its entry tick -- the same tick CommandShow's
+            // duration elapses, since TickRoundSubLoop checks the inner phase
+            // *after* ticking the inner machine -- but NOT on its exit tick (the
+            // inner phase has already advanced to Result by the time that same
+            // check runs that tick). FinalMg forwards on both its entry AND exit
+            // ticks, since TickFinalMg always ticks the microgame unconditionally
+            // before checking whether this same tick also ends the round.
+            // postPhase==MgPlay (catches MgPlay's entry, misses its exit) OR
+            // prePhase==FinalMg (catches FinalMg's entry once dispatch has begun,
+            // and its exit) together match exactly.
             var fsm = new SessionStateMachine(new SeededRandom(5), FastConfig(totalRounds: 1));
             var fake = new FakeMicrogame(finishAfterTicks: int.MaxValue); // ceiling drives every transition, never self-finishes
             fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.05f);
@@ -237,19 +320,29 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            int expectedForwardedTicks = 0;
+            int forwardedTickCount = 0;
+            bool sawForwarding = false;
             bool loopedToAttract = false;
+            int previousTickCount = fake.TickCount;
             for (int t = 0; t < 5000 && !loopedToAttract; t++)
             {
-                bool shouldForward = fsm.CurrentPhase == SessionPhase.MgPlay || fsm.CurrentPhase == SessionPhase.FinalMg;
-                if (shouldForward) expectedForwardedTicks++;
+                SessionPhase prePhase = fsm.CurrentPhase;
                 fsm.Tick(inputs.Build(t));
-                if (t > 50 && fsm.CurrentPhase == SessionPhase.Attract) loopedToAttract = true;
+                SessionPhase postPhase = fsm.CurrentPhase;
+
+                bool shouldForward = postPhase == SessionPhase.MgPlay || prePhase == SessionPhase.FinalMg;
+                int delta = fake.TickCount - previousTickCount;
+                Assert.That(delta, Is.EqualTo(shouldForward ? 1 : 0),
+                    $"tick {t}: prePhase={prePhase}, postPhase={postPhase}, shouldForward={shouldForward}, but the microgame's TickCount changed by {delta}");
+                previousTickCount = fake.TickCount;
+
+                if (shouldForward) { sawForwarding = true; forwardedTickCount++; }
+                if (t > 50 && postPhase == SessionPhase.Attract) loopedToAttract = true;
             }
 
             Assert.That(loopedToAttract, Is.True, "test setup sanity: the probe must complete a full session");
-            Assert.That(expectedForwardedTicks, Is.GreaterThan(0), "test setup sanity: MgPlay/FinalMg must actually have been visited");
-            Assert.That(fake.TickCount, Is.EqualTo(expectedForwardedTicks), "the active microgame must be ticked in exactly the ticks where CurrentPhase was MgPlay or FinalMg, and never otherwise");
+            Assert.That(sawForwarding, Is.True, "test setup sanity: MgPlay/FinalMg forwarding must actually have been observed");
+            Assert.That(fake.TickCount, Is.EqualTo(forwardedTickCount), "running total must match too -- the per-tick checks above already prove it tick-by-tick");
         }
 
         [Test]
@@ -369,6 +462,112 @@ namespace Barcade.Core.Tests
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove), "must advance once the configured Intermission duration has elapsed");
         }
 
+        [Test]
+        public void MgIntro_ExactDuration_PinnedAgainstDistinctiveConfigValue()
+        {
+            // MEDIUM-2 (TASK-024 review fix round): MgIntro's timing is wired into
+            // the INNER RoundPhaseMachine's commandShowDuration constructor arg
+            // (see class doc); if that wiring were ever dropped, RoundPhaseMachine's
+            // own 1.0s default would silently take over and every OTHER existing
+            // test would still pass (none of them measured MgIntro's own exact tick
+            // count). A distinctive 7-tick value -- far from both GDD's exact 0.8s
+            // (48 ticks) and RoundPhaseMachine's 1.0s default (60 ticks) -- makes
+            // any such regression immediately obvious instead of silently passing.
+            var config = new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 7f / 60f, mgResultSeconds: 0.02f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.02f, gameOverSeconds: 0.02f,
+                totalRounds: 1, ticksPerSecond: 60);
+            var fsm = new SessionStateMachine(new SeededRandom(20), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 1);
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.02f);
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro));
+
+            // 7 ticks configured; assert it hasn't advanced 1 tick early.
+            for (int i = 0; i < 6; i++) fsm.Tick(inputs.Build(1000 + i));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "must not advance before the configured 7-tick MgIntro duration elapses");
+
+            fsm.Tick(inputs.Build(2000));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgPlay), "must advance exactly once the configured MgIntro duration has elapsed");
+        }
+
+        [Test]
+        public void MgResult_ExactDuration_PinnedAgainstDistinctiveConfigValue()
+        {
+            // MEDIUM-2 companion pin: MgResult's window is SessionStateMachine's
+            // own external timer (RoundPhaseMachine's Result phase is
+            // intentionally terminal, see class doc), armed with _config.MgResultSeconds
+            // directly rather than any RoundPhaseMachine default -- still worth an
+            // exact-tick pin against a distinctive value to guard against any
+            // future refactor introducing an off-by-one or reusing the wrong field.
+            var config = new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0.02f, mgResultSeconds: 9f / 60f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.02f, gameOverSeconds: 0.02f,
+                totalRounds: 1, ticksPerSecond: 60);
+            var fsm = new SessionStateMachine(new SeededRandom(21), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 1);
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.02f);
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
+
+            // 9 ticks configured; assert it hasn't advanced 1 tick early.
+            for (int i = 0; i < 8; i++) fsm.Tick(inputs.Build(1000 + i));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult), "must not advance before the configured 9-tick MgResult window elapses");
+
+            fsm.Tick(inputs.Build(2000));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission), "must advance exactly once the configured MgResult window has elapsed");
+        }
+
+        // ── T-108 seam: difficultyMult passthrough ────────────────────────────────
+
+        [Test]
+        public void SetActiveMicrogame_DifficultyMult_PassesThroughToInitialize()
+        {
+            // MEDIUM-3 (TASK-024 review fix round): difficultyMult now flows
+            // through SetActiveMicrogame (default 1f) instead of being hardcoded
+            // at the Initialize() call sites -- a seam for T-108's difficulty
+            // computation (SessionPhase.cs's own doc cites GDD §9.1's D_final=1.5x)
+            // to plug into without any further FSM change. A non-default value
+            // (2.5f, not 1f) proves genuine passthrough rather than a hardcoded
+            // constant that happens to equal the default.
+            var fsm = new SessionStateMachine(new SeededRandom(22), FastConfig(totalRounds: 1));
+            var fake = new FakeMicrogame(finishAfterTicks: int.MaxValue);
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.05f, difficultyMult: 2.5f);
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 100 && !fake.InitializeCalled; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fake.InitializeCalled, Is.True);
+            Assert.That(fake.LastDifficultyMult, Is.EqualTo(2.5f));
+        }
+
+        [Test]
+        public void SetActiveMicrogame_DifficultyMultDefault_Passes1f()
+        {
+            var fsm = new SessionStateMachine(new SeededRandom(23), FastConfig(totalRounds: 1));
+            var fake = new FakeMicrogame(finishAfterTicks: int.MaxValue);
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.05f); // difficultyMult omitted
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 100 && !fake.InitializeCalled; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fake.InitializeCalled, Is.True);
+            Assert.That(fake.LastDifficultyMult, Is.EqualTo(1f));
+        }
+
         // ── Result capture semantics ──────────────────────────────────────────────
 
         [Test]
@@ -428,6 +627,36 @@ namespace Barcade.Core.Tests
             Assert.That(fsm.LastMicrogameResult.HasValue, Is.False);
         }
 
+        [Test]
+        public void BeginRound_FlushCascadesDirectlyToResult_StillCapturesResult()
+        {
+            // LOW-1 (TASK-024 review fix round): mgIntroSeconds == 0 AND an
+            // effective play duration of 0 make BeginRound's Tick(0f) flush
+            // cascade straight through CommandShow and Play into Result within
+            // that same call, before TickRoundSubLoop ever gets a chance to run
+            // its own "just arrived at Result" capture. Without a matching capture
+            // inside BeginRound itself, LastMicrogameResult would silently keep
+            // whatever it was before this round (null, for a session's first
+            // round) even though the microgame reports a real result.
+            var config = new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0f, mgResultSeconds: 0.02f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.02f, gameOverSeconds: 0.02f,
+                totalRounds: 1, ticksPerSecond: 60);
+            var expected = new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 9);
+            var fsm = new SessionStateMachine(new SeededRandom(31), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 0, result: expected); // already finished the instant Initialize() runs
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0f); // 0 -> effectivePlayDuration is 0 too
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult), "test setup sanity: the 0-duration flush must cascade directly to MgResult");
+            Assert.That(fsm.LastMicrogameResult.HasValue, Is.True, "the flush-cascade path must still capture the result, not silently leave it at its previous value");
+            Assert.That(fsm.LastMicrogameResult.Value.CoopScore, Is.EqualTo(9));
+        }
+
         // ── FinalWager fixed window ───────────────────────────────────────────────
 
         [Test]
@@ -473,6 +702,13 @@ namespace Barcade.Core.Tests
             Assert.That(loopedToAttract, Is.True);
             Assert.That(fsm.ReadyCount, Is.EqualTo(0), "GameOver->Attract must reset ready-seat state for the next session");
             Assert.That(fsm.RoundIndex, Is.EqualTo(0), "GameOver->Attract must reset round index for the next session");
+
+            // LOW-2 (TASK-024 review fix round): the roster from THIS session
+            // (all 4 seats claimed, via JoinReadyInputs) must not leak into the
+            // next Attract cycle's pre-Join state.
+            Assert.That(fsm.Roster.Seats, Is.Not.Null, "Roster must be a valid (non-default) struct after reset, not a null-backed default");
+            for (int i = 0; i < 4; i++)
+                Assert.That(fsm.Roster.Seats[i], Is.EqualTo(SeatState.Empty), $"seat {i} must be cleared to Empty after GameOver->Attract, not still carry the previous session's claim");
         }
 
         // ── AC6 is verified by the full suite run (RoundPhaseMachine untouched) ──
