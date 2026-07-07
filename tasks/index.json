@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T13:17:57.702Z",
+  "generated_at": "2026-07-07T13:29:01.626Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -274,7 +274,7 @@
     {
       "key": "TASK-046",
       "title": "Consolidate the duplicated v2 InputBridge (Reacciona/Apunta) into shared V2 infrastructure",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     },
     {
@@ -304,7 +304,7 @@
     {
       "key": "TASK-051",
       "title": "Wire ScoringV2 into the session loop: FINAL_WAGER choice capture + SessionCounters feeds from mechanics",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "high"
     }
   ]

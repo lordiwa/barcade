@@ -8,7 +8,7 @@
     "GAME_OVER ranks via FinalRanking (estrellas -> monedas -> victorias -> shared podium) using the drawn bonus stars; deterministic replay test through the full FSM path",
     "Tests-first for the FSM-visible behavior; fast suite green, no regression"
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -25,9 +25,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "developer",
+      "at": "2026-07-07T13:27:43.261Z",
+      "body": "Delivered tests-first on master by dev-t101: 2c44d2a test(core) red (8 tests; compile-red CS1061 on every new public member, captured by temporarily reverting SessionStateMachine.cs to d652d73 state and running the suite; restored before the next commit) -> 0d1b052 feat(core). Suite 530 -> 538/538; all 23 pre-existing SessionStateMachineTests pass UNMODIFIED despite a substantial rewrite. AC1: FinalWager reads the machine's own InputInterpreter (the T-101 seam's second consumer, as designed); [ASSUMED] gesture mapping Left=25/Up=50/Right=75, Down unused (GDD 6.2 names no directions; 3 choices on 4 cardinals, double-mapping rejected as less honest); choice sticky per seat across neutral ticks (tracked in the FSM — the interpreter reports only current-tick direction); pot resolution once on FinalMg completion, pinned two ways (exact stakes through the FSM + field-by-field match vs an independent FinalWager.Resolve call). AC2: Gatillo = only real counter feed today (Reacciona is the only v2 mechanic with a latency-shaped Metric); MicrogameWins fed (competitive place-1 or coop success, climax included; the FinalRanking tiebreak); Kamikaze/Cangreja/Inversora/Fantasma unfed ([ASSUMED], board-tile-driven, TASK-042 territory); Zen unfed ([ASSUMED], pending the human GDD line-496 fix) — all sit at honest zero/tied defaults. AC3: BonusStarDraw + FinalRanking wired, pinned by independently recomputing Rank from the FSM's own stars/coins/wins. Determinism: full attract->game-over replay with wager gestures, two runs compared exactly. TWO JUDGMENT CALLS FLAGGED: (1) baseStars always 0 — GDD 5.3's pre-bonus star sources are board-tile events, BoardModel still a stub; documented prominently, honest zero baseline until Hito 4; does not weaken the exclusion rule (TASK-037 tests cover varied baseStars). (2) SCOPE ADDITION: regular (non-climax) rounds apply PayoutRules' GDD-DEFAULT tables (6/4/2/1 competitive, 4/1 coop) — without it Coins stay zero and FINAL_WAGER's pot is trivially degenerate, hollowing AC1; no per-definition payoutTable is threaded through IMicrogame/SetActiveMicrogame yet. ALSO: BonusStarDraw's seed derived by consuming the FIRST draw from the constructor's SeededRandom at construction (before any microgame touches it) — kept the constructor signature unchanged, zero call-site churn."
+    }
+  ],
   "created_at": "2026-07-07T12:42:00.283Z",
-  "updated_at": "2026-07-07T13:10:51.279Z",
+  "updated_at": "2026-07-07T13:27:43.753Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
