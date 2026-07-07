@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T22:42:30.665Z",
+  "generated_at": "2026-07-07T22:45:05.295Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -226,7 +226,7 @@
     {
       "key": "TASK-038",
       "title": "GDD T-110 — Sistema de bots: IBotPolicy + 3 calibraciones + arnés de tests estadísticos (Annex D.3)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
