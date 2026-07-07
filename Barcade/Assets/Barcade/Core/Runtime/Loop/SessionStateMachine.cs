@@ -1,4 +1,5 @@
 using System;
+using Barcade.Core.Scoring;
 using V2 = Barcade.Core.Microgames.V2;
 
 namespace Barcade.Core
@@ -53,29 +54,105 @@ namespace Barcade.Core
     /// current — the GDD §2.1 invariant "MG_PLAY es el único estado donde las
     /// mecánicas leen input de juego." Every other state reads input only through
     /// this machine's own private <see cref="InputInterpreter"/> (press edges for
-    /// Join's color-claim; no other state currently needs "confirmation taps" —
-    /// BoardMove/BoardResolve are timer-only stubs and FinalWager is a fixed
-    /// window, see each state's own notes below). ATTRACT reads no player input at
-    /// all — it advances only via <see cref="InsertCredit"/>, a control-plane call
-    /// modeling the GDD's "moneda/crédito" trigger, not one of §3.1's four
-    /// universal gestures.
+    /// Join's color-claim; stick direction for FinalWager's stake choice — see
+    /// below). ATTRACT reads no player input at all — it advances only via
+    /// <see cref="InsertCredit"/>, a control-plane call modeling the GDD's
+    /// "moneda/crédito" trigger, not one of §3.1's four universal gestures.
     /// </para>
     ///
     /// <para>
     /// <b>InputInterpreter ownership (T-101 note applies here).</b> This machine
-    /// owns one long-lived <see cref="InputInterpreter"/> for its own needs
-    /// (currently just Join) and calls its <c>Reset()</c> exactly once, on entering
-    /// MgIntro (and the FinalMg-equivalent entry) — the natural home T-101 always
-    /// intended for that call, finally wired up for real. This is or independent of
-    /// each v2 microgame's own private InputInterpreter (ReaccionaMicrogame /
-    /// ApuntaMicrogame each still build their own, a decision from TASK-025/026 that
-    /// is NOT revisited here) — resetting this machine's interpreter cannot affect
+    /// owns one long-lived <see cref="InputInterpreter"/> for its own needs (Join,
+    /// FinalWager) and calls its <c>Reset()</c> exactly once, on entering MgIntro
+    /// (and the FinalMg-equivalent entry) — the natural home T-101 always intended
+    /// for that call, finally wired up for real. This is independent of each v2
+    /// microgame's own private InputInterpreter (ReaccionaMicrogame/ApuntaMicrogame
+    /// each still build their own, a decision from TASK-025/026 that is NOT
+    /// revisited here) — resetting this machine's interpreter cannot affect
     /// theirs; it only prevents this machine's OWN accumulated state (e.g. a
-    /// still-held Join button) from misreading as a confirmation tap in whatever
-    /// state comes next. A future ticket that hoists ONE shared InputInterpreter
-    /// across the whole session (handed to microgames instead of each building
-    /// their own) would reset THIS SAME instance at THIS SAME point — the seam is
-    /// already in the right place.
+    /// still-held Join button) from misreading as a confirmation gesture in
+    /// whatever state comes next. FinalWager (TASK-051) is exactly the SECOND
+    /// interpreter-reading state this seam was built for.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>[ASSUMED] FinalWager gesture mapping (TASK-051, GDD §6.2 "elección con
+    /// palanca" — no directions specified).</b> Left = 25% (<see cref="WagerChoice.Quarter"/>),
+    /// Up = 50% (<see cref="WagerChoice.Half"/>), Right = 75%
+    /// (<see cref="WagerChoice.ThreeQuarters"/>) — a left-to-right low-to-high
+    /// reading, Up as the natural "default/neutral middle" position. Down is a
+    /// no-op (only 3 choices exist for 4 cardinal directions; forcing a double
+    /// mapping felt less honest than leaving one direction unused). Whichever
+    /// direction a seat last held (collapsed-cardinal, sticky across neutral
+    /// ticks — same "last confirmed gesture" idea as <c>InputInterpreter</c>'s own
+    /// diagonal-collapse hysteresis, tracked here per seat since the interpreter
+    /// itself only reports the CURRENT tick's collapsed direction) is that seat's
+    /// choice when the 5s window closes; a seat that never picks one resolves to
+    /// <see cref="FinalWager.DefaultChoice"/> (its own [ASSUMED] timeout default,
+    /// Half — <see cref="FinalWager.Resolve"/>'s null-choice path).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>[ASSUMED] Regular-round payout application (TASK-051).</b> Every
+    /// completed regular round (not the climax — see below) applies
+    /// <see cref="PayoutRules.DefaultCompetitive"/>/<see cref="PayoutRules.DefaultCoopSuccess"/>/
+    /// <see cref="PayoutRules.DefaultCoopFail"/> to <see cref="Coins"/> based on
+    /// the round's <see cref="V2.MicrogameResult.Kind"/>. GDD §6.1 describes these
+    /// as the payout DEFAULTS; a real per-definition <c>payoutTable</c> (TASK-030
+    /// content) isn't threaded through <see cref="V2.IMicrogame"/>/<see cref="SetActiveMicrogame"/>
+    /// yet, so this uses the GDD defaults rather than leaving coins permanently at
+    /// zero — without SOME accumulation, FINAL_WAGER (AC1) would only ever have a
+    /// zero pot to test against. Flagged for reviewer confirmation; the real fix
+    /// (reading the active definition's own table) is a follow-up once content is
+    /// threaded through. Coop's payout counts as a win for every active seat when
+    /// it succeeds (no individual place makes sense for a shared outcome);
+    /// competitive places 1 count as a win for whoever holds them (ties share the
+    /// credit, matching every other competition-ranking convention in this
+    /// codebase). The CLIMAX round is exempt from this per-round payout (its
+    /// outcome feeds <see cref="FinalWager"/> instead, GDD §6.2) but still counts
+    /// toward <see cref="V2.MicrogameId.Reacciona"/> latency samples and win
+    /// counts — a microgame win is a microgame win regardless of which round it
+    /// happened in.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>[ASSUMED] SessionCounters real feeds vs stubs (TASK-051, AC2).</b> Only
+    /// <see cref="StarKind.Gatillo"/> (REACCIONA mean latency) and the
+    /// <see cref="FinalRanking"/> <c>microgameWins</c> tiebreak have a real,
+    /// currently-implemented source system to feed from — every v2 mechanic today
+    /// (ReaccionaMicrogame, ApuntaMicrogame) is a scored, ranked minigame with no
+    /// "elimination," "weapon," "investment," or "robbed" concept of its own.
+    /// <see cref="StarKind.Kamikaze"/> (eliminations) and <see cref="StarKind.Cangreja"/>/
+    /// <see cref="StarKind.Inversora"/>/<see cref="StarKind.Fantasma"/> (arsenal/
+    /// investment/robbery, GDD §5.3/§5.4) are BOARD-tile-driven — BoardModel is
+    /// still a pass-through stub (Hito 4, T-113/TASK-042 territory) — so those
+    /// three <see cref="SessionCounters"/> methods are never called here; they
+    /// stay correctly at their zero/tied default until a future ticket wires real
+    /// board events. <see cref="StarKind.Zen"/> stays unfed too, pending the human
+    /// GDD fix for its truncated table row (see <c>SessionCounters.RecordZenMetric</c>'s
+    /// own doc). Bonus-star baseStars (the per-seat count BEFORE the Game Over
+    /// reveal) are likewise always 0 here for the same reason: GDD §5.3's only
+    /// described pre-bonus star sources (Inversión tile ownership payouts,
+    /// buying the Estrella tile) are both board-tile events. None of this weakens
+    /// <see cref="BonusStarDraw"/>'s own exclusion-rule correctness (already
+    /// covered by TASK-037's tests against varied baseStars) — it just means every
+    /// session plays out with an honest, currently-true zero baseline until Hito
+    /// 4 wires the board.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Scoring seed derivation.</b> <see cref="BonusStarDraw.Draw"/> (and, via
+    /// GDD §13 stream derivation, everything else that reads from
+    /// <see cref="RngStream.Draws"/>) takes an explicit <c>int sessionSeed</c> —
+    /// the same shape <see cref="Sequencer.V2.MicrogameSelector"/> already uses,
+    /// deliberately NOT the <see cref="SeededRandom"/> object handed to
+    /// microgames' own <c>Initialize</c> calls (whose internal state keeps
+    /// advancing round to round). This machine derives one, once, at
+    /// construction — <c>rng.NextInt(int.MinValue, int.MaxValue)</c>, the very
+    /// FIRST draw ever taken from the constructor's <paramref name="rng"/>,
+    /// before any microgame ever touches it — so it's fully deterministic from
+    /// the same construction seed without adding a second constructor parameter
+    /// or consuming randomness at an unpredictable point later in the session.
     /// </para>
     ///
     /// <para>
@@ -130,10 +207,11 @@ namespace Barcade.Core
     /// </para>
     ///
     /// Pure C# — no UnityEngine dependency. C# 9 compatible. Zero heap allocation in
-    /// steady-state <see cref="Tick"/> — the one exception is the per-seat roster
-    /// array built exactly once, at the Join-&gt;BoardMove transition (a once-per-
-    /// session event, not a per-tick cost — consistent with how <c>GetResult()</c>
-    /// elsewhere in this codebase also allocates once per round, not per tick).
+    /// steady-state <see cref="Tick"/> — the exceptions are the per-seat roster
+    /// array built once at the Join-&gt;BoardMove transition, and the small
+    /// fixed-size arrays <see cref="FinalWager.Resolve"/>/<see cref="BonusStarDraw.Draw"/>/
+    /// <see cref="FinalRanking.Rank"/> allocate once at FinalMg completion — both
+    /// once-per-session events, not a per-tick cost.
     /// </summary>
     public sealed class SessionStateMachine
     {
@@ -144,6 +222,7 @@ namespace Barcade.Core
 
         private readonly SessionStateMachineConfig _config;
         private readonly SeededRandom _rng;
+        private readonly int _scoringSeed;
         private readonly InputInterpreter _interpreter;
         private readonly InputBridge _inputBridge = new InputBridge();
         private readonly RoundPhaseMachine _roundMachine;
@@ -164,11 +243,22 @@ namespace Barcade.Core
         private float _activeDifficultyMult = 1f;
         private V2.MicrogameResult? _lastResult;
 
+        private SessionCounters _counters = new SessionCounters();
+        private int[] _coins = new int[4];
+        private readonly int[] _microgameWins = new int[4];
+        private readonly WagerChoice?[] _wagerChoice = new WagerChoice?[4];
+        private WagerResult _lastWagerResult;
+        private BonusStarResult _lastBonusStars;
+        private int[] _finalPlaces;
+
         public SessionStateMachine(SeededRandom rng, SessionStateMachineConfig? config = null)
         {
             if (rng == null) throw new ArgumentNullException(nameof(rng));
 
             _rng = rng;
+            // See class doc "Scoring seed derivation": the very first draw ever
+            // taken from rng, deterministic, before any microgame touches it.
+            _scoringSeed = _rng.NextInt(int.MinValue, int.MaxValue);
             _config = config ?? SessionStateMachineConfig.GddDefaults;
             _interpreter = new InputInterpreter(InputInterpreterConfig.GddDefaults);
             _roundMachine = new RoundPhaseMachine(
@@ -195,6 +285,24 @@ namespace Barcade.Core
         /// the FinalMg-equivalent completion) is reached.
         /// </summary>
         public V2.MicrogameResult? LastMicrogameResult => _lastResult;
+
+        /// <summary>Per-seat coins: payout accumulation through the round loop, then post-wager totals from FinalMg onward. See class doc for the [ASSUMED] default-payout note.</summary>
+        public int[] Coins => _coins;
+
+        /// <summary>Per-seat completed-microgame win counts this session (competitive place 1, or every active seat on a coop success) — the <see cref="FinalRanking"/> tiebreak source.</summary>
+        public int[] MicrogameWins => _microgameWins;
+
+        /// <summary>The tracked hidden-objective counters behind the GDD §6.3 bonus stars — see class doc for which are real feeds vs stubs today.</summary>
+        public SessionCounters Counters => _counters;
+
+        /// <summary>Set once FinalMg completes (GDD §6.2 pot resolution); null before then.</summary>
+        public WagerResult LastWagerResult => _lastWagerResult;
+
+        /// <summary>Set once FinalMg completes (GDD §6.3 bonus-star reveal); null before then.</summary>
+        public BonusStarResult LastBonusStarResult => _lastBonusStars;
+
+        /// <summary>The GDD §6.3 final podium (estrellas -> monedas -> victorias -> shared podium), 1..4 per seat / 0 if absent. Set once FinalMg completes; null before then.</summary>
+        public int[] FinalPlaces => _finalPlaces;
 
         /// <summary>A per-tick, serializable snapshot for replay/determinism comparisons — see <see cref="SessionStateSnapshot"/>.</summary>
         public SessionStateSnapshot Snapshot() => new SessionStateSnapshot(_tick, _phase, _roundIndex, _readyCount);
@@ -281,14 +389,12 @@ namespace Barcade.Core
                         if (_roundIndex < _config.TotalRounds)
                             EnterSimplePhase(SessionPhase.BoardMove);
                         else
-                            EnterSimplePhase(SessionPhase.FinalWager);
+                            BeginFinalWager();
                     }
                     break;
 
                 case SessionPhase.FinalWager:
-                    _phaseElapsed += dt;
-                    if (_phaseElapsed >= _config.FinalWagerSeconds)
-                        BeginFinalMg();
+                    TickFinalWager(dt);
                     break;
 
                 case SessionPhase.FinalMg:
@@ -366,21 +472,71 @@ namespace Barcade.Core
             // chance to run for this round, so without this check LastMicrogameResult
             // would silently keep whatever it was before this round.
             if (_roundMachine.CurrentPhase == PhaseKind.Result)
-                CaptureResult();
+                CaptureResult(isClimax: false);
         }
 
         /// <summary>
         /// Captures <see cref="_lastResult"/> from the active microgame if it
         /// genuinely finished, else leaves it null — shared by
         /// <see cref="TickRoundSubLoop"/>'s normal "just arrived at Result"
-        /// transition and <see cref="BeginRound"/>'s same-call flush-to-Result
-        /// edge case (LOW-1), so both paths capture identically.
+        /// transition, <see cref="BeginRound"/>'s same-call flush-to-Result edge
+        /// case (LOW-1), and <see cref="TickFinalMg"/>'s climax completion, so
+        /// every path captures identically.
+        ///
+        /// Also (TASK-051): feeds <see cref="_microgameWins"/> and whichever
+        /// <see cref="SessionCounters"/> have a real source today (currently just
+        /// Gatillo's REACCIONA latency — see class doc), and, for regular rounds
+        /// only (<paramref name="isClimax"/> false), applies the [ASSUMED] default
+        /// payout to <see cref="Coins"/>.
         /// </summary>
-        private void CaptureResult()
+        private void CaptureResult(bool isClimax)
         {
             _lastResult = _activeMicrogame != null && _activeMicrogame.IsFinished
                 ? _activeMicrogame.GetResult()
                 : (V2.MicrogameResult?)null;
+
+            if (!_lastResult.HasValue) return; // ceiling cutoff without a legitimate finish: no counters, no payout, no wins credit
+
+            V2.MicrogameResult result = _lastResult.Value;
+
+            if (result.Kind == V2.ResultKind.Ranked)
+            {
+                for (int i = 0; i < result.Ranks.Length; i++)
+                {
+                    V2.PlayerRank rank = result.Ranks[i];
+                    if (rank.Place == 1) _microgameWins[rank.Seat]++;
+
+                    // Only REACCIONA's Metric is a documented latency-shaped value
+                    // today (cumulative tick-latency, see ReaccionaMicrogame.GetResult) —
+                    // no other v2 mechanic's Metric has a counters mapping yet.
+                    if (_activeMicrogame.Id == V2.MicrogameId.Reacciona)
+                    {
+                        float milliseconds = rank.Metric * (1000f / _config.TicksPerSecond);
+                        _counters.RecordReaccionaLatency(rank.Seat, milliseconds);
+                    }
+                }
+
+                if (!isClimax)
+                {
+                    var places = new int[4];
+                    for (int i = 0; i < result.Ranks.Length; i++)
+                        places[result.Ranks[i].Seat] = result.Ranks[i].Place;
+                    PayoutRules.ApplyCompetitive(_coins, places, PayoutRules.DefaultCompetitive);
+                }
+            }
+            else
+            {
+                bool success = result.Kind == V2.ResultKind.CoopSuccess;
+                if (success)
+                    for (int i = 0; i < AllSlots.Length; i++)
+                        if (_roster.IsActive(AllSlots[i])) _microgameWins[i]++;
+
+                if (!isClimax)
+                {
+                    int payout = success ? PayoutRules.DefaultCoopSuccess : PayoutRules.DefaultCoopFail;
+                    PayoutRules.ApplyCoop(_coins, success, payout, ActiveSeatsMask());
+                }
+            }
         }
 
         private void TickRoundSubLoop(in V2.InputSnapshot input, float dt)
@@ -398,7 +554,7 @@ namespace Barcade.Core
                 // intentionally terminal, so arm our own external result-window
                 // timer and capture the outcome exactly once (see class doc).
                 _phaseElapsed = 0f;
-                CaptureResult();
+                CaptureResult(isClimax: false);
             }
 
             _phase = mapped;
@@ -408,6 +564,42 @@ namespace Barcade.Core
                 _phaseElapsed += dt;
                 if (_phaseElapsed >= _config.MgResultSeconds)
                     EnterSimplePhase(SessionPhase.Intermission);
+            }
+        }
+
+        private void BeginFinalWager()
+        {
+            for (int i = 0; i < 4; i++) _wagerChoice[i] = null;
+            EnterSimplePhase(SessionPhase.FinalWager);
+        }
+
+        /// <summary>
+        /// GDD §6.2's 5s stake-choice window — see class doc for the [ASSUMED]
+        /// gesture mapping. Reads this machine's own InputInterpreter (T-101's
+        /// forward-looking seam), same as Join's color-claim.
+        /// </summary>
+        private void TickFinalWager(float dt)
+        {
+            for (int i = 0; i < AllSlots.Length; i++)
+            {
+                if (!_roster.IsActive(AllSlots[i])) continue;
+                WagerChoice? mapped = MapCardinalToWagerChoice(_interpreter.CollapsedCardinal(AllSlots[i]));
+                if (mapped.HasValue) _wagerChoice[i] = mapped;
+            }
+
+            _phaseElapsed += dt;
+            if (_phaseElapsed >= _config.FinalWagerSeconds)
+                BeginFinalMg();
+        }
+
+        private static WagerChoice? MapCardinalToWagerChoice(CardinalDir dir)
+        {
+            switch (dir)
+            {
+                case CardinalDir.Left: return WagerChoice.Quarter;
+                case CardinalDir.Up: return WagerChoice.Half;
+                case CardinalDir.Right: return WagerChoice.ThreeQuarters;
+                default: return null; // Down and None/neutral are no-ops (see class doc)
             }
         }
 
@@ -430,9 +622,47 @@ namespace Barcade.Core
 
             if (microgameDone || ceilingHit)
             {
-                _lastResult = microgameDone ? _activeMicrogame.GetResult() : (V2.MicrogameResult?)null;
+                CaptureResult(isClimax: true);
+                FinishSessionScoring();
                 EnterSimplePhase(SessionPhase.GameOver);
             }
+        }
+
+        /// <summary>
+        /// GDD §6.2 pot resolution (AC1) then §6.3 bonus-star reveal + final
+        /// ranking (AC3), run once, right after the climax's result is captured.
+        /// </summary>
+        private void FinishSessionScoring()
+        {
+            var climaxPlaces = new int[4];
+            if (_lastResult.HasValue && _lastResult.Value.Kind == V2.ResultKind.Ranked)
+            {
+                V2.PlayerRank[] ranks = _lastResult.Value.Ranks;
+                for (int i = 0; i < ranks.Length; i++)
+                    climaxPlaces[ranks[i].Seat] = ranks[i].Place;
+            }
+            // else: the climax never finished legitimately, or (shouldn't happen —
+            // SelectFinalRound is competitive by design) reported a non-ranked
+            // result. [ASSUMED] leave every seat unplaced (0): the wager becomes a
+            // no-op (nobody stakes or receives a share) — the safest fallback for
+            // a degenerate case, consistent with this FSM's general "never block
+            // or corrupt state on an absent/incomplete result" stance.
+
+            _lastWagerResult = FinalWager.Resolve(_coins, _wagerChoice, climaxPlaces);
+            _coins = _lastWagerResult.CoinsAfter;
+
+            int mask = ActiveSeatsMask();
+            var baseStars = new int[4]; // [ASSUMED] always 0 today — see class doc
+            _lastBonusStars = BonusStarDraw.Draw(_scoringSeed, _counters, baseStars, _coins, _microgameWins, mask);
+            _finalPlaces = FinalRanking.Rank(_lastBonusStars.StarsAfter, _coins, _microgameWins, mask);
+        }
+
+        private int ActiveSeatsMask()
+        {
+            int mask = 0;
+            for (int i = 0; i < AllSlots.Length; i++)
+                if (_roster.IsActive(AllSlots[i])) mask |= 1 << i;
+            return mask;
         }
 
         private void ResetToAttract()
@@ -446,6 +676,18 @@ namespace Barcade.Core
             // during the fresh Attract cycle, before Join runs again. SeatState.Empty
             // == 0, so a freshly allocated array is already all-Empty.
             _roster = new V2.PlayerRoster(new V2.SeatState[4]);
+
+            // TASK-051: clear every scoring/wager artifact too, or a fresh
+            // session's Attract/Join cycle would still read back the PREVIOUS
+            // session's coins/wins/counters/wager/podium before its own Join
+            // even completes.
+            _counters = new SessionCounters();
+            _coins = new int[4];
+            for (int i = 0; i < 4; i++) { _microgameWins[i] = 0; _wagerChoice[i] = null; }
+            _lastWagerResult = null;
+            _lastBonusStars = null;
+            _finalPlaces = null;
+
             EnterSimplePhase(SessionPhase.Attract);
         }
 
