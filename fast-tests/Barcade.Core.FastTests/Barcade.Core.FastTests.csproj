@@ -65,6 +65,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ScoringV2Tests.cs" />
     <!-- TASK-046: shared v2 InputBridge (extracted from Reaccion/Apunta's private copies) -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputBridgeTests.cs" />
+    <!-- TASK-045: MicrogameContentGenerator.Specs duration regression lock -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameContentGeneratorSpecsTests.cs" />
   </ItemGroup>
 
 </Project>
