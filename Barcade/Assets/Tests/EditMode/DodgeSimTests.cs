@@ -76,12 +76,51 @@ namespace Barcade.Core.Tests
             Assert.That(sim.PlayerX, Is.EqualTo(startX + 4f).Within(1e-4f));
         }
 
+        // ── Diagonal input is normalised — no speed bonus (regression lock) ─────────
+
+        [Test]
+        public void Tick_DiagonalInput_NormalisedToPlayerSpeed()
+        {
+            // LOCK of existing behaviour: DodgeSim already normalises diagonal input
+            // (DodgeSim.cs:392-393 — `if (mag > 1f) { inputX /= mag; inputZ /= mag; }`).
+            // Full-tilt on BOTH axes (inputX=1, inputZ=1) for 1 s must advance the player
+            // exactly playerSpeed along the diagonal — NOT playerSpeed * sqrt(2).
+            var arena = SolidArena(n: 9);
+            const float speed = 5f;
+            var sim = new DodgeSim(arena,
+                obstacleCount:    0,
+                playerSpeed:      speed,
+                survivalDuration: 9999f);
+            sim.SetForcedPlayerStart(4.5f, 4.5f);
+            sim.Restart();
+
+            float startX = sim.PlayerX;
+            float startZ = sim.PlayerZ;
+
+            sim.Tick(1f, 1f, 1f); // full diagonal for one second
+
+            float dx  = sim.PlayerX - startX;
+            float dz  = sim.PlayerZ - startZ;
+            float mag = MathF.Sqrt(dx * dx + dz * dz);
+
+            // Net displacement magnitude == playerSpeed. Would be speed*sqrt(2) ≈ 7.07 if
+            // normalisation were removed — this assertion is what fails in that mutant.
+            Assert.That(mag, Is.EqualTo(speed).Within(1e-4f),
+                "diagonal input must be normalised: |displacement| == playerSpeed, not playerSpeed*sqrt(2)");
+            // Each axis carries an equal share of speed / sqrt(2).
+            Assert.That(dx, Is.EqualTo(speed / MathF.Sqrt(2f)).Within(1e-4f), "X share of the diagonal");
+            Assert.That(dz, Is.EqualTo(speed / MathF.Sqrt(2f)).Within(1e-4f), "Z share of the diagonal");
+            // Sanity: player stays on the solid grid (no fall confound).
+            Assert.That(sim.State, Is.EqualTo(DodgeState.Playing));
+        }
+
         // ── Player fall detection ─────────────────────────────────────────────────
 
         [Test]
         public void PlayerFall_WhenOnFallenTile_StateLost()
         {
-            // Arena n=3, grace=0 so ring 0 falls immediately after first tick.
+            // Arena n=3, graceDelay=0.5s: ring 0 collapses only once the arena is ticked
+            // past that delay (arena.Tick(1f) below) — not immediately on the first tick.
             var arena = new GridArena(n: 3, graceDelay: 0.5f, collapseInterval: 1f);
             var sim   = new DodgeSim(arena,
                 obstacleCount:    0,
@@ -150,6 +189,11 @@ namespace Barcade.Core.Tests
         {
             var arena = SolidArena();
             // dist = 0.6 == contactRadius = 0.6 → at the edge, in contact.
+            // Float-boundary/epsilon note: (5.1f - 4.5f) evaluates to ~0.59999999, which
+            // is <= 0.6f, so the inclusive `dist <= _contactRadius` test (DodgeSim.cs:443)
+            // classifies this exact-radius case as contact. The comparison is inclusive by
+            // design and the sub-epsilon float result keeps it on the "in contact" side —
+            // do not tighten the operator to `<` or this boundary case would flip.
             var sim = OneObstacleSim(arena,
                 px: 4.5f, pz: 4.5f,
                 ox: 5.1f, oz: 4.5f,
@@ -421,21 +465,48 @@ namespace Barcade.Core.Tests
         public void Jump_RecoverBackInside_LandOnSolidSurvives()
         {
             var arena = new GridArena(n: 9, graceDelay: 0.1f, collapseInterval: 9999f);
-            arena.Tick(0.5f); // ring 0 collapses
+            arena.Tick(0.5f); // ring 0 collapses → cell (0,0) is void
 
-            // Player on ring-0 void cell; speed high enough to reach ring-2 in 0.6 s.
+            // Player on the ring-0 void cell; speed high enough to reach a solid inner
+            // ring within the 0.6 s jump window.
             var sim = new DodgeSim(arena,
                 obstacleCount: 0, playerSpeed: 4f, survivalDuration: 9999f);
             sim.SetForcedPlayerStart(0.5f, 0.5f);
             sim.Restart();
 
             sim.RequestJump();
-            // Steer diagonally toward centre; 4 * 0.6 / √2 ≈ 1.7 units each axis
-            // → lands at ~(2.2, 2.2), cell (2, 2), ring 2 for n=9 — solid.
-            sim.Tick(0.6f, 1f, 1f);
 
+            // Sub-step the jump so intermediate airborne frames are actually sampled. A
+            // single 0.6 s Tick only ever checks the FINAL landing cell (mid-flight
+            // positions are never inspected), so that path passes even with fall-immunity
+            // removed. Stepping with small dt keeps the player over the collapsed ring-0
+            // cell for the first frame while airborne, genuinely exercising the immunity.
+            sim.Tick(0.1f, 1f, 1f); // frame 1: still over the void cell, mid-jump
+            int cx = (int)MathF.Floor(sim.PlayerX);
+            int cz = (int)MathF.Floor(sim.PlayerZ);
+            Assert.That(arena.IsSolid(cx, cz), Is.False,
+                "frame 1: player is over the collapsed (void) ring-0 cell");
+            Assert.That(sim.IsAirborne, Is.True, "frame 1: still mid-jump");
             Assert.That(sim.State, Is.EqualTo(DodgeState.Playing),
-                "land on solid after flying over void edge → survive");
+                "airborne over the void edge → immune; THIS frame would Lost(Fell) without jump immunity");
+
+            // Frames 2-5: keep flying inward, still airborne (ground checks suppressed).
+            for (int i = 2; i <= 5; i++)
+            {
+                sim.Tick(0.1f, 1f, 1f);
+                Assert.That(sim.IsAirborne, Is.True, $"frame {i}: still mid-jump");
+                Assert.That(sim.State, Is.EqualTo(DodgeState.Playing), $"frame {i}: still immune");
+            }
+
+            // Final step lands: the jump timer clamps to 0 (0.1 - 0.2 < 0), so the landing
+            // frame runs the ground check — now on a solid inner-ring cell → survive.
+            sim.Tick(0.2f, 1f, 1f);
+            Assert.That(sim.IsAirborne, Is.False, "landed: jump timer expired");
+            int lcx = (int)MathF.Floor(sim.PlayerX);
+            int lcz = (int)MathF.Floor(sim.PlayerZ);
+            Assert.That(arena.IsSolid(lcx, lcz), Is.True, "landed on a solid cell");
+            Assert.That(sim.State, Is.EqualTo(DodgeState.Playing),
+                "landed on solid after flying over the void edge → survive");
         }
 
         // ── Jump: landing on void still triggers fall ─────────────────────────────
@@ -546,6 +617,60 @@ namespace Barcade.Core.Tests
             Assert.That(sim.JumpProgress01, Is.EqualTo(0f).Within(1e-5f),
                 "grounded → JumpProgress01 returns 0");
             Assert.That(sim.State, Is.EqualTo(DodgeState.Playing));
+        }
+
+        // ── Jump: RequestJump is a no-op in a terminal state ──────────────────────
+        //
+        // RequestJump() only arms a pending jump while State == Playing (DodgeSim.cs:192).
+        // Once the sim is terminal (Lost or Won) it must be inert: no jump starts and no
+        // other observable state changes. Tick is itself a no-op in a terminal state, so
+        // these lock the documented contract that a late jump request cannot revive the sim.
+
+        [Test]
+        public void RequestJump_WhenLost_IsNoOp()
+        {
+            // Off-grid fall → Lost(Fell); then a jump request must not alter anything.
+            var arena = SolidArena(n: 3);
+            var sim = new DodgeSim(arena,
+                obstacleCount: 0, playerSpeed: 100f, survivalDuration: 9999f);
+            sim.SetForcedPlayerStart(1.5f, 1.5f);
+            sim.Restart();
+
+            sim.Tick(1f, 1f, 0f); // shoots off the right edge → Lost(Fell)
+            Assert.That(sim.State, Is.EqualTo(DodgeState.Lost));
+
+            float elapsed = sim.SurvivalElapsed;
+            sim.RequestJump();                     // must be ignored in a terminal state
+            Assert.That(sim.IsAirborne, Is.False, "RequestJump while Lost must not start a jump");
+
+            sim.Tick(0.1f, 0f, 0f);                // Tick is itself a no-op in terminal state
+            Assert.That(sim.State,           Is.EqualTo(DodgeState.Lost),  "state stays Lost");
+            Assert.That(sim.LostReason,      Is.EqualTo(LostReason.Fell),  "reason unchanged");
+            Assert.That(sim.IsAirborne,      Is.False,                     "still not airborne");
+            Assert.That(sim.SurvivalElapsed, Is.EqualTo(elapsed),          "timer did not advance");
+        }
+
+        [Test]
+        public void RequestJump_WhenWon_IsNoOp()
+        {
+            // Win by timer; then a jump request must not alter anything.
+            var arena = SolidArena();
+            var sim = new DodgeSim(arena,
+                obstacleCount: 0, playerSpeed: 0f, survivalDuration: 1f);
+            sim.SetForcedPlayerStart(4.5f, 4.5f);
+            sim.Restart();
+
+            sim.Tick(2f, 0f, 0f); // past survival duration → Won
+            Assert.That(sim.State, Is.EqualTo(DodgeState.Won));
+
+            float elapsed = sim.SurvivalElapsed;
+            sim.RequestJump();                     // must be ignored in a terminal state
+            Assert.That(sim.IsAirborne, Is.False, "RequestJump while Won must not start a jump");
+
+            sim.Tick(0.1f, 0f, 0f);
+            Assert.That(sim.State,           Is.EqualTo(DodgeState.Won), "state stays Won");
+            Assert.That(sim.IsAirborne,      Is.False,                   "still not airborne");
+            Assert.That(sim.SurvivalElapsed, Is.EqualTo(elapsed),        "timer did not advance");
         }
 
         // ── Obstacle spawn state: escalating cadence ─────────────────────────────
