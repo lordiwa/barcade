@@ -108,11 +108,13 @@ namespace Barcade.Core.Microgames.V2
         /// GDD §4: the stick's 8 discrete directions are "interpoladas a 0.25s
         /// para sensación analógica" — presentation-layer interpolation only (the
         /// sim itself snaps to the discrete angle instantly). This is the window
-        /// <see cref="RenderEntity.VisualVariant"/> encodes progress over, on
-        /// PlayerAvatar entities (0..255 = 0.0..1.0). A private constant rather
-        /// than an <see cref="ApuntaParams"/> field: it's a presentation hint the
-        /// sim exposes for the presenter's convenience, not a value that changes
-        /// sim outcomes or determinism.
+        /// <see cref="RenderEntity.Progress01"/> encodes progress over, on
+        /// PlayerAvatar entities ([0,1], TASK-048 — previously packed 0..255 into
+        /// <see cref="RenderEntity.VisualVariant"/>, moved off it since that field
+        /// is GDD §10.4's discrete prefab/skin selector, not a scalar channel). A
+        /// private constant rather than an <see cref="ApuntaParams"/> field: it's a
+        /// presentation hint the sim exposes for the presenter's convenience, not a
+        /// value that changes sim outcomes or determinism.
         /// </summary>
         private const float AimInterpSeconds = 0.25f;
 
@@ -640,12 +642,15 @@ namespace Barcade.Core.Microgames.V2
                 (float cx, float cy) = TurretCorner(AllSlots[i]);
                 (float dx, float dy) = DirectionToUnit(_aim[i]);
 
-                // MEDIUM-2(c) fix: GDD §4's 0.25s discrete-angle interpolation is a
-                // presentation concern — the sim snaps _aim instantly and only
-                // exposes how far along that window we are, encoded 0..255 into
-                // VisualVariant (see AimInterpSeconds doc). The presenter, not the
-                // sim, does the actual smoothing between the previous and current
-                // Rotation.
+                // MEDIUM-2(c) / TASK-048 fix: GDD §4's 0.25s discrete-angle
+                // interpolation is a presentation concern — the sim snaps _aim
+                // instantly and only exposes how far along that window we are.
+                // This is a continuous [0,1] value, so it belongs in Progress01
+                // (see AimInterpSeconds doc), not VisualVariant — GDD §10.4 defines
+                // VisualVariant as the discrete EntityKind+VisualVariant->prefab
+                // selector, not a scalar channel (see RenderEntity's own doc for
+                // the full contract). The presenter, not the sim, does the actual
+                // smoothing between the previous and current Rotation.
                 int elapsed = _tick - _aimChangeTick[i];
                 float progress = elapsed >= _aimInterpTicks ? 1f : (float)elapsed / _aimInterpTicks;
                 if (progress < 0f) progress = 0f;
@@ -657,7 +662,8 @@ namespace Barcade.Core.Microgames.V2
                 _renderState.Entities[entityCount].Height = 0f;
                 _renderState.Entities[entityCount].Rotation = MathF.Atan2(dy, dx) * (180f / MathF.PI);
                 _renderState.Entities[entityCount].Scale = 1f;
-                _renderState.Entities[entityCount].VisualVariant = (byte)MathF.Round(progress * 255f);
+                _renderState.Entities[entityCount].VisualVariant = 0; // no discrete avatar state today; 0 = default/only skin
+                _renderState.Entities[entityCount].Progress01 = progress;
                 entityCount++;
             }
 
@@ -671,6 +677,7 @@ namespace Barcade.Core.Microgames.V2
                 _renderState.Entities[entityCount].Rotation = 0f;
                 _renderState.Entities[entityCount].Scale = 1f;
                 _renderState.Entities[entityCount].VisualVariant = (byte)(_targetConsumed[i] ? 1 : 0);
+                _renderState.Entities[entityCount].Progress01 = 0f; // Entities is a reused struct pool -- always set every field, never leave a stale value from a prior tick's occupant
                 entityCount++;
             }
 
@@ -695,6 +702,7 @@ namespace Barcade.Core.Microgames.V2
                 _renderState.Entities[entityCount].Rotation = 0f;
                 _renderState.Entities[entityCount].Scale = 1f;
                 _renderState.Entities[entityCount].VisualVariant = 0;
+                _renderState.Entities[entityCount].Progress01 = 0f;
                 entityCount++;
             }
 

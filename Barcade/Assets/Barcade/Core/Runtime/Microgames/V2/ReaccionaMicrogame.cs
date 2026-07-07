@@ -470,6 +470,7 @@ namespace Barcade.Core.Microgames.V2
                 _renderState.Entities[entityCount].Rotation = 0f;
                 _renderState.Entities[entityCount].Scale = 1f;
                 _renderState.Entities[entityCount].VisualVariant = VariantFor(_outcome[i]);
+                _renderState.Entities[entityCount].Progress01 = 0f; // TASK-048: Entities is a reused struct pool -- always set every field, never leave a stale value from a prior tick's occupant
                 entityCount++;
             }
             _renderState.EntityCount = entityCount;

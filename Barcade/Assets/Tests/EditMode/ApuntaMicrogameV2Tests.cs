@@ -641,12 +641,16 @@ namespace Barcade.Core.Tests
             inputs.Set(PlayerSlot.Rojo, Direction8.E, false);
             mg.Tick(inputs.Build(20));
             RenderEntity justChanged = FindAvatar(mg.GetRenderState(), (int)PlayerSlot.Rojo);
-            Assert.That(justChanged.VisualVariant, Is.LessThan(255), "progress must not already be full on the very tick the aim changes");
+            // TASK-048: interp progress moved off VisualVariant (GDD §10.4's
+            // discrete prefab/skin selector) onto the dedicated Progress01 [0,1]
+            // channel; VisualVariant itself is now always 0 for PlayerAvatar.
+            Assert.That(justChanged.Progress01, Is.LessThan(1f), "progress must not already be full on the very tick the aim changes");
+            Assert.That(justChanged.VisualVariant, Is.EqualTo(0), "VisualVariant must not carry interp progress any more");
 
             // Hold the new aim through the full 0.25s (15-tick) interp window and beyond.
             for (int t = 21; t < 40; t++) mg.Tick(inputs.Build(t));
             RenderEntity settled = FindAvatar(mg.GetRenderState(), (int)PlayerSlot.Rojo);
-            Assert.That(settled.VisualVariant, Is.EqualTo(255), "progress must be full well after the 0.25s interp window elapses");
+            Assert.That(settled.Progress01, Is.EqualTo(1f), "progress must be full well after the 0.25s interp window elapses");
         }
 
         private static RenderEntity FindAvatar(RenderState rs, int ownerSeat)
