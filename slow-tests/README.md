@@ -14,7 +14,7 @@ has patterns) and asserts the GDD fairness property on **every** seed:
 
 | Mechanic | Oracle | Property asserted | Seeds |
 |----------|--------|-------------------|-------|
-| MECH_02 ¡ESQUIVA! | `EsquivaEscapeBot` (reactive dodger) | optimal bot survives the full duration — no forced loss | 1000 × 4 patterns (Rain/Sides/Cross/HomingSoft) |
+| MECH_02 ¡ESQUIVA! | `Barcade.Core.Bots.EsquivaBotPolicy` (`Bot.Optimo`, reactive dodger) | optimal bot survives the full duration — no forced loss | 1000 × 4 patterns (Rain/Sides/Cross/HomingSoft) |
 | MECH_01 ¡MANTÉN! | `MantenCorrectionOracle` (bang-bang balancer) | perfect correction survives the full duration | 1000 × 4 seats |
 | MECH_01 ¡MANTÉN! | none (null input) | with no input every pendulum falls *before* time — non-vacuity | 1000 × 4 seats |
 | MECH_03 ¡CORRE! | `CorrePerfectRunner` (6 Hz mash + timed jumps) | perfect jumps finish unstunned — track always jumpable | 1000 × 4 seats |

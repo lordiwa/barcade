@@ -149,18 +149,23 @@ namespace Barcade.Core.Tests
             // (and the Novato calibration's non-zero variance/error) actually
             // produces DIFFERENT behavior across seeds, so "same seed -> same
             // result" isn't trivially true because the bot always does the exact
-            // same thing regardless of seed.
+            // same thing regardless of seed. REACCIONA (not Esquiva): its signal
+            // delay is itself drawn from the per-seed RNG, so TicksElapsed alone
+            // already varies seed to seed — unlike a survival mechanic where a
+            // generous calibration can legitimately plateau at "full duration,
+            // every seed" and make an Esquiva-based non-vacuity check flaky by
+            // construction, not by a real bug.
             bool sawDifference = false;
             BotStatisticalHarness.RunResult first = BotStatisticalHarness.RunOne(
-                () => new V2Esquiva(EsquivaParams.GddDefaults), seat => new EsquivaBotPolicy(),
+                () => new V2Reacciona(ReaccionaParams.GddDefaults), seat => new ReaccionaBotPolicy(),
                 Bot.Novato, PlayerRoster.AllHuman, seed: 100);
 
             for (int seed = 101; seed < 110; seed++)
             {
                 BotStatisticalHarness.RunResult other = BotStatisticalHarness.RunOne(
-                    () => new V2Esquiva(EsquivaParams.GddDefaults), seat => new EsquivaBotPolicy(),
+                    () => new V2Reacciona(ReaccionaParams.GddDefaults), seat => new ReaccionaBotPolicy(),
                     Bot.Novato, PlayerRoster.AllHuman, seed: seed);
-                if (!ResultsEqual(first, other)) { sawDifference = true; break; }
+                if (other.TicksElapsed != first.TicksElapsed || !ResultsEqual(first, other)) { sawDifference = true; break; }
             }
 
             Assert.That(sawDifference, Is.True, "varying the seed must eventually vary the bot's behavior/outcome");

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Barcade.Core;
+using Barcade.Core.Bots;
 using Barcade.Core.Content;
 using Barcade.Core.Microgames.V2;
 // Barcade.Core.Tests is lexically nested inside Barcade.Core, so an unqualified
@@ -436,11 +437,16 @@ namespace Barcade.Core.Tests
         [Test]
         public void EscapabilityBot_SurvivesFullDuration_EveryPatternEverySeed()
         {
-            // A REAL reactive solver (see EscapeBot's own class doc), not a
-            // hardcoded path -- it reacts to whatever hazards the seed actually
-            // produces. Proves each pattern (especially HomingSoft, whose
-            // escapability is supposed to come from its 30 deg/s turn cap) is fair
-            // by construction, not merely tuned for one lucky seed.
+            // TASK-038 (GDD T-110): the reactive solver this test drives is now
+            // the canonical Barcade.Core.Bots.EsquivaBotPolicy, calibrated as
+            // Bot.Optimo — no more textually-duplicated EscapeBot copy (this
+            // file's own private class used to have one, byte-identical to
+            // Barcade.SlowTests.Oracles.EsquivaEscapeBot's, a parity-drift risk
+            // TASK-038's hand-off flagged and resolved). One policy instance per
+            // seat (see IBotPolicy's own doc — Decide() is seat-scoped via
+            // BotView, not a parameter). Bot.Optimo's errorRate=0/stdDev=0 means
+            // it never actually draws from the injected rng, so any SeededRandom
+            // instance here is inert scaffolding, not a source of behavior.
             foreach (EsquivaHazardPattern pattern in new[]
                      {
                          EsquivaHazardPattern.Rain, EsquivaHazardPattern.Sides,
@@ -455,14 +461,15 @@ namespace Barcade.Core.Tests
                         avatarRadius: 0.03f, hazardRadius: 0.03f, durationSeconds: 8f, jumpEnabled: false));
                     mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
 
-                    var bot = new EscapeBot();
+                    var bots = NewOptimoBotsPerSeat();
+                    var botRng = new SeededRandom(seed);
                     var inputs = new FakeInputs();
                     int t = 0;
                     while (!mg.IsFinished && t < 1000)
                     {
                         RenderState rs = mg.GetRenderState();
                         foreach (PlayerSlot slot in AllSlots)
-                            inputs.Set(slot, bot.Decide(rs, (int)slot));
+                            inputs.Set(slot, bots[(int)slot].Decide(Bot.Optimo, new BotView(rs, (int)slot), botRng).Stick);
                         mg.Tick(inputs.Build(t));
                         t++;
                     }
@@ -502,14 +509,15 @@ namespace Barcade.Core.Tests
                     avatarRadius: 0.03f, hazardRadius: 0.03f, durationSeconds: 8f, jumpEnabled: false));
                 mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
 
-                var bot = new EscapeBot();
+                var bots = NewOptimoBotsPerSeat();
+                var botRng = new SeededRandom(seed);
                 var inputs = new FakeInputs();
                 int t = 0;
                 while (!mg.IsFinished && t < 1000)
                 {
                     RenderState rs = mg.GetRenderState();
                     foreach (PlayerSlot slot in AllSlots)
-                        inputs.Set(slot, bot.Decide(rs, (int)slot));
+                        inputs.Set(slot, bots[(int)slot].Decide(Bot.Optimo, new BotView(rs, (int)slot), botRng).Stick);
                     mg.Tick(inputs.Build(t));
                     t++;
                 }
@@ -741,172 +749,27 @@ namespace Barcade.Core.Tests
         }
 
         /// <summary>
-        /// Real reactive solver (not a hardcoded path), two layers:
-        ///
-        /// <list type="number">
-        /// <item><description>
-        /// STRATEGIC (wall hysteresis, top priority): near a wall and no
-        /// hazard immediately dangerous, head for the arena center. Prevents
-        /// getting trapped hugging a wall/corner, which a purely tactical,
-        /// short-horizon evaluation cannot see coming -- diagnosed on pattern
-        /// HomingSoft, seed 4: a lone one-ply lookahead (see layer 2) correctly
-        /// found that, given the hazard layout at that instant, staying put
-        /// AT the Y=0 wall was the locally-safest choice (moving off the wall
-        /// happened to step slightly TOWARD the nearest hazard that tick), so
-        /// it never moved -- and a second hazard sliding along that same wall
-        /// eventually caught up. A myopic tactical evaluation has no way to
-        /// notice "this locally-safe spot is a trap" days in advance; only a
-        /// standing strategic bias away from walls does. Hysteresis (enter
-        /// under <see cref="EnterWallMargin"/>, exit only past the wider
-        /// <see cref="ExitWallMargin"/>) prevents the mode itself from
-        /// flip-flopping astride a single threshold (an earlier, single-margin
-        /// version of exactly this rule oscillated on pattern Sides, seed 2).
-        /// Suppressed when a hazard is within <see cref="ImmediateDangerRadius"/>
-        /// -- an imminent hit always overrides the standing wall bias.
-        /// </description></item>
-        /// <item><description>
-        /// TACTICAL (one-ply lookahead, otherwise/override): for each of the 8
-        /// digital Direction8 stick values plus None (GDD §1.3: the cabinet
-        /// stick is digital, not analog), evaluate the hypothetical resulting
-        /// position (clamped to the arena) and pick whichever candidate
-        /// maximizes the MINIMUM resulting distance to any currently-alive
-        /// hazard. A summed inverse-distance repulsion vector, snapped to the
-        /// nearest octant, was tried first and is wrong: whenever several
-        /// threats are roughly opposite each other (several Cross hazards
-        /// travelling the same diagonal, spawned from the same corner at
-        /// different times, on either side of the bot), their pulls nearly
-        /// cancel, burying the much smaller perpendicular escape signal in
-        /// numerical noise and flipping the snapped octant between the two
-        /// dominant, near-cancelling directions every tick instead of finding
-        /// the way out (diagnosed on pattern Cross, seed 16). Evaluating each
-        /// candidate's actual resulting distance sidesteps this: moving
-        /// perpendicular to a hazard's line of travel visibly increases the
-        /// minimum distance even when a naive vector sum would call it a wash.
-        /// </description></item>
-        /// </list>
-        ///
-        /// <see cref="ProbeStep"/> only needs to rank candidates consistently
-        /// against each other, not match the sim's real per-tick displacement
-        /// exactly -- it is a fixed evaluation step, not the actual move (the
-        /// sim applies its own configured AvatarSpeed to whichever Direction8
-        /// this returns). Stateful (hysteresis needs to remember the previous
-        /// tick's mode per seat), unlike the tactical layer, which is a pure
-        /// function of the current RenderState.
+        /// TASK-038 (GDD T-110): the real reactive two-layer solver (strategic
+        /// wall-hysteresis + tactical one-ply lookahead) this file used to keep
+        /// as a private <c>EscapeBot</c> class now lives ONE place —
+        /// <see cref="EsquivaBotPolicy"/> (calibrated <see cref="Bot.Optimo"/>
+        /// for these ceiling tests) — rather than a byte-identical private copy
+        /// here PLUS a second copy in <c>Barcade.SlowTests.Oracles.EsquivaEscapeBot</c>
+        /// (the parity-drift risk TASK-038's hand-off flagged: two independently
+        /// editable copies that only stayed identical by discipline). See
+        /// <see cref="EsquivaBotPolicy"/>'s own class doc for the full per-seed
+        /// diagnosis history behind its exact constants (the HomingSoft seed 4 /
+        /// Sides seed 2 / Cross seed 16 cases this file used to document
+        /// in-place). One policy instance per seat, since <see cref="IBotPolicy.Decide"/>
+        /// is seat-scoped via <see cref="BotView"/>, not a parameter (unlike the
+        /// old EscapeBot, which kept a <c>bool[4]</c> and served all 4 seats from
+        /// one shared instance).
         /// </summary>
-        private sealed class EscapeBot
+        private static EsquivaBotPolicy[] NewOptimoBotsPerSeat()
         {
-            private const float EnterWallMargin = 0.2f;
-            private const float ExitWallMargin = 0.35f;
-            private const float ImmediateDangerRadius = 0.12f;
-            private const float ProbeStep = 0.05f;
-
-            private static readonly Direction8[] AllChoices =
-            {
-                Direction8.None, Direction8.N, Direction8.NE, Direction8.E, Direction8.SE,
-                Direction8.S, Direction8.SW, Direction8.W, Direction8.NW,
-            };
-
-            private readonly bool[] _inWallMode = new bool[4];
-
-            public Direction8 Decide(RenderState rs, int mySeat)
-            {
-                float myX = 0f, myY = 0f;
-                bool foundSelf = false;
-                for (int i = 0; i < rs.EntityCount; i++)
-                {
-                    if (rs.Entities[i].Kind == EntityKind.PlayerAvatar && rs.Entities[i].OwnerSeat == mySeat)
-                    {
-                        myX = rs.Entities[i].X;
-                        myY = rs.Entities[i].Y;
-                        foundSelf = true;
-                        break;
-                    }
-                }
-                if (!foundSelf) return Direction8.None;
-
-                var hazards = new List<(float x, float y)>();
-                for (int i = 0; i < rs.EntityCount; i++)
-                    if (rs.Entities[i].Kind == EntityKind.Hazard)
-                        hazards.Add((rs.Entities[i].X, rs.Entities[i].Y));
-
-                if (hazards.Count == 0) return Direction8.None;
-
-                float nearestHazardDist = float.MaxValue;
-                foreach ((float hx, float hy) in hazards)
-                {
-                    float ddx = myX - hx, ddy = myY - hy;
-                    float d = MathF.Sqrt(ddx * ddx + ddy * ddy);
-                    if (d < nearestHazardDist) nearestHazardDist = d;
-                }
-
-                float distToNearestWall = MathF.Min(MathF.Min(myX, 1f - myX), MathF.Min(myY, 1f - myY));
-                if (_inWallMode[mySeat])
-                {
-                    if (distToNearestWall > ExitWallMargin) _inWallMode[mySeat] = false;
-                }
-                else if (distToNearestWall < EnterWallMargin)
-                {
-                    _inWallMode[mySeat] = true;
-                }
-
-                bool imminentDanger = nearestHazardDist < ImmediateDangerRadius;
-                if (_inWallMode[mySeat] && !imminentDanger)
-                    return TowardCenter(myX, myY, hazards);
-
-                return BestLookaheadMove(myX, myY, hazards);
-            }
-
-            /// <summary>
-            /// Strategic "head for center" move, itself picked via the same
-            /// lookahead mechanism (maximize resulting distance to the arena
-            /// center) rather than a raw vector snap -- keeps a single decision
-            /// mechanism instead of two independently-tunable ones.
-            /// </summary>
-            private static Direction8 TowardCenter(float myX, float myY, List<(float x, float y)> hazards)
-            {
-                Direction8 best = Direction8.None;
-                float bestDist = float.MaxValue;
-                foreach (Direction8 candidate in AllChoices)
-                {
-                    (float dx, float dy) = InputBridge.ToUnitVector(candidate);
-                    float nx = Clamp01(myX + dx * ProbeStep);
-                    float ny = Clamp01(myY + dy * ProbeStep);
-                    float d = MathF.Sqrt((nx - 0.5f) * (nx - 0.5f) + (ny - 0.5f) * (ny - 0.5f));
-                    if (d < bestDist) { bestDist = d; best = candidate; }
-                }
-                return best;
-            }
-
-            private static Direction8 BestLookaheadMove(float myX, float myY, List<(float x, float y)> hazards)
-            {
-                Direction8 best = Direction8.None;
-                float bestMinDist = float.MinValue;
-
-                foreach (Direction8 candidate in AllChoices)
-                {
-                    (float dx, float dy) = InputBridge.ToUnitVector(candidate);
-                    float nx = Clamp01(myX + dx * ProbeStep);
-                    float ny = Clamp01(myY + dy * ProbeStep);
-
-                    float minDist = float.MaxValue;
-                    foreach ((float hx, float hy) in hazards)
-                    {
-                        float ddx = nx - hx, ddy = ny - hy;
-                        float d = MathF.Sqrt(ddx * ddx + ddy * ddy);
-                        if (d < minDist) minDist = d;
-                    }
-
-                    if (minDist > bestMinDist)
-                    {
-                        bestMinDist = minDist;
-                        best = candidate;
-                    }
-                }
-
-                return best;
-            }
-
-            private static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
+            var bots = new EsquivaBotPolicy[4];
+            for (int i = 0; i < 4; i++) bots[i] = new EsquivaBotPolicy();
+            return bots;
         }
     }
 }

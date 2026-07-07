@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Barcade.Core;
+using Barcade.Core.Bots;
 using Barcade.Core.Microgames.V2;
 // Barcade.SlowTests is NOT nested under Barcade.Core, so unqualified names do not
 // resolve against Barcade.Core's own members the way the fast EditMode fixtures'
@@ -78,6 +79,15 @@ namespace Barcade.SlowTests
             // provably exists on those seeds — a deeper solver dodges them), NOT a
             // spec-level fairness violation. Reported for design review; the gate
             // here stays at the real 5 s spec, where the property holds.
+            //
+            // TASK-038 (GDD T-110): drives Barcade.Core.Bots.EsquivaBotPolicy
+            // (calibrated Bot.Optimo) instead of this project's own EsquivaEscapeBot
+            // oracle — the reactive solver's ONE canonical home is now the shared
+            // bot system (see EsquivaBotPolicy's own class doc for the full per-seed
+            // diagnosis history these exact constants encode). Oracles/EsquivaEscapeBot.cs
+            // is removed — this sweep and EsquivaMicrogameV2Tests's fast-suite
+            // EscapabilityBot test both delegate to the same policy now, closing the
+            // parity-drift risk two independently-editable copies used to carry.
             var patterns = new[]
             {
                 EsquivaHazardPattern.Rain, EsquivaHazardPattern.Sides,
@@ -95,14 +105,16 @@ namespace Barcade.SlowTests
                         avatarRadius: 0.03f, hazardRadius: 0.03f, durationSeconds: 5f, jumpEnabled: false));
                     mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
 
-                    var bot = new EsquivaEscapeBot();
+                    var bots = new EsquivaBotPolicy[4];
+                    for (int i = 0; i < 4; i++) bots[i] = new EsquivaBotPolicy();
+                    var botRng = new SeededRandom(seed);
                     var inputs = new FakeInputs();
                     int t = 0;
                     while (!mg.IsFinished && t < 1000)
                     {
                         RenderState rs = mg.GetRenderState();
                         foreach (PlayerSlot slot in AllSlots)
-                            inputs.Set(slot, bot.Decide(rs, (int)slot));
+                            inputs.Set(slot, bots[(int)slot].Decide(Bot.Optimo, new BotView(rs, (int)slot), botRng).Stick);
                         mg.Tick(inputs.Build(t));
                         t++;
                     }

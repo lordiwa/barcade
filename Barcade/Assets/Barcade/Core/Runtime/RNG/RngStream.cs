@@ -24,5 +24,8 @@ namespace Barcade.Core
 
         /// <summary>Sorteos: microgame selection, star draws, event draws.</summary>
         Draws = 3,
+
+        /// <summary>Bot decisions: BotSkill humanizer sampling (GDD Annex D.3, T-110) — reaction delay/mash draws and per-decision error rolls.</summary>
+        Bots = 4,
     }
 }
