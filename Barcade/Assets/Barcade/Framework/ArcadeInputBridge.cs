@@ -32,6 +32,15 @@ namespace Barcade.Framework
     ///   P3 (Verde)   — Numpad 8456 + Numpad 0
     ///   NOTE: all 4 keyboard slots share Keyboard.current; intentional on dev machines.
     ///
+    /// STICK DEADZONE (TASK-054, GDD Annex D.1 "Adaptador HID -> InputSnapshot" row,
+    /// verified against §3.2): this is the analog/digital trust boundary -- the
+    /// raw <see cref="Vector2"/> read from the move action is analog, but
+    /// everything downstream (<c>InputInterpreter.ToDirection8</c>, every
+    /// mechanic) treats the stick as effectively digital and classifies by sign
+    /// alone. Without a deadzone here, idle analog noise (a resting stick that
+    /// never reads exactly (0,0)) could mint a full spurious 8-way direction
+    /// downstream. See <see cref="_stickDeadZone"/> and <see cref="UpdateSlot"/>.
+    ///
     /// Lives in Barcade.Framework (UnityEngine + UnityEngine.InputSystem allowed).
     /// Microgame code reads snapshots via <see cref="GetSnapshot"/> or the
     /// <see cref="IReadOnlyPlayerInputs"/> interface from <see cref="AsReadOnly"/>.
@@ -42,6 +51,21 @@ namespace Barcade.Framework
 
         [Tooltip("The ArcadeControls.inputactions asset. Drag from Assets/Barcade/Input/.")]
         [SerializeField] private InputActionAsset _actionsAsset;
+
+        [Tooltip(
+            "[ASSUMED] Hardware-calibration value (TASK-054, GDD Annex D.1 trust-" +
+            "boundary fix). Analog stick magnitude below this threshold is zeroed " +
+            "before the InputSnapshot reaches Core, so idle-stick noise (a cheap " +
+            "arcade joystick resting near, but not exactly at, centre -- on the " +
+            "order of 1e-4 magnitude) can never mint a full 8-way direction " +
+            "downstream: InputInterpreter.ToDirection8 classifies by sign alone " +
+            "with no deadzone of its own (correct for a genuinely digital stick, " +
+            "GDD §1.3/§3.2), so the deadzone belongs here, at the analog HID " +
+            "trust boundary, not in Core. 0.2 is a standard analog-stick deadzone " +
+            "convention (the GDD names no specific value); recalibrate per the " +
+            "real cabinet hardware once physical sticks are on the bench.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _stickDeadZone = 0.2f;
 
         // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -222,6 +246,9 @@ namespace Barcade.Framework
         /// </summary>
         public InputSnapshot GetSnapshot(PlayerSlot slot) => _snapshots[(int)slot];
 
+        /// <summary>Current stick deadzone threshold (Inspector-tunable; see the field's own tooltip).</summary>
+        public float StickDeadZone => _stickDeadZone;
+
         /// <summary>
         /// Returns this bridge cast to <see cref="IReadOnlyPlayerInputs"/> so microgame
         /// logic can consume it without a hard Framework dependency.
@@ -324,6 +351,18 @@ namespace Barcade.Framework
 
         // ── Per-slot snapshot update ──────────────────────────────────────────────
 
+        /// <summary>
+        /// TASK-054 (GDD Annex D.1 trust-boundary fix): the raw stick vector read
+        /// here is passed through <see cref="InputSnapshot.WithDeadZone"/> before
+        /// it is ever assigned to <see cref="_snapshots"/> -- Core (and everything
+        /// downstream: <c>InputInterpreter</c>, every microgame) only ever sees a
+        /// stick that is either exactly zero or comfortably outside
+        /// <see cref="_stickDeadZone"/>, never raw sub-threshold analog noise.
+        /// <see cref="InputSnapshot.WithDeadZone"/> is an allocation-free struct
+        /// transform (returns <c>this</c> unchanged when above threshold, a fresh
+        /// zero-stick value otherwise) -- no new allocation is added to this
+        /// per-frame path.
+        /// </summary>
         private void UpdateSlot(int i)
         {
             if (_moveActions[i] == null || _actionButtonActions[i] == null)
@@ -344,7 +383,7 @@ namespace Barcade.Framework
                 btnState = ButtonState.Released;
 
             _buttonWasHeld[i] = held;
-            _snapshots[i] = new InputSnapshot(stick.x, stick.y, btnState);
+            _snapshots[i] = new InputSnapshot(stick.x, stick.y, btnState).WithDeadZone(_stickDeadZone);
         }
     }
 }
