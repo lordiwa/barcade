@@ -1,0 +1,32 @@
+{
+  "key": "TASK-044",
+  "title": "SeededRandom must be PCG32 per GDD §13 (currently wraps System.Random) — replay/determinism prerequisite",
+  "description": "Found during the TASK-025 review: Core's SeededRandom wraps System.Random rather than implementing PCG32, which GDD §13 mandates ('Generador: PCG32... Prohibido System.Random y UnityEngine.Random en Barcade.Core'). System.Random's algorithm is not guaranteed stable across .NET versions, which undermines the §13/D.4 replay guarantee (same seed + inputs => bit-identical session, finalStateHash equality across binary updates on the same contentVersion) and the CI analyzer rule the GDD asks for. Replace the internals of SeededRandom with a proper PCG32 implementation while PRESERVING the public API (NextFloat/NextInt/etc.) so all consumers keep compiling — but note this CHANGES the value sequences for every seed, so any test pinning specific seed-derived values must be updated in the same change (expected churn, do it once, before more mechanics pin more seeds — the longer this waits the more expensive it gets). Add the §13 stream-derivation helpers if absent (sessionSeed -> roundSeed(r) -> per-subsystem streams) since T-108/T-113 will need them. Also add the static-analyzer/CI grep rule §13 requires (no System.Random / UnityEngine.Random in Core). GDD-canonical decision applies. Blocks the fidelity of TASK-032 (.bcrp replay) — that ticket should treat this as a de-facto dependency (comment added there).",
+  "acceptance_criteria": [
+    "SeededRandom is a genuine PCG32 (reference vectors from the PCG paper/site verified by test), public API preserved, all consumers compile unchanged",
+    "Seed-pinning tests across the suite updated in the same change; full fast suite green",
+    "Stream derivation per GDD 13 exists: sessionSeed -> roundSeed(r) -> named per-subsystem streams, with independence pinned by test (consuming from one stream does not shift another)",
+    "A CI/analyzer check fails the build if System.Random or UnityEngine.Random is referenced inside Barcade.Core",
+    "Determinism: same seed => same sequence across two process runs (test), documenting the platform scope per GDD 13"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "core",
+    "determinism",
+    "rng",
+    "13"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T04:46:07.014Z",
+  "updated_at": "2026-07-07T04:46:07.014Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}
