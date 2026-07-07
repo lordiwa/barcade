@@ -59,10 +59,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T14:10:56.159Z",
       "body": "UNITY-GATE PUNCH LIST UPDATE (from TASK-045): the gate now runs, IN ORDER — (1) Barcade/Generate Microgame Content (GenerateAll), (2) Barcade/Migrate MicrogameDefinitions To V2 (MigrateAll, writes 12 v2 JSONs), (3) Barcade/Validate MicrogameDefinitions V2 (ValidateAll) — menu items or the equivalent batchmode -executeMethod calls. Expected after TASK-045 (b055882): ZERO diff to the 12 on-disk .asset files (Specs now mirrors them exactly) and ValidateAll reports 0 invalid. Ordering rationale documented in MicrogameContentGenerator's class doc: MigrateAll reads v1 assets from disk as input, so generate-then-migrate-then-validate is the only structurally sound order. Prior punch-list items unchanged: MicrogamePoolIntegrationTests PlayMode run + LOW-7 EditMode fixture path."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:30:24.019Z",
+      "body": "UNITY-GATE PUNCH LIST CORRECTION (supersedes the zero-diff expectation in the previous comment; per rev-t045 HIGH-1 on TASK-045): the GenerateAll step will NOT be a zero-diff confirmation pass. The 12 on-disk .assets predate the serialized hintText field (added in 1bb021a together with the old 7-10s durations; only the durations half was reconciled by TASK-045's b055882). TRUE EXPECTATION for the gate, in order: (1) GenerateAll — expect ALL 12 .asset files modified, each gaining one hintText: '<Spanish hint>' line; id/verbText/baseDuration/difficulty must remain UNCHANGED (reviewer-verified matching 12/12). Any other change = investigate before proceeding. (2) MigrateAll AFTER the regen — so the 12 v2 JSONs carry LegacyHintText with the Spanish hints (running it before would bake LegacyHintText=\"\"). (3) ValidateAll — expect 0 invalid. Then commit the 12 modified assets + 12 v2 JSONs together. Prior punch-list items unchanged: MicrogamePoolIntegrationTests PlayMode + LOW-7 EditMode fixture path. NEW same-window item from TASK-054: PlayMode ArcadeInputBridgeTests incl. the deadzone case, once TASK-054 lands."
     }
   ],
   "created_at": "2026-07-07T04:19:29.477Z",
-  "updated_at": "2026-07-07T14:10:56.159Z",
+  "updated_at": "2026-07-07T14:30:24.019Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

@@ -7,7 +7,7 @@
     "The HID->InputSnapshot adapter applies a deadzone before Core sees stick values (verified by test or recorded as handled in the adapter ticket)",
     "Fast suite and Unity EditMode suite stay green"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "low",
   "labels": [
     "gdd-v2",
@@ -22,9 +22,20 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:30:43.945Z",
+      "body": "DECISION RECORD (AC1) — Phase A inventory by dev-t101 (full report in session log, 2026-07-07 ~14:2xZ), independently verified by orchestrator grep (ButtonState.Pressed, repo-wide: production consumers exactly = AporreaMicrogame, TimingMicrogame, ApuntaMicrogame-v1, SampleTapMicrogame; InputInterpreter is the debounce OWNER not a raw consumer; ArcadeInputBridge is the PRODUCER; Esquiva/Recolecta never read ButtonState). Ratified dispositions:\n\n(1) AporreaMicrogame (raw per-tick edge counting, highest exposure), TimingMicrogame + ApuntaMicrogame-v1 (one-shot latch on first edge, narrower exposure): DEFER to TASK-034 (GDD T-107). Rationale: the MicrogameDefinitionMigrator class doc (TASK-030) already designates T-107 as the reconciliation point for the four pre-GDD legacy ids (aporrea/apunta/timing/recolecta) against the canonical MECH_01..09 set; migrating them to owned InputInterpreter instances NOW would introduce a real behavior change (the 2-tick debounce-confirm detection delay would shift pinned test expectations) and is very likely thrown away wholesale when T-107 rewrites or retires them v2-native (the pattern Reacciona/Apunta-v2 already use). The un-debounced edge is a LOW-severity nit (origin: TASK-023 review APPROVE-WITH-NITS LOW-2), not an active bug; Timing/Apunta's latch already absorbs the main bounce failure mode. Carry-in comment added to TASK-034.\n\n(2) SampleTapMicrogame: NO ACTION — not a GDD mechanic; deterministic lifecycle-test scaffold consumed only by MicrogameLifecycleTests; zero player-facing exposure.\n\n(3) Deadzone at the HID trust boundary (AC2): RECORDED AS HANDLED IN THE ADAPTER TICKET — TASK-054 filed with the named item (InputSnapshot.WithDeadZone at ArcadeInputBridge.UpdateSlot, ~0.15-0.2 starting threshold as a calibration call) plus the full GDD Annex D.1 'Adaptador HID → InputSnapshot' row verification the TASK-023 review originally scoped; verification via ArcadeInputBridgeTests PlayMode + Unity gate. Confirmed present-state evidence: UpdateSlot passes raw stick.x/y into InputSnapshot with no deadzone.\n\nAC3: satisfied by no-change — zero code touched under this ticket (fast suite untouched at 554/554; EditMode leg trivially unaffected). This ticket closes decision-only: no diff exists, so no code reviewer was spawned; the verification applied was the orchestrator's independent inventory grep + the ratification record above."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:31:03.822Z",
+      "body": "CLOSED decision-only (no code diff). All ACs satisfied by the decision record above: AC1 = every edge consumer inventoried (dev-t101 Phase A, orchestrator-verified grep) with a ratified, rationale-backed disposition per consumer (Aporrea/Timing/Apunta-v1 → deferred to TASK-034 with carry-in comment; SampleTap → no action, test scaffold); AC2 = deadzone recorded as handled in TASK-054 (filed with the named WithDeadZone item + full Annex D.1 row verification); AC3 = trivially green, zero code touched (fast suite 554/554 baseline unaffected). Review depth: N/A — no diff to review; verification = orchestrator's independent repo-wide ButtonState.Pressed grep confirming the inventory complete, plus the decision-first Phase A/ratification protocol (spawn msg 51277dbc, ratification msg fdd61f66). Tier was tests-after; with the ratified full-deferral there is no implementation surface, hence no regression locks — the deferred work is owned by TASK-034 (behavioral migration) and TASK-054 (trust-boundary fix) respectively."
+    }
+  ],
   "created_at": "2026-07-07T03:53:06.243Z",
-  "updated_at": "2026-07-07T14:23:39.888Z",
+  "updated_at": "2026-07-07T14:31:03.822Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[INFERRED:strong]",

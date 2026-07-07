@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:27:19.245Z",
+  "generated_at": "2026-07-07T14:31:03.822Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -172,7 +172,7 @@
     {
       "key": "TASK-029",
       "title": "Input hardening follow-ups: debounce for legacy ButtonState consumers + HID adapter deadzone (from TASK-023 review)",
-      "status": "in_progress",
+      "status": "done",
       "priority": "low"
     },
     {
@@ -317,6 +317,12 @@
       "key": "TASK-053",
       "title": "Replace SessionStateMachine's nested sign-pure InputBridge with the shared V2 InputBridge",
       "status": "in_review",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-054",
+      "title": "Verify Framework HID→InputSnapshot adapter (ArcadeInputBridge) against GDD Annex D.1; apply stick deadzone",
+      "status": "todo",
       "priority": "medium"
     }
   ]

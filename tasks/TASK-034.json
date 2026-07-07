@@ -34,10 +34,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T12:41:18.219Z",
       "body": "[RE-APPLIED] SCOPE ADDITION from the TASK-035 review (rev-c035, 2026-07-07): the T-108 MicrogameSelector was built as a V2 SUCCESSOR (Barcade.Core.Sequencer.V2) coexisting with the v1 SequencerDirector, because v1 contains a GDD P3-violating re-roll loop (SequencerDirector.cs:117-122 — multiple draws per decision) and in-place extension would have dragged the whole T-107 migration into T-108. That coexistence reading of GDD 9.2 ('código existente, se extiende') is defensible ONLY as a transition state: this ticket (T-107 migration) MUST retire the v1 SequencerDirector (or at minimum remove its re-roll loop and route all consumers through the V2 selector) so the deviation does not become permanent. Verify at review time that no production consumer references v1 after this ticket closes."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:30:49.116Z",
+      "body": "CARRY-IN from TASK-029 (ratified deferral, 2026-07-07): when reconciling the four pre-GDD legacy ids (aporrea/apunta/timing/recolecta) against the canonical MECH_01..09 set per this ticket's T-107 scope, the un-debounced ButtonState.Pressed edge consumption in AporreaMicrogame (raw per-tick edge counting — bounce inflates mash counts), TimingMicrogame and ApuntaMicrogame-v1 (one-shot latch — bounce can land the single decision early) MUST be resolved as part of each mechanic's fate: a v2-native rewrite gets an owned InputInterpreter (edge detection per GDD §3.2, the Reacciona/Apunta-v2 pattern — note the interpreter's 2-tick debounce-confirm delay is a real behavior change vs raw edges; retune thresholds/tests accordingly); an explicit retirement removes the concern with the code. Do NOT port raw ButtonState.Pressed reads into any surviving mechanic. Origin: TASK-023 review LOW-2; inventory verified in TASK-029's decision record."
     }
   ],
   "created_at": "2026-07-07T04:20:28.216Z",
-  "updated_at": "2026-07-07T12:41:18.219Z",
+  "updated_at": "2026-07-07T14:30:49.116Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
