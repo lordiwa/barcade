@@ -381,6 +381,68 @@ namespace Barcade.Input.Tests
             Assert.That(snap.StickY, Is.LessThan(-0.2f),    "StickY must reflect driven y");
         }
 
+        // ── TASK-054: stick deadzone at the HID trust boundary ──────────────────
+
+        /// <summary>
+        /// AC2 (sub-threshold half): idle-stick analog noise, well below the
+        /// bridge's configured deadzone, must be zeroed by the time it reaches
+        /// <see cref="ArcadeInputBridge.GetSnapshot"/> -- proving
+        /// <see cref="ArcadeInputBridge.UpdateSlot"/> actually applies
+        /// <see cref="InputSnapshot.WithDeadZone"/> rather than just having the
+        /// call sit unused.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Bridge_SubThresholdStickNoise_IsZeroedByDeadZone()
+        {
+            var j0 = InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
+
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
+            yield return null;
+
+            Assert.That(bridge.StickDeadZone, Is.GreaterThan(0f),
+                "test setup sanity: a zero deadzone would make this test meaningless");
+
+            // Comfortably below the configured deadzone regardless of its exact
+            // tuned value (default 0.2) -- models a resting stick's idle analog
+            // noise, never exactly (0,0).
+            Set(j0.stick, new Vector2(0.0001f, -0.0001f));
+            yield return null;
+
+            var snap = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap.StickX, Is.EqualTo(0f).Within(0.0001f),
+                "sub-threshold analog noise must be zeroed before reaching Core");
+            Assert.That(snap.StickY, Is.EqualTo(0f).Within(0.0001f),
+                "sub-threshold analog noise must be zeroed before reaching Core");
+        }
+
+        /// <summary>
+        /// AC2 (supra-threshold half): a genuine stick push, comfortably outside
+        /// the deadzone, must still pass through unaffected -- the deadzone must
+        /// zero noise without silently dampening or clamping real input.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Bridge_SupraThresholdStick_PassesThroughDeadZoneUnaffected()
+        {
+            var j0 = InputSystem.AddDevice<Joystick>();
+            var j1 = InputSystem.AddDevice<Joystick>();
+            var kb = InputSystem.AddDevice<Keyboard>();
+
+            var bridge = CreateBridge(new InputDevice[] { j0, j1, kb, kb });
+            yield return null;
+
+            // Magnitude ~0.72 -- comfortably clear of the default 0.2 deadzone.
+            Set(j0.stick, new Vector2(0.5f, -0.5f));
+            yield return null;
+
+            var snap = bridge.GetSnapshot(PlayerSlot.Rojo);
+            Assert.That(snap.StickX, Is.GreaterThan(0.3f),
+                "a real, comfortably-above-threshold push must pass through the deadzone unaffected");
+            Assert.That(snap.StickY, Is.LessThan(-0.3f),
+                "a real, comfortably-above-threshold push must pass through the deadzone unaffected");
+        }
+
         // ── AC5: Keyboard fallback when no physical devices ──────────────────────
 
         [Test]
