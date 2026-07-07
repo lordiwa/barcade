@@ -10,7 +10,7 @@
     "Novato fills an Empty/Idle seat in a simulated session without stalling any state (integration test with the SessionStateMachine)",
     "Tests-first; fast suite green after, no regression"
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -28,7 +28,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T04:21:21.747Z",
-  "updated_at": "2026-07-07T22:45:05.295Z",
+  "updated_at": "2026-07-07T23:32:04.875Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
