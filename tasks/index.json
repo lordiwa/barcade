@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T19:51:17.762Z",
+  "generated_at": "2026-07-07T20:12:19.698Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -382,7 +382,7 @@
     {
       "key": "TASK-064",
       "title": "MECH_02 ESQUIVA emits no CueEliminated feedback on player elimination",
-      "status": "todo",
+      "status": "done",
       "priority": "low"
     },
     {
