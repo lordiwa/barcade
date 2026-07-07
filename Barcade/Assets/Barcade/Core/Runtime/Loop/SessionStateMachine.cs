@@ -149,12 +149,22 @@ namespace Barcade.Core
     /// the same shape <see cref="Sequencer.V2.MicrogameSelector"/> already uses,
     /// deliberately NOT the <see cref="SeededRandom"/> object handed to
     /// microgames' own <c>Initialize</c> calls (whose internal state keeps
-    /// advancing round to round). This machine derives one, once, at
-    /// construction — <c>rng.NextInt(int.MinValue, int.MaxValue)</c>, the very
-    /// FIRST draw ever taken from the constructor's <paramref name="rng"/>,
-    /// before any microgame ever touches it — so it's fully deterministic from
-    /// the same construction seed without adding a second constructor parameter
-    /// or consuming randomness at an unpredictable point later in the session.
+    /// advancing round to round). The two-argument
+    /// <see cref="SessionStateMachine(SeededRandom, SessionStateMachineConfig?)"/>
+    /// constructor derives one, once, at construction —
+    /// <c>rng.NextInt(int.MinValue, int.MaxValue)</c>, the very FIRST draw ever
+    /// taken from that <paramref name="rng"/>, before any microgame ever touches
+    /// it — so it's fully deterministic from the same construction seed. [ASSUMED]
+    /// (TASK-051 review fix round, M3): this first-draw derivation is a THIRD,
+    /// unnamed seed idiom alongside the codebase's two established ones
+    /// (<see cref="SeededRandom.Derive"/>'s GDD §13 stream hierarchy, and plain
+    /// constructor seeds) — acceptable only as a stand-in until a real, explicit
+    /// <c>int sessionSeed</c> is threaded through the rest of the session (a
+    /// replay-format-breaking change, not yet done). The
+    /// <see cref="SessionStateMachine(SeededRandom, int, SessionStateMachineConfig?)"/>
+    /// overload below takes that explicit seed directly and is the migration
+    /// target for whenever that threading happens — at that point every caller
+    /// should move to it instead of relying on this implicit first-draw idiom.
     /// </para>
     ///
     /// <para>
@@ -258,13 +268,24 @@ namespace Barcade.Core
         private int[] _finalPlaces;
 
         public SessionStateMachine(SeededRandom rng, SessionStateMachineConfig? config = null)
+            : this(rng, DeriveScoringSeed(rng), config)
+        {
+        }
+
+        /// <summary>
+        /// Overload taking an explicit scoring seed directly, bypassing the
+        /// two-argument constructor's own first-draw derivation from
+        /// <paramref name="rng"/> — see class doc "Scoring seed derivation" (M3,
+        /// TASK-051 review fix round). This is the migration target for whenever
+        /// a real, explicit <c>int sessionSeed</c> is threaded through the rest
+        /// of the session.
+        /// </summary>
+        public SessionStateMachine(SeededRandom rng, int sessionSeed, SessionStateMachineConfig? config = null)
         {
             if (rng == null) throw new ArgumentNullException(nameof(rng));
 
             _rng = rng;
-            // See class doc "Scoring seed derivation": the very first draw ever
-            // taken from rng, deterministic, before any microgame touches it.
-            _scoringSeed = _rng.NextInt(int.MinValue, int.MaxValue);
+            _scoringSeed = sessionSeed;
             _config = config ?? SessionStateMachineConfig.GddDefaults;
             _interpreter = new InputInterpreter(InputInterpreterConfig.GddDefaults);
             _roundMachine = new RoundPhaseMachine(
@@ -273,6 +294,21 @@ namespace Barcade.Core
                 resultDuration: _config.MgResultSeconds);
 
             _phase = SessionPhase.Attract;
+        }
+
+        /// <summary>
+        /// See class doc "Scoring seed derivation": the very first draw ever
+        /// taken from <paramref name="rng"/>, deterministic, before any microgame
+        /// touches it. Kept as a separate static method (rather than inline in
+        /// the two-argument constructor) so the constructor-initializer call to
+        /// <c>this(rng, ..., config)</c> can compute it before any instance field
+        /// exists yet — a constructor initializer's arguments cannot reference
+        /// <c>this</c>.
+        /// </summary>
+        private static int DeriveScoringSeed(SeededRandom rng)
+        {
+            if (rng == null) throw new ArgumentNullException(nameof(rng));
+            return rng.NextInt(int.MinValue, int.MaxValue);
         }
 
         // ── Public read-only API ─────────────────────────────────────────────────
