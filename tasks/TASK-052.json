@@ -8,7 +8,7 @@
     "Tests pin the override path: a non-default payoutTable changes CaptureResult payouts accordingly for competitive and coop rounds; climax rounds still skip regular payout.",
     "The [ASSUMED] default-payout paragraph in SessionStateMachine's class doc is updated to describe the fallback-only role and drops the unowned-follow-up wording."
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "medium",
   "labels": [
     "gdd",
@@ -32,10 +32,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T14:18:22.103Z",
       "body": "RIDER LANDED EARLY (scope reduction, pending review): the seed-threading discrimination test described in the rider comment above was implemented under TASK-053's test commit 5bd1962 (DifferentSessionSeeds_ProduceDifferentBonusStarDraws — RunWith rngSeed:1 sessionSeed:777 vs 778 through the explicit-seed overload, star tuple must differ; dev verified genuinely green in isolation first). If rev-t053's review confirms it clean, this item comes OFF TASK-052's scope — the remaining scope is solely the per-definition payoutTable threading per the ACs."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:32:50.300Z",
+      "body": "RIDER CREDITED (scope reduction confirmed): rev-t053's FULL review judged the seed-threading discrimination test CLEAN-TO-CREDIT (verified: constant-folding _scoringSeed or swapping it for a fresh rng draw both fail the test; deterministic, no flake risk; landed as 5bd1962 under TASK-053). The rev-t051 LOW residual is now covered. REMAINING SCOPE of this ticket = the per-definition payoutTable threading per the original ACs only."
     }
   ],
   "created_at": "2026-07-07T13:42:44.511Z",
-  "updated_at": "2026-07-07T14:18:22.103Z",
+  "updated_at": "2026-07-07T14:33:58.791Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[INFERRED:strong]",

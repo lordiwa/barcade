@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:31:03.822Z",
+  "generated_at": "2026-07-07T14:33:58.791Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -310,13 +310,13 @@
     {
       "key": "TASK-052",
       "title": "Thread per-definition payoutTable through the microgame contract into SessionStateMachine payouts",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     },
     {
       "key": "TASK-053",
       "title": "Replace SessionStateMachine's nested sign-pure InputBridge with the shared V2 InputBridge",
-      "status": "in_review",
+      "status": "done",
       "priority": "medium"
     },
     {
