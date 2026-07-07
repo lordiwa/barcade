@@ -150,6 +150,92 @@ namespace Barcade.Core.Tests
                 "elimination tick must not change after the fact");
         }
 
+        // ── TASK-064: CueEliminated feedback-cue emission (MECH_02 juice) ────────
+        // Mirrors ReaccionaMicrogameTests' feedback-trace locks (per-tick scan of
+        // RenderState.Feedback for a specific Cue/Seat). EsquivaMicrogame declares
+        // CueEliminated but historically never emitted it -- these pin that a real
+        // elimination raises EXACTLY ONE CueEliminated naming the eliminated seat,
+        // on the elimination tick, and never re-fires while the seat stays latched.
+
+        [Test]
+        public void PlayerElimination_EmitsExactlyOneCueEliminated_ForThatSeat()
+        {
+            // Rojo forced to the arena center with a hazard forced exactly on top of
+            // it; the other three seats tucked into the far corners, out of reach of
+            // the forced hazard. Rojo is eliminated on tick 0; the round then runs to
+            // completion. Counting only Rojo's CueEliminated events across the WHOLE
+            // round pins both halves of the guarantee at once: non-vacuous (>= 1, the
+            // emit exists) and not re-emitted while latched (<= 1, the already-
+            // eliminated seat is skipped every subsequent tick).
+            var mg = new V2Esquiva(EsquivaParams.GddDefaults);
+            mg.SetForcedAvatarPositions(new (float, float)[] { (0.5f, 0.5f), (0.02f, 0.02f), (0.98f, 0.02f), (0.02f, 0.98f) });
+            mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
+
+            mg.ForceSpawnHazardForTest(0.5f, 0.5f, dirX: 0f, dirY: 0f); // exactly on Rojo
+
+            var inputs = new FakeInputs();
+            int rojoCues = 0;
+            int firstRojoCueTick = -1;
+            int t = 0;
+            while (!mg.IsFinished && t < 400)
+            {
+                mg.Tick(inputs.Build(t));
+
+                RenderState rs = mg.GetRenderState();
+                for (int i = 0; i < rs.FeedbackCount; i++)
+                {
+                    if (rs.Feedback[i].Cue == V2Esquiva.CueEliminated && rs.Feedback[i].Seat == (int)PlayerSlot.Rojo)
+                    {
+                        rojoCues++;
+                        if (firstRojoCueTick < 0) firstRojoCueTick = rs.Tick;
+                    }
+                }
+                t++;
+            }
+
+            Assert.That(mg.IsEliminated(PlayerSlot.Rojo), Is.True, "test setup sanity: Rojo must have been eliminated");
+            Assert.That(rojoCues, Is.EqualTo(1),
+                "a player elimination must emit EXACTLY ONE CueEliminated for that seat -- non-vacuous (>= 1) and never re-fired while latched (<= 1)");
+            Assert.That(firstRojoCueTick, Is.EqualTo(mg.GetEliminationTick(PlayerSlot.Rojo)),
+                "the CueEliminated must fire on the exact elimination tick");
+        }
+
+        [Test]
+        public void EliminatingOneSeat_EmitsNoCueEliminatedForUnhitSeats()
+        {
+            // Only Rojo is hit (forced hazard on Rojo alone); the other seats sit far
+            // away. Bounded to the pre-spawn window (GddDefaults' first natural spawn
+            // is ~1.67s = ~tick 100) so the RNG spawner never fires and cannot
+            // eliminate any other seat -- isolating the "correct seat" claim: exactly
+            // one cue for Rojo, zero for everyone else. A mutation that named the
+            // wrong seat (or a global -1) would drop Rojo's count to 0 and fail here.
+            var mg = new V2Esquiva(EsquivaParams.GddDefaults);
+            mg.SetForcedAvatarPositions(new (float, float)[] { (0.5f, 0.5f), (0.05f, 0.05f), (0.95f, 0.05f), (0.05f, 0.95f) });
+            mg.Initialize(new SeededRandom(2), PlayerRoster.AllHuman, 1f);
+
+            mg.ForceSpawnHazardForTest(0.5f, 0.5f, dirX: 0f, dirY: 0f); // exactly on Rojo, nobody else
+
+            var inputs = new FakeInputs();
+            var cuesBySeat = new int[4];
+            for (int t = 0; t < 30 && !mg.IsFinished; t++)
+            {
+                mg.Tick(inputs.Build(t));
+
+                RenderState rs = mg.GetRenderState();
+                for (int i = 0; i < rs.FeedbackCount; i++)
+                {
+                    int seat = rs.Feedback[i].Seat;
+                    if (rs.Feedback[i].Cue == V2Esquiva.CueEliminated && seat >= 0 && seat < 4)
+                        cuesBySeat[seat]++;
+                }
+            }
+
+            Assert.That(cuesBySeat[(int)PlayerSlot.Rojo], Is.EqualTo(1), "only Rojo was hit -> exactly one CueEliminated naming Rojo");
+            Assert.That(cuesBySeat[(int)PlayerSlot.Azul], Is.EqualTo(0), "Azul was never hit -> no CueEliminated");
+            Assert.That(cuesBySeat[(int)PlayerSlot.Amarillo], Is.EqualTo(0), "Amarillo was never hit -> no CueEliminated");
+            Assert.That(cuesBySeat[(int)PlayerSlot.Verde], Is.EqualTo(0), "Verde was never hit -> no CueEliminated");
+        }
+
         // ── Migrated: AvatarClampedToPlayArea -> normalized [0,1]² clamp ─────────
 
         [Test]
