@@ -10,7 +10,7 @@
     "Determinism: same session seed + same counters -> same stars (replay test)",
     "Tests-first; fast suite green after, no regression; existing ScoreModel consumers keep compiling"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -19,7 +19,7 @@
     "scoring",
     "T-109"
   ],
-  "assignee": null,
+  "assignee": "developer-cloud",
   "depends_on": [
     "TASK-035"
   ],
@@ -27,7 +27,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T04:21:08.977Z",
-  "updated_at": "2026-07-07T04:21:08.977Z",
+  "updated_at": "2026-07-07T10:20:00.000Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
