@@ -13,7 +13,7 @@
     "Steady-state Tick allocates zero heap memory",
     "Tests-first: red tests for each AC committed strictly before implementation; fast suite green after with no regression to the 323 baseline"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "critical",
   "labels": [
     "gdd-v2",
@@ -27,7 +27,14 @@
   "depends_on": [
     "TASK-023"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "31b5e85",
+    "5f7ac91",
+    "26285e4",
+    "a7c59ab",
+    "8c69b8c",
+    "11ca84c"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -44,10 +51,25 @@
       "author": "reviewer",
       "at": "2026-07-07T04:46:17.489Z",
       "body": "FULL-depth fresh-context review (rev-t103) of 1938e59..5f7ac91: APPROVE-WITH-NITS, 0 HIGH. Suite independently re-run pinned at 5f7ac91: 376/376; red independently reproduced at 31b5e85 (compile-fail, V2 sources absent per git ls-tree). MEDIUM-1: zero-alloc test is a near-vacuous sensor (game ends ~tick 450, inside the 500-tick warmup; measured window only exercises the finished no-op) — impl verified clean by inspection, evidence must be fixed (measure live window). MEDIUM-2: fakeout can land exactly ON the signal tick (Floor vs Round mismatch; ~0.1-0.3% per fakeout per tanda) — clamp to signalTick-1. MEDIUM-3: effective physical anticipation cutoff is ~66.7 ms, not GDD's 90 ms (5-tick threshold minus uncompensated +1 debounce tick); class doc direction is wrong (says tighter, is looser); resolution under GDD-canonical: AnticipationThresholdTicks default 5 -> 6 (83.3 ms physical) + doc fix. LOWs: trace test lacks tick stamps; missing false-starter-re-enters-next-tanda test; [1.5,4.5) endpoint semantics undocumented; ReactionTimeoutSeconds unbounded vs sentinel (defensive); signalMode/colorFilter params must be reserved in T-106 schema (relayed to TASK-030 dev). NOTABLE out-of-scope find: SeededRandom wraps System.Random, violating GDD 13 (PCG32) — filed as its own ticket. Item verdicts: contract adaptations — Tick(IReadOnlyPlayerInputs) ruled DRIFT-tolerable-but-must-not-propagate (already resolved by the 26285e4/a7c59ab literalization pair, extension pass pending); ISeededRandom ruled legitimate (since superseded by concrete per GDD-literal anyway); params-injection ruled legitimate/orchestrator-directed. All three dev spec assumptions ruled sound (sentinel math verified: legit max 540 ticks << 1,000,000; no int overflow). Debounce uniformity HOLDS all paths. Namespace aliasing CLEAN (no vacuous sensors). Tier-audit: tdd correct. Fix round (MEDIUM-1/2/3 + 2 LOWs) queued with developer; reviewer extension pass over 5f7ac91..a7c59ab requested before close."
+    },
+    {
+      "author": "reviewer",
+      "at": "2026-07-07T05:03:00.599Z",
+      "body": "Extension pass (rev-t103) over 5f7ac91..a7c59ab: CLOSE-READY for the combined 4-commit range 1938e59..a7c59ab, conditional on the queued MEDIUM fix round landing as separate commit(s). No HIGH, no new MEDIUM on the pair. Suite independently re-run in a pinned detached worktree at a7c59ab: 378/378 (356 baseline + 20 + 2). Red for the pair independently reproduced at 26285e4 (InputSnapshot.cs/PlayerInput.cs absent from that tree; exactly 1x CS0234 + 1x CS0246); commit order intact; compile-red accepted (test diff is a mechanically faithful 1:1 drive-path translation — assertions and debounce-timing math preserved, only transport changed). DRIFT RESOLVED: committed interface at a7c59ab is GDD-literal — Initialize(SeededRandom, PlayerRoster, float) / Tick(in InputSnapshot) per GDD 10.2/D.2. Per-item: InputSnapshot/PlayerInput exact GDD 3.2 shapes, ctor validation (null/length-4) with genuine test sensors, Tick guards the default(InputSnapshot) hole; InputBridge Button->Held verified harmless (InputInterpreter.ProcessSeat's only ButtonState read is rawDown = Pressed||Held; all edges re-derived via its own 2-tick debounce); Direction8<->(x,y) round-trips all 9 values; zero-alloc holds by inspection through the v2 path. STANDING (a7c59ab did not touch StartTanda/fakeout/threshold): MEDIUM-1 alloc test window still vacuous (rewritten in 26285e4 without fixing it; GddDefaults game finishes ~tick 450, measured 500-1500 window hits only the finished no-op; fix = long ReactionTimeoutSeconds so live play spans the window); MEDIUM-2 fakeout Floor vs signal Round collision (~0.1-0.3% per fakeout per tanda; clamp <= signalTick-1; regression test needs a seed search under concrete SeededRandom); MEDIUM-3 effective physical anticipation cutoff ~66.7 ms vs GDD 90 ms (uncompensated +1 debounce tick) + class-doc sentence states drift direction backwards — resolution per the GDD-canonical decision: AnticipationThresholdTicks default 5->6 (83.3 ms physical) + doc fix. LOWs a-f stand, incl. new (f): ReaccionaMicrogame deliberately ignores InputSnapshot.Tick (keeps own counter) — add one doc line on the authority relationship. Sentinel/aggregation sanity re-confirmed (540 << 1,000,000; int-safe; 1,1,3 ranking pinned). Tier audit: tdd correct, both test-before-impl pairs verified. PROCESS NOTE: the literalization rework raced the in-flight review in the shared main tree — landed clean, but future contract rework during an open review waits for the verdict or uses an isolated worktree."
+    },
+    {
+      "author": "developer",
+      "at": "2026-07-07T05:20:43.279Z",
+      "body": "Fix round complete on master (dev-t101), separate from the APUNTA commits: 8c69b8c test(core) red fix-round tests -> 11ca84c fix(core). Red evidence genuine (production files reverted to committed state, run captured, restored): Fakeout_NeverLandsOnOrAfterTheRealSignalTick_RegressionSeed failed (Expected: less than 93, But was: 93) and GddDefaults_AnticipationThresholdTicks_Is6NotFive failed (Expected: 6, But was: 5). MEDIUM-2: collision reproduced by brute-force seed search over StartTanda's exact RNG draw order — seed 8664 with fakeouts=1 gives delayTicks=Round(93.4498)=93 and fakeoutTick=Floor(93.098)=93; confirmed live through the mechanic before fixing; fix clamps fakeoutTick <= signalTick-1; regression test pins seed 8664 with the arithmetic documented. MEDIUM-3: GddDefaults.AnticipationThresholdTicks 5->6; class-doc paragraph corrected (previous claim of '~1 tick tighter' was backwards — 5 ticks only rejected physical <66.7 ms; 6 rejects <83.3 ms, closest tick-quantized value at-or-under the GDD's 90 ms); ReaccionaParams docs updated; boundary tests were threshold-relative and adapted automatically, new pin test locks the default. MEDIUM-1 (test-only): alloc test now runs reactionTimeoutSeconds=60 with nobody pressing — round genuinely live through warmup AND measured window — and asserts IsFinished==false before and after the window so future early-conclusion regressions fail loudly instead of going vacuous. LOWs: (a) trace tuple now includes rs.Tick; (b) FalseStarter_ReEntersNextTanda_NotPermanentlyExcluded added (cumulative FailurePenaltyTicks+20+20; impl was already correct, now pinned); (c) [0,1) half-open delay range documented on SignalDelayMaxSeconds; (d) documented-no-bound by design (dev's call, kept round focused); (f) already covered by the GDD-canonical pass doc. Suite 394 (post-APUNTA baseline) -> 397 green, 0 failed. Esquiva3D.unity working-tree noise flagged again (Unity Editor, not the dev)."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T05:33:34.890Z",
+      "body": "CLOSED on reviewer CLOSE verdict. Review depth FULL — rubric inputs: core tdd-tier logic (new v2 IMicrogame contract + ReaccionaMicrogame, mandatory-FULL surface) and >1000 changed lines. Review chain (rev-t103, fresh context, all evidence from pinned detached worktrees): (1) FULL review of 1938e59..5f7ac91 — APPROVE-WITH-NITS, 0 HIGH, 3 MEDIUM, red independently reproduced at 31b5e85 (compile-fail, V2 sources absent); (2) extension pass over 5f7ac91..a7c59ab (GDD-literalization pair) — CLOSE-READY, no HIGH/no new MEDIUM, contract confirmed GDD-literal (Initialize(SeededRandom, PlayerRoster, float) / Tick(in InputSnapshot)), Tick-signature drift RESOLVED, red reproduced at 26285e4; (3) fix-round verification of 8c69b8c..11ca84c — CLOSE, all three MEDIUMs resolved (M1 alloc test now a genuine live-window sensor with liveness guards; M2 fakeout clamped <= signalTick-1, seed-8664 regression drives the actual mechanic, degenerate cases benign, RNG order unchanged; M3 AnticipationThresholdTicks 5->6 = 83.3 ms physical, quantization direction endorsed, docs corrected in both files), LOWs a/b/c/f resolved, d accepted as documented-by-design, assertion-red independently reproduced (394/2-failed at 8c69b8c), fix commit verified not to touch the red sensors, zero behavioral spillover (fakeouts=0 paths bit-identical). Suite trajectory 356 -> 378 (contract+mechanic) -> 397 final (397/397 pinned at 11ca84c, reviewer-observed). MECH_05 REACCIONA implements GDD 10.2/Annex D.2 literally in Barcade.Core.Microgames.V2; v1 untouched. Spec assumptions (best-of-3 penalty-sentinel aggregation, 3 s reaction timeout, competition ranking 1,1,3) reviewer-ruled sound. Follow-ups filed elsewhere: TASK-044 (SeededRandom is not PCG32 per GDD 13), TASK-046 (shared v2 InputBridge). Anticipation recalibration decision recorded in session decisions (human informed, GDD-canonical)."
     }
   ],
   "created_at": "2026-07-07T03:26:08.851Z",
-  "updated_at": "2026-07-07T04:46:17.489Z",
+  "updated_at": "2026-07-07T05:33:34.890Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

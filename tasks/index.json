@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T04:46:32.371Z",
+  "generated_at": "2026-07-07T05:33:34.890Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -148,13 +148,13 @@
     {
       "key": "TASK-025",
       "title": "GDD T-103 — MECH_05 ¡REACCIONA! quick-draw microgame (§4 MECH_05, IMicrogame contract §10.2)",
-      "status": "in_review",
+      "status": "done",
       "priority": "critical"
     },
     {
       "key": "TASK-026",
       "title": "GDD T-104 — MECH_04 ¡APUNTA! hold-charge aiming microgame (§4 MECH_04, IMicrogame contract §10.2)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "critical"
     },
     {
@@ -178,7 +178,7 @@
     {
       "key": "TASK-030",
       "title": "GDD T-106 — MicrogameDefinition schema v2 + validator + asset migrator (§11.1)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "high"
     },
     {
@@ -264,6 +264,24 @@
       "title": "SeededRandom must be PCG32 per GDD §13 (currently wraps System.Random) — replay/determinism prerequisite",
       "status": "todo",
       "priority": "medium"
+    },
+    {
+      "key": "TASK-045",
+      "title": "MicrogameContentGenerator stale vs v2 schema — Specs durations 7-10s violate the [3,8] bound; reconcile generator with GDD §11.1 and the on-disk assets",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-046",
+      "title": "Consolidate the duplicated v2 InputBridge (Reacciona/Apunta) into shared V2 infrastructure",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-047",
+      "title": "Fix repo-wide duplicate .meta GUID shared by ArcadeControls.inputactions and InputSystem_Actions.inputactions",
+      "status": "todo",
+      "priority": "low"
     }
   ]
 }

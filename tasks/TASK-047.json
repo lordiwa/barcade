@@ -1,0 +1,29 @@
+{
+  "key": "TASK-047",
+  "title": "Fix repo-wide duplicate .meta GUID shared by ArcadeControls.inputactions and InputSystem_Actions.inputactions",
+  "description": "rev-t026 hygiene find (TASK-026 review, pre-existing — introduced at d597f0b, TASK-006 era): GUID 8404be70184654265930450def6a9037 is shared by Barcade/Assets/Barcade/Input/ArcadeControls.inputactions.meta and Barcade/Assets/InputSystem_Actions.inputactions.meta. Duplicate GUIDs make Unity's asset resolution nondeterministic — any scene/prefab/component referencing that GUID may bind to either asset depending on import order. Determine which asset live references actually point at (grep scenes/prefabs/asset files for the GUID), keep the GUID on that asset, remint a fresh unique GUID for the other, fix any references that break, and verify via the Unity gate (clean import, compile, input still works in a PlayMode smoke or the Hito 1 scene UAT). Requires the Unity Editor/batchmode — coordinate with the next Unity-gated work (TASK-027/028 window).",
+  "acceptance_criteria": [
+    "A repo-wide scripted duplicate-GUID check (grep across all .meta files) reports zero duplicates",
+    "The GUID stays with whichever asset existing scenes/prefabs reference; the other asset gets a freshly minted unique GUID; no reference breaks (verified by grep + Unity import)",
+    "Unity gate passes: clean import/compile with no missing-reference warnings for the two .inputactions assets, and 4-player input still functions (PlayMode smoke or scene UAT)"
+  ],
+  "status": "todo",
+  "priority": "low",
+  "labels": [
+    "hygiene",
+    "unity",
+    "input",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T05:31:25.100Z",
+  "updated_at": "2026-07-07T05:31:25.100Z",
+  "jira_key": null,
+  "verification_tier": "uat-only",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
