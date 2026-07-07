@@ -10,7 +10,7 @@
     "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
     "Tests-first (red captured before impl); existing dodge tests conserved or migrated; fast suite green, no regression; legacy consumers keep compiling. StagePresenter/View wiring is out of scope (separate §10.4 work)."
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -29,7 +29,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T15:11:44.238Z",
-  "updated_at": "2026-07-07T15:11:44.238Z",
+  "updated_at": "2026-07-07T15:15:01.223Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

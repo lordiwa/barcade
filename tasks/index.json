@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T15:12:40.209Z",
+  "generated_at": "2026-07-07T15:15:01.223Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -340,13 +340,13 @@
     {
       "key": "TASK-057",
       "title": "T-107 Slice 0 — remove SequencerDirector P3-violating re-roll loop (single-draw anti-repeat)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "high"
     },
     {
       "key": "TASK-058",
       "title": "T-107 Slice 1 — MECH_02 ¡ESQUIVA! on the v2 contract (adapt EsquivaMicrogame)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
@@ -364,6 +364,12 @@
     {
       "key": "TASK-061",
       "title": "T-107 Slice 4 — legacy-id reconciliation (aporrea/timing/apunta-v1/recolecta)",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-062",
+      "title": "Retire v1 SequencerDirector from Framework production: route session/HUD through V2 MicrogameSelector + SessionStateMachine scoring",
       "status": "todo",
       "priority": "medium"
     }

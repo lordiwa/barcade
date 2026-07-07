@@ -1,0 +1,36 @@
+{
+  "key": "TASK-062",
+  "title": "Retire v1 SequencerDirector from Framework production: route session/HUD through V2 MicrogameSelector + SessionStateMachine scoring",
+  "description": "Filed from TASK-057 (dev-t101 AC4 draft) — the FULL Framework production swap that comment-1 on TASK-034 named as the maximal reading (TASK-057 already satisfied comment-1's 'at minimum' by removing the P3 re-roll loop). MicrogameSelector V2 (Barcade.Core.Sequencer.V2) has ZERO production Framework consumers today: SessionController._director, MicrogameLoopController.BuildDirector(), HudController, and PlayerCornerHud all concretely reference the v1 SequencerDirector and the v1 ScoreModel. A full swap means replacing that whole chain's sequencing AND scoring/HUD data source with the newer SessionStateMachine-based model (Coins / MicrogameWins / FinalRanking / Stakes etc.), which is NOT wired into Framework production anywhere yet either. This is very likely blocked on or bundled with TASK-055 (fixed-60Hz Framework driver), since both need a real Framework-side SessionStateMachine host to exist. Also the natural home for the TASK-052 LOW-3 carry-in: when V2 definitions get wired through SetActiveMicrogame, add the integration test pinning MicrogameDefinitionV2.PayoutTable -> Coins and handle the null-vs-empty PayoutTable asymmetry. Scope is large and Unity-gated (Framework compile) — consider its own Phase-A decomposition. After this closes, verify NO production consumer references v1 SequencerDirector/ScoreModel (completes TASK-034 comment-1's maximal intent).",
+  "acceptance_criteria": [
+    "SessionController, MicrogameLoopController, HudController, and PlayerCornerHud consume the V2 MicrogameSelector and the SessionStateMachine-based scoring model; no production consumer references v1 SequencerDirector or v1 ScoreModel.",
+    "A Framework-side SessionStateMachine host advances the session (coordinate with / depend on TASK-055's fixed-60Hz driver); HUD reads Coins/MicrogameWins/FinalRanking from it.",
+    "TASK-052 LOW-3 resolved here: an integration test pins MicrogameDefinitionV2.PayoutTable -> SetActiveMicrogame -> Coins, and the null-vs-empty PayoutTable asymmetry is normalized or documented+tested.",
+    "Fast suite green; Framework compile + PlayMode legs verified in the Unity gate; v1 SequencerDirector/ScoreModel either deleted or provably unreferenced by production."
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "framework",
+    "sequencer",
+    "scoring",
+    "T-107",
+    "unity-gate",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-057",
+    "TASK-055"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T15:14:53.776Z",
+  "updated_at": "2026-07-07T15:14:53.776Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

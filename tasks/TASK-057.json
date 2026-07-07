@@ -8,7 +8,7 @@
     "Any seed-pinned SequencerDirector tests whose expectations shift due to the changed draw count are retuned with a documented single-draw rationale (not blind reblessing); tests-first for the new rule; red captured.",
     "Fast suite green, no regression; a follow-up ticket is filed for the full Framework v1-SequencerDirector -> V2-MicrogameSelector production swap (out of scope here)."
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -24,9 +24,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "dev-t101",
+      "at": "2026-07-07T15:14:40.765Z",
+      "body": "Hand-off. Two commits, strict tdd order: 922e436 test(core) RED -> 46aff35 feat(core). Baseline 559 -> 561/561 (2 new tests).\n\nSEED-STREAM BLAST RADIUS (the specific ask): SequencerDirector owns a FULLY DEDICATED RNG — verified by grep in both construction sites (MicrogameLoopController.BuildDirector() does `new SeededRandom(actualSeed)` solely for the director; SequencerTests.MakeDirector same). Nothing else reads or shares this instance, so changing PickNext's draw count has ZERO ripple into any other consumer's stream — unlike the TASK-044 PCG32 migration (which changed the algorithm under every shared/derived stream). Self-contained.\n\nRED EVIDENCE (empirically measured): added a CountingRandom spy counting NextInt calls — against the unmodified do-while, 100 PickNext decisions on a 2-item pool consumed 190 draws (not 100), concretely confirming the P3 violation. Degenerate single-item pool already consumed 0 draws pre-ticket (existing special-case correct); added an explicit test locking that as intentional.\n\nIMPL (AC1): replaced the do-while with the standard 'exclude one index from a uniform range' mapping — draw from [0, Count-1) (full range when _lastPickedIndex is -1), shift draws at-or-past the excluded index forward by one. Excluded index never produced, all others equally likely, exactly one RNG call per decision, no new allocation (pure-math, no candidate array). AC2 degenerate: Count==1 returns the only entry without touching RNG, [ASSUMED]-tagged (GDD §9.2 silent on a 1-pool), citing MicrogameSelector's own liveness-over-constraints precedent.\n\nRETUNED TEST (AC3): PickNext_FixedSeed_ProducesExactDeterministicSequence (seed 42, 3-item pool) shifted from round 2 — expected (a 3+-item pool's old re-roll draw count was variable per round, so RNG trajectory diverges). NOT blind-reblessed: captured the actual new sequence (A,C,A,C,B,A,C,B,A,B) via a temp diagnostic, independently checked it has no consecutive repeat, wrote it in with an explanatory comment (mirroring the existing 'Recalibrated for TASK-044' comment in that test). Every OTHER test needed zero changes — verified, not assumed (2-item alternation is pigeonhole-forced; long-run + cross-instance tests assert algorithm-invariant structural properties). Mutation check: dropped the exclusion shift (idx=draw), 4 tests genuinely red incl. a caught anti-repeat violation ('Anti-repeat violated at round 7: C repeated after C'), proving the anti-repeat tests still do real work. Reverted before commit.\n\nFOLLOW-UP DRAFTED (AC4, for orchestrator to file): full Framework v1-SequencerDirector -> V2-MicrogameSelector production swap — MicrogameSelector V2 has zero Framework consumers; SessionController/MicrogameLoopController/HudController/PlayerCornerHud all reference v1 today; a swap also means wiring the SessionStateMachine-based scoring into Framework production (not wired anywhere yet), likely bundled with TASK-055's fixed-60Hz Framework host. TASK-057's re-roll removal already satisfies comment-1's 'at minimum' on its own. Surface: SequencerDirector.cs + its tests only."
+    }
+  ],
   "created_at": "2026-07-07T15:05:14.265Z",
-  "updated_at": "2026-07-07T15:05:19.939Z",
+  "updated_at": "2026-07-07T15:15:00.742Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
