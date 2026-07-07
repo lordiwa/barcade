@@ -414,7 +414,9 @@ namespace Barcade.Core.Microgames.V2
             }
         }
 
-        /// <summary>Unit vector for one of the 8 discrete aim directions; (0,0) for <see cref="Direction8.None"/>.</summary>
+        /// <summary>Unit vector for one of the 8 discrete aim directions; (0,0) for <see cref="Direction8.None"/>.
+        /// Numerically mirrors <see cref="Barcade.Core.Microgames.V2.InputBridge.ToUnitVector"/> but is aim/ballistics
+        /// geometry, not the input-stick convention (rev-t046 LOW-1) -- do not fold the two together.</summary>
         public static (float X, float Y) DirectionToUnit(Direction8 d)
         {
             const float diag = 0.70710678f; // 1/sqrt(2)

@@ -240,7 +240,11 @@ namespace Barcade.Core
         private readonly SeededRandom _rng;
         private readonly int _scoringSeed;
         private readonly InputInterpreter _interpreter;
-        private readonly InputBridge _inputBridge = new InputBridge();
+        // TASK-053: was a private nested InputBridge (sign-pure ±1/±1 diagonals);
+        // now the shared, canonical-normalized V2.InputBridge (TASK-046) — see its
+        // own class doc for the convention and why it was made shared in the
+        // first place.
+        private readonly V2.InputBridge _inputBridge = new V2.InputBridge();
         private readonly RoundPhaseMachine _roundMachine;
 
         private SessionPhase _phase;
@@ -758,43 +762,5 @@ namespace Barcade.Core
             }
         }
 
-        /// <summary>
-        /// Adapts this tick's v2 <see cref="V2.InputSnapshot.Players"/> array into
-        /// <see cref="IReadOnlyPlayerInputs"/> (v1, per-seat) so this machine's own
-        /// internal <see cref="InputInterpreter"/> can be reused unchanged — same
-        /// approach and rationale as ReaccionaMicrogame's/ApuntaMicrogame's private
-        /// bridges (duplicated rather than shared/extracted, consistent with their
-        /// own documented reasoning for not touching each other's files).
-        /// </summary>
-        private sealed class InputBridge : IReadOnlyPlayerInputs
-        {
-            private V2.PlayerInput[] _players;
-
-            public void SetSource(V2.PlayerInput[] players) => _players = players;
-
-            public InputSnapshot For(PlayerSlot slot)
-            {
-                V2.PlayerInput p = _players[(int)slot];
-                ToStickXY(p.Stick, out float x, out float y);
-                ButtonState state = p.Button ? ButtonState.Held : ButtonState.Released;
-                return new InputSnapshot(x, y, state);
-            }
-
-            private static void ToStickXY(Direction8 d, out float x, out float y)
-            {
-                switch (d)
-                {
-                    case Direction8.N: x = 0f; y = 1f; break;
-                    case Direction8.S: x = 0f; y = -1f; break;
-                    case Direction8.E: x = 1f; y = 0f; break;
-                    case Direction8.W: x = -1f; y = 0f; break;
-                    case Direction8.NE: x = 1f; y = 1f; break;
-                    case Direction8.SE: x = 1f; y = -1f; break;
-                    case Direction8.NW: x = -1f; y = 1f; break;
-                    case Direction8.SW: x = -1f; y = -1f; break;
-                    default: x = 0f; y = 0f; break;
-                }
-            }
-        }
     }
 }
