@@ -72,6 +72,8 @@
     <!-- TASK-060 (T-107 slice 3, GDD MECH_01): ¡MANTÉN! v2 contract + noise helper -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SeededValueNoise1DTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MantenMicrogameV2Tests.cs" />
+    <!-- TASK-059 (T-107 slice 2, GDD MECH_03): ¡CORRE! v2 contract -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CorreMicrogameV2Tests.cs" />
   </ItemGroup>
 
 </Project>
