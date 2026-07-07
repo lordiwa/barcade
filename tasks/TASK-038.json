@@ -10,7 +10,7 @@
     "Novato fills an Empty/Idle seat in a simulated session without stalling any state (integration test with the SessionStateMachine)",
     "Tests-first; fast suite green after, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -24,11 +24,20 @@
   "depends_on": [
     "TASK-034"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "9605d4b",
+    "b7282cc"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T23:43:38.291Z",
+      "body": "CLOSED via rev-t038 FULL review — VERDICT CLOSE, no HIGH. Review depth = FULL (rubric inputs: +1831/-313 changed lines >= 150; touches core tdd-tier logic + the determinism-critical RngStream surface + test infrastructure incl. a deleted ceiling-solver). Suites re-run firsthand: fast 629->647 (+18, the 629 prior ALL unchanged-green = zero determinism regression), slow 8/8 (reconciled Esquiva 4000-seed sweep still green). AC4 harness within budget every mechanic (APUNTA 0.71s / CORRE 1.21s / ESQUIVA 1.40s / MANTEN 0.31s / REACCIONA 0.36s per 1000 seeds, vs 60s/mech budget). HIGH-RISK ITEMS ALL CLEARED: (1) RNG parity drift CLEAN — RngStream strictly append-only (Session=0/Spawner=1/Board=2/Draws=3 byte-unchanged, Bots=4 appended), no seed-pinned/replay/selector/scoring test shifted; (2) Esquiva reconciliation NOT laundered — EsquivaBotPolicy.DecideIdeal is byte-identical to the deleted EsquivaEscapeBot; the only delta is Bot.Optimo's 6-tick reaction-delay buffer making the witness strictly WEAKER, yet the identical !IsEliminated assertion over the same 4000-seed x 4-pattern space still passes = a STRONGER escapability proof (plus a NEW all-4-seat fast test at 5s production duration improves coverage); (3) AC1 anti-cheat CLEAN — BotView's only ctor is (RenderState,int), reflection-enforced non-vacuously; ApuntaBotPolicy/CorreBotPolicy read only view (avatar/own-seat hazard/Hud.Meters[own seat]); the injected ApuntaParams/CorreParams are fixed per-definition ballistics/physics constants (published, learnable), NOT hidden round state; (4) AC2 determinism non-vacuous (Novato non-zero variance exercises the gaussian sampler; divergence pinned on Reacciona's per-seed latency); (5) AC4 harness generic over IMicrogame via factory delegates; (6) CorrePerfectRunner deliberately untouched, approximate CorreBotPolicy never substituted into a precision proof (AC3 scopes ceiling reconciliation to MECH_02/04 only); (7) tdd ordering genuine (9605d4b test compile-RED for missing Barcade.Core.Bots types -> b7282cc feat); engine-free (0 UnityEngine in Bots/). 12 new Bots/ files + append-only RngStream.Bots=4. MEDIUM M1 (non-blocking) -> FOLLOW-UP TASK-069: AC5 proves FSM liveness but defers SeatState.Bot roster occupancy + the HumanIdle 'Idle'-half scenario; TASK-069 also folds LOW-1 (EsquivaBotPolicy.cs:30 stale doc cross-ref to the deleted file). LOW-2 (Bot.Medio numbers invented) is a properly-disclosed [ASSUMED] design-review item -> added to the human [ASSUMED] ratification list. Linked 9605d4b/b7282cc, depth FULL."
+    }
+  ],
   "created_at": "2026-07-07T04:21:21.747Z",
-  "updated_at": "2026-07-07T23:32:04.875Z",
+  "updated_at": "2026-07-07T23:43:38.291Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

@@ -1,0 +1,35 @@
+{
+  "key": "TASK-069",
+  "title": "Wire SeatState.Bot roster occupancy for bot-filled seats + HumanIdle scenario (TASK-038 AC5 completion)",
+  "description": "Filed from the TASK-038 review (rev-t038 FULL, MEDIUM M1 + LOW L1). TASK-038 delivered the bot system and proved the AC5 LIVENESS property (a Novato IBotPolicy supplies continuous input driving a real mechanic through a full SessionStateMachine session that reaches GameOver without stalling any phase). BUT the integration test does NOT assign SeatState.Bot — the roster keeps the filled seat Empty, so the bot's input for it is largely inert; what is actually proven is 'bot input doesn't regress FSM liveness', which makes 'fills a seat' functionally thin. Also only the 'Empty' half of AC5's 'Empty/Idle' is exercised; the 'Idle' (HumanIdle) half has no dedicated scenario. SessionStateMachine.CompleteJoin assigns only Human/Empty off real Join claims; wiring an unclaimed seat to SeatState.Bot is explicit future work the FSM's own class doc defers past TASK-038. WORK: (1) Wire SeatState.Bot roster occupancy so an unclaimed/idle seat is actually OCCUPIED by a Novato bot (roster state = Bot + a published avatar), so the bot genuinely fills the seat rather than feeding inert input to an Empty slot, driving it through a full session that reaches GameOver with no stall. (2) Add a HumanIdle seat-fill scenario (a claimed-then-idle seat handed to a bot) covering the 'Idle' half of AC5. (3) Confirm SeatState.Bot occupancy interoperates with the TASK-056 dead-seat tracker (which currently watches only claimed Human seats) without regression. (4) Fold in rev-t038 LOW-1: EsquivaBotPolicy.cs:30's doc claims the extended diagnosis is 'still present verbatim on Barcade.SlowTests.Oracles.EsquivaEscapeBot', but that file was DELETED in b7282cc — correct the stale present-tense cross-ref (content already summarized on EsquivaBotPolicy's own doc, nothing lost). Read the SessionStateMachine roster/SeatState code + TASK-038's Core/Runtime/Bots/ module. Core/session logic is fast-testable.",
+  "acceptance_criteria": [
+    "An unclaimed (Empty) seat is occupied by a Novato bot with SeatState.Bot roster state and a published avatar, and the bot genuinely drives that seat (not inert input to an Empty slot) through a full session that reaches GameOver without stalling any phase",
+    "A HumanIdle seat-fill scenario (a claimed-then-idle seat handed to a bot) is covered by an integration test — the 'Idle' half of AC5",
+    "SeatState.Bot occupancy interoperates with the TASK-056 dead-seat tracker without regression (the tracker's claimed-Human assumption is reconciled)",
+    "rev-t038 LOW-1 doc fix applied: EsquivaBotPolicy.cs:30's stale present-tense cross-ref to the deleted EsquivaEscapeBot is corrected. Tests-first where engine-free; fast suite green, no regression"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "bots",
+    "testing",
+    "follow-up",
+    "T-110"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-038"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T23:43:18.094Z",
+  "updated_at": "2026-07-07T23:43:18.094Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
