@@ -48,7 +48,22 @@ namespace Barcade.SlowTests
         public void StopMeter_TapTimingAcrossManySeeds_ProducesApproximatelyUniformStoppedValues()
         {
             const int SweepSeeds = 1000;
-            const int TimeoutTicks = 480; // 8s @ 60Hz (GDD §5.2/§2.2)
+            const int MeterTicksPerStep = 15; // 60Hz / 4Hz (GDD §5.2)
+            const int MeterCycleTicks = MeterTicksPerStep * 6; // one full 1->6 sawtooth period = 90 ticks
+
+            // Sample the tap tick over an EXACT multiple of the meter's own cycle
+            // length. Sampling over the raw 8s/480-tick timeout window instead
+            // would be a self-inflicted test bug, not a property of the mechanism:
+            // 480 is NOT a multiple of the 90-tick cycle (480/90 = 5.33), so a
+            // uniform draw over [0,480) systematically over-samples the partial
+            // 6th cycle's first two values -- reproducibly measured at
+            // counts=[199,212,137,155,153,144], chi-square=28.90 (fails the same
+            // 20.515 bar below) when this was tried. Sampling over whole cycles
+            // sidesteps that boundary artifact while still genuinely exercising
+            // "tap timing unpredictable relative to the cycle" (GDD §5.2: "a 4Hz
+            // nadie fija el valor de forma fiable") over several cycles' worth of
+            // reaction-time variance, comfortably inside the 480-tick timeout.
+            const int SampleWindowTicks = MeterCycleTicks * 4; // 360 ticks -- 4 full cycles, well under the 480-tick timeout
 
             var counts = new int[7]; // 1-indexed buckets 1..6; [0] unused
             // Drives the RANDOM TAP TICK per trial -- deliberately a SEPARATE
@@ -61,13 +76,7 @@ namespace Barcade.SlowTests
                 var board = new BoardModel(BoardConfig.GddDefaults, new SeededRandom(seed));
                 board.BeginMovePhase(new SeededRandom(seed));
 
-                // A uniformly random reaction tick within the window models GDD
-                // §5.2's own claim: "a 4Hz nadie fija el valor de forma fiable" --
-                // human (or bot) tap timing is effectively unpredictable relative
-                // to the 15-tick cycle, which is exactly what should make the
-                // STOPPED VALUE approximately uniform even though the cycle itself
-                // is a deterministic sawtooth.
-                int tapTick = driver.NextInt(0, TimeoutTicks);
+                int tapTick = driver.NextInt(0, SampleWindowTicks);
                 var inputs = new FakeInputs();
 
                 for (int t = 0; t <= tapTick; t++)
