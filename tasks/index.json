@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T04:27:28.977Z",
+  "generated_at": "2026-07-07T04:31:18.858Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -148,7 +148,7 @@
     {
       "key": "TASK-025",
       "title": "GDD T-103 — MECH_05 ¡REACCIONA! quick-draw microgame (§4 MECH_05, IMicrogame contract §10.2)",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "critical"
     },
     {
