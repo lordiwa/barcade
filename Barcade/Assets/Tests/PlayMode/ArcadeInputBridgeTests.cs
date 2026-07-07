@@ -411,9 +411,17 @@ namespace Barcade.Input.Tests
             yield return null;
 
             var snap = bridge.GetSnapshot(PlayerSlot.Rojo);
-            Assert.That(snap.StickX, Is.EqualTo(0f).Within(0.0001f),
+            // rev-t054b MEDIUM: exact equality, not Within(0.0001f) -- that
+            // tolerance exactly equaled the injected per-component magnitude, and
+            // NUnit's Within is boundary-inclusive, so a raw ~1e-4 passthrough
+            // (i.e. this test's own regression: the WithDeadZone wrap silently
+            // deleted from UpdateSlot) would ALSO have passed. WithDeadZone
+            // returns an exact literal 0f below threshold, never a scaled-down
+            // value, so exact equality is both correct and the strongest
+            // possible lock here.
+            Assert.That(snap.StickX, Is.EqualTo(0f),
                 "sub-threshold analog noise must be zeroed before reaching Core");
-            Assert.That(snap.StickY, Is.EqualTo(0f).Within(0.0001f),
+            Assert.That(snap.StickY, Is.EqualTo(0f),
                 "sub-threshold analog noise must be zeroed before reaching Core");
         }
 
