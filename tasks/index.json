@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T05:48:17.230Z",
+  "generated_at": "2026-07-07T08:45:00.000Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -142,7 +142,7 @@
     {
       "key": "TASK-024",
       "title": "GDD T-102 — SessionStateMachine: full session FSM with per-state timeouts (§2.1/§2.2)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {

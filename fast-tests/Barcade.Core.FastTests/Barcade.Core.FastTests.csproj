@@ -55,6 +55,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionV2Tests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionValidatorTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameDefinitionMigratorTests.cs" />
+    <!-- TASK-024 (GDD T-102): SessionStateMachine full session FSM -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SessionStateMachineTests.cs" />
   </ItemGroup>
 
 </Project>
