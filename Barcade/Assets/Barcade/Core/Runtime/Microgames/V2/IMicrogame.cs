@@ -1,5 +1,3 @@
-using Barcade.Core;
-
 namespace Barcade.Core.Microgames.V2
 {
     /// <summary>
@@ -8,42 +6,33 @@ namespace Barcade.Core.Microgames.V2
     /// deliberately NOT unified in this ticket. See "Contract decision" below.
     ///
     /// <para>
-    /// <b>Contract decision (T-103, delegated by the orchestrator):</b> GDD §10.2
-    /// specifies <c>Initialize(MicrogameDefinition, SeededRandom, PlayerRoster, float)</c>
-    /// and <c>Tick(in InputSnapshot)</c> where that <c>InputSnapshot</c> is the
-    /// session-level <c>{ int Tick; PlayerInput[] Players; }</c> struct described in
-    /// GDD §3.2 — a type that does not exist in Core (see the delta already
-    /// documented on <c>Barcade.Core.InputInterpreter</c>: the real
-    /// <see cref="Barcade.Core.InputSnapshot"/> is per-seat, not a session wrapper).
-    /// Evolving the existing v1 <c>IMicrogame</c> in place to add <c>IsFinished</c> /
-    /// <c>MicrogameId</c> / the new result and render types would force changes to
-    /// all 6 existing implementers (EsquivaMicrogame, AporreaMicrogame, ApuntaMicrogame,
-    /// TimingMicrogame, RecolectaMicrogame, SampleTapMicrogame) and to
-    /// <c>SequencerDirector</c>'s calling convention, which does not poll
-    /// <c>IsFinished</c> today. That is explicitly out of scope for this ticket
-    /// ("do NOT rewrite existing mechanics"). So this is a NEW interface in a new
-    /// namespace — REACCIONA is its first implementation; old mechanics migrate
-    /// later under GDD T-107. Two further, smaller adaptations from the literal
-    /// D.2 signature, made for the same "smallest blast radius, reuse what
-    /// exists" reason:
-    /// <list type="bullet">
-    /// <item><description>
-    /// <c>Tick</c> takes <see cref="IReadOnlyPlayerInputs"/> (the existing per-seat
-    /// callback interface every current microgame and <c>InputInterpreter</c>
-    /// already consume) instead of a nonexistent session-level <c>InputSnapshot</c>.
-    /// </description></item>
-    /// <item><description>
-    /// <c>Initialize</c> takes <see cref="ISeededRandom"/> (the existing interface
-    /// <c>IMicrogameContext.Rng</c> already uses, for testability/mocking) instead
-    /// of the concrete <c>SeededRandom</c> class, and drops the <c>MicrogameDefinition</c>
-    /// parameter entirely — T-106 (the v2 data migration) has not landed, and the
-    /// orchestrator's params note for this ticket says to take mechanic-specific
-    /// tuning via a plain params POCO instead. Concretely, <c>ReaccionaMicrogame</c>
-    /// takes its <c>ReaccionaParams</c> via its own constructor, mirroring how
-    /// v1 mechanics (e.g. <c>EsquivaMicrogame</c>) take mechanic-specific config
-    /// via their constructor rather than via the shared <c>Prepare(ctx)</c> call.
-    /// </description></item>
-    /// </list>
+    /// <b>Contract decision (T-103, delegated by the orchestrator; reaffirmed by
+    /// human directive: the GDD is canonical — code adapts to it, not vice versa).</b>
+    /// GDD §10.2 specifies <c>Initialize(MicrogameDefinition, SeededRandom, PlayerRoster, float)</c>
+    /// and <c>Tick(in InputSnapshot)</c>. Evolving the existing v1 <c>IMicrogame</c> in
+    /// place to add <c>IsFinished</c> / <c>MicrogameId</c> / the new result and render
+    /// types would force changes to all 6 existing implementers (EsquivaMicrogame,
+    /// AporreaMicrogame, ApuntaMicrogame, TimingMicrogame, RecolectaMicrogame,
+    /// SampleTapMicrogame) and to <c>SequencerDirector</c>'s calling convention, which
+    /// does not poll <c>IsFinished</c> today — explicitly out of scope ("do NOT rewrite
+    /// existing mechanics"). So this is a NEW interface in a new namespace — REACCIONA
+    /// is its first implementation; old mechanics migrate later under GDD T-107. The
+    /// v1 <c>IMicrogame</c>/<c>InputSnapshot</c>/<c>SequencerDirector</c> are untouched
+    /// and keep compiling; they do not shape this API.
+    /// </para>
+    ///
+    /// <para>
+    /// This interface matches the literal D.2 signature with exactly one deliberate
+    /// omission: the <c>MicrogameDefinition</c> parameter is dropped from
+    /// <see cref="Initialize"/>. T-106 (the v2 <c>MicrogameDefinition</c> data
+    /// migration) has not landed, and the orchestrator's params note for this ticket
+    /// says to take mechanic-specific tuning via a plain params POCO instead —
+    /// concretely, <see cref="Barcade.Core.Microgames.V2.ReaccionaMicrogame"/> takes
+    /// its <c>ReaccionaParams</c> via its own constructor. Every other parameter and
+    /// the <see cref="Tick"/> signature match the GDD literally: <c>SeededRandom</c>
+    /// (the concrete class, not an interface) and this namespace's own session-level
+    /// <see cref="InputSnapshot"/> (<c>{ int Tick; PlayerInput[] Players; }</c>, GDD
+    /// §3.2) — not the v1 per-seat <c>Barcade.Core.InputSnapshot</c>.
     /// </para>
     ///
     /// <b>Contract rules (GDD §10.2):</b> <see cref="Tick"/> allocates no heap memory
@@ -62,10 +51,10 @@ namespace Barcade.Core.Microgames.V2
         /// <param name="rng">Deterministic RNG seeded per-round by the sequencer.</param>
         /// <param name="roster">Which of the 4 seats are occupied and by whom.</param>
         /// <param name="difficultyMult">Session difficulty multiplier (GDD §9.1); 1.0 = baseline.</param>
-        void Initialize(ISeededRandom rng, PlayerRoster roster, float difficultyMult);
+        void Initialize(SeededRandom rng, PlayerRoster roster, float difficultyMult);
 
         /// <summary>Advances exactly one simulation tick (60 Hz). Pure — no external side effects.</summary>
-        void Tick(IReadOnlyPlayerInputs inputs);
+        void Tick(in InputSnapshot input);
 
         /// <summary>True once the round has concluded and <see cref="GetResult"/> may be called.</summary>
         bool IsFinished { get; }

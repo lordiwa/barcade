@@ -37,14 +37,41 @@ namespace Barcade.Core.Microgames.V2
     /// </para>
     ///
     /// <para>
-    /// <b>InputInterpreter ownership.</b> This microgame owns a private, dedicated
-    /// <see cref="InputInterpreter"/> instance (reset on every <see cref="Initialize"/>)
-    /// rather than receiving a shared one — REACCIONA never needs hold/mash state to
-    /// survive across a microgame boundary, so a self-contained instance is simplest to
-    /// test and keeps this ticket's blast radius small. A future Framework-integration
-    /// ticket may instead hoist one long-lived InputInterpreter across the whole play
+    /// <b>InputInterpreter ownership and the v2-&gt;v1 input bridge.</b> The public
+    /// <see cref="Tick"/> signature takes the GDD-literal, session-level v2
+    /// <see cref="InputSnapshot"/> (<c>{ int Tick; PlayerInput[] Players; }</c>). T-101's
+    /// <see cref="InputInterpreter"/> — reused here for its debounce and edge
+    /// detection rather than reimplemented — was built against the pre-existing v1,
+    /// per-seat <c>Barcade.Core.InputSnapshot</c>/<c>IReadOnlyPlayerInputs</c>. A
+    /// small private <c>InputBridge</c> adapter translates each tick's v2
+    /// <c>PlayerInput{Direction8,bool}</c> into the v1 shape (mapping the raw
+    /// button bool to <c>Held</c>/<c>Released</c> — <c>InputInterpreter</c> only ever
+    /// distinguishes "down" from "up", so either "down" member works identically) so
+    /// <c>_interpreter.Tick(_inputBridge)</c> still works unchanged. This keeps the
+    /// *public* v2 contract GDD-literal while still getting T-101's debounce for
+    /// free, without duplicating its logic. The bridge is allocated once and its
+    /// source array reference is reassigned (not copied) each tick — zero allocation.
+    /// This microgame owns a private, dedicated <see cref="InputInterpreter"/>
+    /// instance (reset on every <see cref="Initialize"/>) rather than receiving a
+    /// shared one — REACCIONA never needs hold/mash state to survive across a
+    /// microgame boundary, so a self-contained instance is simplest to test and
+    /// keeps this ticket's blast radius small. A future Framework-integration ticket
+    /// may instead hoist one long-lived InputInterpreter across the whole play
     /// session (calling its <c>Reset()</c> at MG_INTRO, per T-101's original design)
     /// and pass it in — flagged for the reviewer as a possible follow-up, not a defect.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Tick source.</b> <see cref="InputSnapshot.Tick"/> is accepted (GDD-literal)
+    /// but not read — this microgame maintains its own internal tick counter,
+    /// starting at 0 on every <see cref="Initialize"/>. All of its own timing
+    /// (signal delay, fakeout schedule, reaction timeout) is inherently relative to
+    /// "ticks since this microgame started," so a local counter is sufficient and
+    /// self-contained. <c>RenderState.Tick</c> therefore reflects that local count,
+    /// not necessarily a global session tick. GDD T-102 (SessionStateMachine) has
+    /// not landed yet, so there is no real global tick source to synchronize
+    /// against today; a future ticket can switch to reading <c>input.Tick</c> once
+    /// one exists, without changing any of this mechanic's own logic.
     /// </para>
     ///
     /// <para>
@@ -103,6 +130,47 @@ namespace Barcade.Core.Microgames.V2
 
         private enum SeatOutcome { Pending, Reacted, FalseStarted, DidNotReact }
 
+        /// <summary>
+        /// Adapts this tick's v2 <see cref="InputSnapshot.Players"/> array (GDD-literal,
+        /// session-level) into <see cref="IReadOnlyPlayerInputs"/> (v1, per-seat) so the
+        /// internal <see cref="InputInterpreter"/> can be reused unchanged. Allocated
+        /// once; <see cref="SetSource"/> reassigns a field to the caller's array
+        /// reference each tick — no copying, no allocation.
+        /// </summary>
+        private sealed class InputBridge : IReadOnlyPlayerInputs
+        {
+            private PlayerInput[] _players;
+
+            public void SetSource(PlayerInput[] players) => _players = players;
+
+            public Barcade.Core.InputSnapshot For(PlayerSlot slot)
+            {
+                PlayerInput p = _players[(int)slot];
+                ToStickXY(p.Stick, out float x, out float y);
+                // InputInterpreter only ever distinguishes "down" from "up" (it treats
+                // Pressed and Held identically as "down") — Held is an arbitrary but
+                // harmless choice for the raw "down" state.
+                ButtonState state = p.Button ? ButtonState.Held : ButtonState.Released;
+                return new Barcade.Core.InputSnapshot(x, y, state);
+            }
+
+            private static void ToStickXY(Direction8 d, out float x, out float y)
+            {
+                switch (d)
+                {
+                    case Direction8.N: x = 0f; y = 1f; break;
+                    case Direction8.S: x = 0f; y = -1f; break;
+                    case Direction8.E: x = 1f; y = 0f; break;
+                    case Direction8.W: x = -1f; y = 0f; break;
+                    case Direction8.NE: x = 1f; y = 1f; break;
+                    case Direction8.SE: x = 1f; y = -1f; break;
+                    case Direction8.NW: x = -1f; y = 1f; break;
+                    case Direction8.SW: x = -1f; y = -1f; break;
+                    default: x = 0f; y = 0f; break;
+                }
+            }
+        }
+
         private static readonly PlayerSlot[] AllSlots =
         {
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
@@ -110,9 +178,10 @@ namespace Barcade.Core.Microgames.V2
 
         private readonly ReaccionaParams _params;
         private readonly InputInterpreter _interpreter;
+        private readonly InputBridge _inputBridge = new InputBridge();
         private readonly RenderState _renderState;
 
-        private ISeededRandom _rng;
+        private SeededRandom _rng;
         private PlayerRoster _roster;
         private int _reactionTimeoutTicks;
 
@@ -150,7 +219,7 @@ namespace Barcade.Core.Microgames.V2
         public bool IsFinished => _isFinished;
 
         /// <inheritdoc/>
-        public void Initialize(ISeededRandom rng, PlayerRoster roster, float difficultyMult)
+        public void Initialize(SeededRandom rng, PlayerRoster roster, float difficultyMult)
         {
             if (rng == null) throw new ArgumentNullException(nameof(rng));
 
@@ -172,12 +241,13 @@ namespace Barcade.Core.Microgames.V2
         }
 
         /// <inheritdoc/>
-        public void Tick(IReadOnlyPlayerInputs inputs)
+        public void Tick(in InputSnapshot input)
         {
             if (_isFinished) return;
-            if (inputs == null) throw new ArgumentNullException(nameof(inputs));
+            if (input.Players == null) throw new ArgumentException("InputSnapshot.Players must not be null.", nameof(input));
 
-            _interpreter.Tick(inputs);
+            _inputBridge.SetSource(input.Players);
+            _interpreter.Tick(_inputBridge);
             _renderState.FeedbackCount = 0;
 
             for (int i = 0; i < _fakeoutCountThisTanda; i++)
