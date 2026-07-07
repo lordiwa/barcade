@@ -116,6 +116,27 @@ namespace Barcade.Core.Content
             },
             reservedParamNames: new[] { "dashRecoveryEnabled" });
 
+        /// <summary>
+        /// GDD §4 MECH_03 (T-107 slice 2). Numeric bounds are engineering
+        /// defaults (GDD names the param list but not formal min/max), same
+        /// pattern as <see cref="Mech04Apunta"/>/<see cref="Mech02Esquiva"/>/
+        /// <see cref="Mech01Manten"/>. <c>raceToFinish</c> is reserved (bool-valued,
+        /// not range-checked) so a definition that sets it validates -- it is a
+        /// declared GDD variant this Core slice does not yet read, the same
+        /// out-of-scope status as <c>jumpEnabled</c>/<c>dashRecoveryEnabled</c>.
+        /// </summary>
+        public static readonly MechanicParamSchema Mech03Corre = new MechanicParamSchema(
+            "MECH_03",
+            ranges: new[]
+            {
+                new ParamRange("vBase", 0.5, 10.0),
+                new ParamRange("vGain", 0.0, 10.0),
+                new ParamRange("obstacleDensity", 0.0, 2.0),
+                new ParamRange("stunSeconds", 0.0, 3.0),
+                new ParamRange("rubberBandPct", 0.0, 0.5),
+            },
+            reservedParamNames: new[] { "raceToFinish" });
+
         private static readonly Dictionary<string, MechanicParamSchema> ByMechanicId =
             new Dictionary<string, MechanicParamSchema>(StringComparer.Ordinal)
             {
@@ -123,6 +144,7 @@ namespace Barcade.Core.Content
                 { Mech05Reacciona.MechanicId, Mech05Reacciona },
                 { Mech02Esquiva.MechanicId, Mech02Esquiva },
                 { Mech01Manten.MechanicId, Mech01Manten },
+                { Mech03Corre.MechanicId, Mech03Corre },
             };
 
         public static bool TryGet(string mechanicId, out MechanicParamSchema schema) =>

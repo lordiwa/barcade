@@ -18,5 +18,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_01 — ¡MANTÉN! (GDD §4, inverted-pendulum balance). T-107 slice 3.</summary>
         Manten = 3,
+
+        /// <summary>MECH_03 — ¡CORRE! (GDD §4, endless run). T-107 slice 2.</summary>
+        Corre = 4,
     }
 }
