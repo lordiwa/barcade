@@ -1088,6 +1088,45 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
+        public void DifferentSessionSeeds_ProduceDifferentBonusStarDraws()
+        {
+            // TASK-052 rider (rev-t051 origin): the complement of
+            // ExplicitSessionSeedOverload_IsDeterministic_AndIndependentOfRngDraws
+            // above -- a DIFFERENT explicit sessionSeed (same rng seed) must draw
+            // a DIFFERENT (First, Second) bonus-star pair. Together the two tests
+            // show sessionSeed, not rng, is what actually drives the draw.
+            (BonusStarResult stars, int[] places) RunWith(int rngSeed, int sessionSeed)
+            {
+                var config = FastConfig(totalRounds: 1);
+                var fsm = new SessionStateMachine(new SeededRandom(rngSeed), sessionSeed, config);
+                var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+                for (int t = 1000; t < 1200 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity");
+                return (fsm.LastBonusStarResult, fsm.FinalPlaces);
+            }
+
+            (BonusStarResult stars, int[] places) a = RunWith(rngSeed: 1, sessionSeed: 777);
+            (BonusStarResult stars, int[] places) b = RunWith(rngSeed: 1, sessionSeed: 778);
+
+            Assert.That((b.stars.First, b.stars.Second), Is.Not.EqualTo((a.stars.First, a.stars.Second)),
+                "different sessionSeeds should draw a different bonus-star pair");
+        }
+
+        [Test]
         public void TwoArgConstructor_StillDerivesTheScoringSeedFromRngsFirstDraw()
         {
             // M3 companion pin: the original two-argument constructor's
