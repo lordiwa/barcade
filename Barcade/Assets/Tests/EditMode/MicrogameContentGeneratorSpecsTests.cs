@@ -76,18 +76,37 @@ namespace Barcade.Core.Tests
             foreach (Match block in SpecBlockPattern.Matches(body))
             {
                 string entry = block.Groups[1].Value;
-                string id = IdPattern.Match(entry).Groups[1].Value;
-                string verbText = VerbTextPattern.Match(entry).Groups[1].Value;
-                string hintText = HintTextPattern.Match(entry).Groups[1].Value;
-                float baseDuration = float.Parse(
-                    BaseDurationPattern.Match(entry).Groups[1].Value, CultureInfo.InvariantCulture);
-                int difficulty = int.Parse(
-                    DifficultyPattern.Match(entry).Groups[1].Value, CultureInfo.InvariantCulture);
+                string id = MatchField(IdPattern, entry, "Id");
+                string verbText = MatchField(VerbTextPattern, entry, "VerbText");
+                string hintText = MatchField(HintTextPattern, entry, "HintText");
+                string baseDurationRaw = MatchField(BaseDurationPattern, entry, "BaseDuration");
+                string difficultyRaw = MatchField(DifficultyPattern, entry, "Difficulty");
+
+                float baseDuration = float.Parse(baseDurationRaw, CultureInfo.InvariantCulture);
+                int difficulty = int.Parse(difficultyRaw, CultureInfo.InvariantCulture);
 
                 result.Add(new LegacyMicrogameDefinitionFields(id, verbText, hintText, baseDuration, difficulty, string.Empty));
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// rev-t045 LOW-1: a bare <c>Regex.Match(entry).Groups[1].Value</c> returns
+        /// "" silently when the pattern simply fails to match (e.g. a future edit
+        /// renames VerbText to Verb, or reformats the literal) -- indistinguishable
+        /// from a genuinely empty field and easy to miss in a failure message. This
+        /// asserts the match itself succeeded before ever reading its value, so a
+        /// parser/source mismatch fails loudly with the offending entry text rather
+        /// than silently feeding "" into MapV1ToV2/Validate.
+        /// </summary>
+        private static string MatchField(Regex pattern, string entry, string fieldName)
+        {
+            Match m = pattern.Match(entry);
+            Assert.That(m.Success, Is.True,
+                $"Could not parse '{fieldName}' out of a DefSpec entry -- the parser regex and the generator's " +
+                $"source no longer agree:\n{entry}");
+            return m.Groups[1].Value;
         }
 
         [Test]
