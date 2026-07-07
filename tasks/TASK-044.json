@@ -9,7 +9,7 @@
     "A CI/analyzer check fails the build if System.Random or UnityEngine.Random is referenced inside Barcade.Core",
     "Determinism: same seed => same sequence across two process runs (test), documenting the platform scope per GDD 13"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -18,13 +18,13 @@
     "rng",
     "13"
   ],
-  "assignee": null,
+  "assignee": "developer-cloud",
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T04:46:07.014Z",
-  "updated_at": "2026-07-07T04:46:07.014Z",
+  "updated_at": "2026-07-07T09:50:00.000Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
