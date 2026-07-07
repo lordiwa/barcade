@@ -67,6 +67,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputBridgeTests.cs" />
     <!-- TASK-045: MicrogameContentGenerator.Specs duration regression lock -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameContentGeneratorSpecsTests.cs" />
+    <!-- TASK-058 (T-107 slice 1, GDD MECH_02): ¡ESQUIVA! v2 contract -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\EsquivaMicrogameV2Tests.cs" />
   </ItemGroup>
 
 </Project>
