@@ -48,6 +48,10 @@ Barcade/.cache/
 fast-tests/**/bin/
 fast-tests/**/obj/
 
+# slow-tests build artifacts (dotnet) — TASK-063 slow-tier fairness sweep
+slow-tests/**/bin/
+slow-tests/**/obj/
+
 # Root-level transient build/setup logs (e.g. MCP server build)
 /*.log
 

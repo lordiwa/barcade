@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    TASK-063: slow-tier statistical escapability/fairness sweep. A SEPARATE
+    dotnet test project from fast-tests/Barcade.Core.FastTests, chosen (over
+    [Category] traits inside the fast project) specifically so it is IMPOSSIBLE
+    for this sweep to leak into the per-push fast leg: fast-tests.yml points
+    `dotnet test` at the fast project directory and never sees this one. The fast
+    suite stays byte-identical and 592-green.
+
+    Like the fast project, this mirrors Barcade.Core's pure-C# runtime (no
+    UnityEngine) via <Compile Include>, so it needs no Unity install to run. It
+    reuses the SAME production sims (EsquivaMicrogame/MantenMicrogame/
+    CorreMicrogame) and the SAME PCG32 SeededRandom the fast tests use, so sweep
+    results are meaningful against the shipped mechanics.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+    <!-- Local sweep + oracle .cs files (this project's own directory) are picked
+         up by the SDK default glob; the Core runtime is linked explicitly below.
+         Unlike the fast project, this directory holds real source, so default
+         compile items stay ON. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.3.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Link Core sources (pure C#, no UnityEngine) — same glob the fast project
+       uses; the sweep drives the real shipped sims, not a copy of them. -->
+  <ItemGroup>
+    <Compile Include="..\..\Barcade\Assets\Barcade\Core\Runtime\**\*.cs"
+             Exclude="..\..\Barcade\Assets\Barcade\Core\Runtime\**\*.asmdef" />
+  </ItemGroup>
+
+</Project>
