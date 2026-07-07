@@ -957,6 +957,146 @@ namespace Barcade.Core.Tests
             Assert.That(fsm.MicrogameWins, Is.EqualTo(new[] { 1, 2, 1, 1 }), "a coop success credits every active seat with a win");
         }
 
+        // ── TASK-052: per-definition payoutTable threading ────────────────────────
+
+        [Test]
+        public void RegularRound_CompetitivePayoutTable_OverridesSessionDefault()
+        {
+            // AC1: a per-definition payoutTable set via SetActiveMicrogame replaces
+            // the GDD §6.1 session-wide default {6,4,2,1} for that round.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(70), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            int[] customPayout = { 10, 8, 5, 3 };
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f, payoutTable: customPayout);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 10, 8, 5, 3 }),
+                "the custom payoutTable, not the GDD default {6,4,2,1}, must have applied");
+        }
+
+        [Test]
+        public void RegularRound_CoopPayoutTable_OverridesSessionDefault_OnSuccess()
+        {
+            // AC1, coop shape (TASK-050 convention: 2 entries [success, fail]).
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(71), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0));
+            int[] customPayout = { 9, 2 }; // [success, fail]
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f, payoutTable: customPayout);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 9, 9, 9, 9 }),
+                "coop success must pay the custom table's success entry (9), not the GDD default (4), to every active seat");
+        }
+
+        [Test]
+        public void RegularRound_CoopPayoutTable_OverridesSessionDefault_OnFail()
+        {
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(72), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: new V2Result(ResultKind.CoopFail, Array.Empty<PlayerRank>(), 0));
+            int[] customPayout = { 9, 2 }; // [success, fail]
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f, payoutTable: customPayout);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 2, 2, 2, 2 }),
+                "coop fail must pay the custom table's fail entry (2), not the GDD default (1), to every active seat");
+        }
+
+        [Test]
+        public void RegularRound_CoopPayoutTableWrongLength_ThrowsArgumentException()
+        {
+            // Defensive: a coop payoutTable must be exactly 2 entries [success,
+            // fail] (TASK-050 shape convention) -- a mismatched length must fail
+            // loudly at apply time, not silently mis-index or throw an opaque
+            // IndexOutOfRangeException.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(75), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0));
+            int[] wrongShapeTable = { 6, 4, 2, 1 }; // a competitive-shaped table on a coop round
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f, payoutTable: wrongShapeTable);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            Assert.Throws<ArgumentException>(() =>
+            {
+                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                    fsm.Tick(inputs.Build(t));
+            });
+        }
+
+        [Test]
+        public void ClimaxRound_IgnoresPayoutTable_NoRegularPayoutApplied()
+        {
+            // AC3: the climax round is exempt from regular per-round payout (its
+            // outcome feeds FinalWager instead, GDD §6.2) regardless of whether a
+            // payoutTable was set on it via SetActiveMicrogame -- proven by an
+            // independently-recomputed FinalWager.Resolve using ONLY the coins
+            // that existed before the climax played. If a leak applied the
+            // climax's table as a regular payout first, the FSM's actual result
+            // would diverge from this expectation (which deliberately does NOT
+            // add the huge climax table below).
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(74), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+
+            int[] preWagerCoins = (int[])fsm.Coins.Clone();
+
+            var climaxRanks = new (int seat, int place, int metric)[] { (0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0) };
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1, result: Ranked(climaxRanks));
+            // Deliberately huge/distinctive so any leak into a "regular payout" would be unmistakable.
+            int[] climaxPayoutTable = { 100, 90, 80, 70 };
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f, payoutTable: climaxPayoutTable);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.N);     // Half
+                inputs.Set(PlayerSlot.Azul, false, Direction8.N);     // Half
+                inputs.Set(PlayerSlot.Amarillo, false, Direction8.N); // Half
+                inputs.Set(PlayerSlot.Verde, false, Direction8.N);    // Half
+                fsm.Tick(inputs.Build(t));
+            }
+            for (int t = 2000; t < 2020 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver));
+
+            var expectedChoices = new WagerChoice?[] { WagerChoice.Half, WagerChoice.Half, WagerChoice.Half, WagerChoice.Half };
+            var expectedClimaxPlaces = new int[4];
+            foreach ((int seat, int place, int metric) in climaxRanks) expectedClimaxPlaces[seat] = place;
+            WagerResult expected = FinalWager.Resolve(preWagerCoins, expectedChoices, expectedClimaxPlaces);
+
+            Assert.That(fsm.LastWagerResult.CoinsAfter, Is.EqualTo(expected.CoinsAfter),
+                "the climax's payoutTable must never be applied as a regular per-round payout -- only FinalWager.Resolve may change coins here");
+        }
+
         [Test]
         public void GameOver_RanksViaFinalRanking_UsingDrawnBonusStars()
         {
