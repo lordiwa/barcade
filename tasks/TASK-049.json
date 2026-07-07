@@ -7,7 +7,7 @@
     "The workflow pins an SDK channel compatible with the repo (8.0.x) and passes on the current master",
     "README or the workflow file itself documents that Unity suites are intentionally excluded (local Editor gate)"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "low",
   "labels": [
     "ci",
@@ -23,7 +23,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T12:41:37.201Z",
-  "updated_at": "2026-07-07T12:41:37.201Z",
+  "updated_at": "2026-07-07T14:18:57.611Z",
   "jira_key": null,
   "verification_tier": "uat-only",
   "marker": "[EXPLICIT]",

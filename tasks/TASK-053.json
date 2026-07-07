@@ -8,7 +8,7 @@
     "The stale duplication-rationale doc comment is removed; any convention note on the FSM side defers to the shared type's canonical NORMALIZED documentation.",
     "Rider: DirectionToUnit carries the do-not-fold cross-reference doc comment per rev-t046 LOW-1."
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "medium",
   "labels": [
     "gdd",
@@ -23,9 +23,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "dev-t101",
+      "at": "2026-07-07T14:18:18.847Z",
+      "body": "Hand-off. Two commits on master: 6852bc8 refactor(core) = nested InputBridge + ToStickXY deleted, field now typed V2.InputBridge directly (V2 alias pre-existing); includes the one-line DirectionToUnit do-not-fold doc rider (ApuntaMicrogame.cs:417, cites rev-t046 LOW-1) — folded in as a directly-related one-line doc touch, flagged per briefing. 5bd1962 test(core) = TASK-052 rider landed: DifferentSessionSeeds_ProduceDifferentBonusStarDraws, RunWith(rngSeed:1, sessionSeed:777) vs (rngSeed:1, sessionSeed:778) through the explicit-seed overload, asserts (First,Second) star tuple differs; run in isolation first to confirm genuinely green (not a hand-picked collision), passed first try. Suite 554/554 (553+1).\n\nStop-condition check per briefing: _inputBridge has exactly ONE consumer in the whole file — _interpreter.Tick(_inputBridge) (~line 349); nothing else reads fed StickX/StickY. Clean drop-in confirmed: both types implement IReadOnlyPlayerInputs with identical SetSource(PlayerInput[])/For(PlayerSlot) signatures; InputInterpreter.Tick takes IReadOnlyPlayerInputs.\n\nAC2: existing FSM pins (input-boundary, join-button, wager-gesture, zero-alloc) byte-unmodified — git diff on SessionStateMachineTests.cs shows only the one new test method appended. AC3: stale duplication-rationale doc comment gone with the deleted class; field declaration now points to V2.InputBridge's own class doc rather than re-describing the convention. No Unity-gate step needed — pure engine-free Core change. Surface discipline: Loop/SessionStateMachine.cs + its tests + the one ApuntaMicrogame doc line; Scoring/ and Editor tooling untouched."
+    }
+  ],
   "created_at": "2026-07-07T13:46:53.505Z",
-  "updated_at": "2026-07-07T14:10:51.976Z",
+  "updated_at": "2026-07-07T14:18:57.458Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[INFERRED:strong]",

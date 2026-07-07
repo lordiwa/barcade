@@ -27,10 +27,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T14:01:13.354Z",
       "body": "RIDER (from rev-t051's TASK-051 re-verify, LOW residual, non-blocking): add one seed-threading discrimination test to the FSM scoring path while touching this surface. Gap: no suite test pins that SessionStateMachine threads ITS _scoringSeed into BonusStarDraw.Draw — a refactor passing a constant instead would keep the whole suite green (TASK-037 pins Draw's seed-sensitivity at unit level only; TASK-051's determinism tests pin same-seed-same-result, not different-seed-different-result through the FSM). Fix shape (per rev-t051, ~5 min): using the existing RunWith test helper, run (rngSeed:1, sessionSeed:777) vs (rngSeed:1, sessionSeed:778) via the explicit-seed constructor overload (f04e2cc) and assert the (First, Second) bonus-star pair differs — deterministic, seeds pickable to guarantee distinct combos since all holders are -1 in that fixture and only the combo pick varies."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:18:22.103Z",
+      "body": "RIDER LANDED EARLY (scope reduction, pending review): the seed-threading discrimination test described in the rider comment above was implemented under TASK-053's test commit 5bd1962 (DifferentSessionSeeds_ProduceDifferentBonusStarDraws — RunWith rngSeed:1 sessionSeed:777 vs 778 through the explicit-seed overload, star tuple must differ; dev verified genuinely green in isolation first). If rev-t053's review confirms it clean, this item comes OFF TASK-052's scope — the remaining scope is solely the per-definition payoutTable threading per the ACs."
     }
   ],
   "created_at": "2026-07-07T13:42:44.511Z",
-  "updated_at": "2026-07-07T14:01:13.354Z",
+  "updated_at": "2026-07-07T14:18:22.103Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[INFERRED:strong]",
