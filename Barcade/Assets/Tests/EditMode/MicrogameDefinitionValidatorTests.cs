@@ -93,6 +93,21 @@ namespace Barcade.Core.Tests
             Assert.That(result.IsValid, Is.True);
         }
 
+        [Test]
+        public void Duration_NaN_Rejected()
+        {
+            // Fix round LOW-3: NaN sails through a naive (d < 3 || d > 8) gate
+            // because every comparison with NaN is false. It must be rejected
+            // like any other out-of-range duration.
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Duration = float.NaN;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("duration"));
+        }
+
         // ── payoutTable minimum-reward invariant (GDD §6.1) ─────────────────────
 
         [Test]
@@ -176,6 +191,54 @@ namespace Barcade.Core.Tests
             MicrogameDefinitionV2 def = ValidApuntaDefinition();
             def.Mechanic = "MECH_99"; // no declared schema
             def.Params["chargeCycleSec"] = 999.0;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        // ── type-invalid values for a DECLARED range param (fix round MEDIUM-2) ──
+        // A non-numeric value for a param the mechanic declares a numeric range
+        // for must fail loudly, not silently bypass the range gate (e.g.
+        // "chargeCycleSec": "10.0" as a quoted string previously validated).
+
+        private static readonly object[] TypeInvalidRangeParamValues =
+        {
+            new object[] { "quoted numeric string", "10.0" },
+            new object[] { "bool", true },
+            new object[] { "null", null },
+            new object[]
+            {
+                "nested object",
+                new Dictionary<string, object>(StringComparer.Ordinal) { ["value"] = 1.2 },
+            },
+        };
+
+        [TestCaseSource(nameof(TypeInvalidRangeParamValues))]
+        public void Params_DeclaredRangeParam_WithNonNumericValue_RejectedLoudly(string label, object value)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Params["chargeCycleSec"] = value;
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False, label);
+            Assert.That(result.OffendingField, Is.EqualTo("params.chargeCycleSec"), label);
+        }
+
+        [Test]
+        public void Params_UndeclaredParamName_NonNumericValue_StillAccepted()
+        {
+            // Pins the boundary of the type gate: it applies only to names the
+            // mechanic declares a numeric range for. The GDD §11.1 example itself
+            // carries a nested object param (targetMoving) on MECH_04 -- that must
+            // keep validating.
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.Params["targetMoving"] = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["enabled"] = true,
+                ["speed"] = 0.15,
+            };
 
             ValidationResult result = MicrogameDefinitionValidator.Validate(def);
 

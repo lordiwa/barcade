@@ -115,6 +115,137 @@ namespace Barcade.Core.Tests
             AssertDefinitionsEqual(handBuilt, fromGdd);
         }
 
+        // ── §12 remote-layer codec hardening (fix round MEDIUM-3 + LOW-1/2/4) ────
+        // MiniJson is internal to the Core assembly, so all of these exercise it
+        // through the public MicrogameDefinitionJson surface -- the same path the
+        // eventual on-cabinet remote-content loader takes.
+
+        [Test]
+        public void LegacyFields_RoundTrip_WithRealisticDesignerCopy()
+        {
+            // Multi-line [TextArea]-style hint copy with quotes, a backslash, a
+            // tab, Spanish punctuation/accents, and an emoji -- the realistic
+            // worst case a designer types into the v1 hintText box.
+            MicrogameDefinitionV2 original = BuildGddExample();
+            original.LegacyHintText =
+                "Mantén pulsado \"A\" para cargar.\n\tSuéltalo en el pico \\ dispara ¡ya! 🎯";
+            original.LegacyDifficultyTier = 3;
+
+            string json = MicrogameDefinitionJson.Serialize(original);
+            MicrogameDefinitionV2 roundTripped = MicrogameDefinitionJson.Deserialize(json);
+
+            AssertDefinitionsEqual(original, roundTripped);
+        }
+
+        [Test]
+        public void EscapedSurrogatePair_Deserializes_AndRoundTrips()
+        {
+            // \uXXXX escapes including a surrogate pair (U+1F600) must decode to
+            // the same string a C# literal produces, and survive a second trip
+            // through the writer (which emits the characters raw).
+            string json = MicrogameDefinitionJson.Serialize(BuildGddExample())
+                .Replace("\"legacyHintText\":\"\"", "\"legacyHintText\":\"tab\\u0009cara\\uD83D\\uDE00\"");
+
+            MicrogameDefinitionV2 def = MicrogameDefinitionJson.Deserialize(json);
+            Assert.That(def.LegacyHintText, Is.EqualTo("tab\tcara😀"));
+
+            MicrogameDefinitionV2 again = MicrogameDefinitionJson.Deserialize(MicrogameDefinitionJson.Serialize(def));
+            Assert.That(again.LegacyHintText, Is.EqualTo(def.LegacyHintText));
+        }
+
+        [Test]
+        public void ControlCharacters_RoundTrip()
+        {
+            MicrogameDefinitionV2 original = BuildGddExample();
+            original.LegacyHintText = "a\nb\rc\td\u0001e"; // U+0001 forces the \uXXXX writer path
+
+            MicrogameDefinitionV2 roundTripped =
+                MicrogameDefinitionJson.Deserialize(MicrogameDefinitionJson.Serialize(original));
+
+            Assert.That(roundTripped.LegacyHintText, Is.EqualTo(original.LegacyHintText));
+        }
+
+        [Test]
+        public void Numbers_NegativeExponentAndIntegerForms_RoundTripExactly()
+        {
+            MicrogameDefinitionV2 original = BuildGddExample();
+            original.Mechanic = "MECH_99"; // no declared schema -- params are free-form here
+            original.Params = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["negative"] = -0.05,
+                ["tinyExponent"] = 1.5e-7,   // serializes in exponent form
+                ["bigInteger"] = 123456789.0,
+            };
+            original.PayoutTable = new[] { 2147483647, 6, 4, 1 }; // exact int round-trip incl. int.MaxValue
+
+            MicrogameDefinitionV2 roundTripped =
+                MicrogameDefinitionJson.Deserialize(MicrogameDefinitionJson.Serialize(original));
+
+            Assert.That((double)roundTripped.Params["negative"], Is.EqualTo(-0.05));
+            Assert.That((double)roundTripped.Params["tinyExponent"], Is.EqualTo(1.5e-7));
+            Assert.That((double)roundTripped.Params["bigInteger"], Is.EqualTo(123456789.0));
+            Assert.That(roundTripped.PayoutTable, Is.EqualTo(original.PayoutTable));
+        }
+
+        [Test]
+        public void Deserialize_ExponentInJsonText_ParsesAsNumber()
+        {
+            // The reader must accept exponent notation it did not itself write.
+            string json = MicrogameDefinitionJson.Serialize(BuildGddExample())
+                .Replace("\"windAccel\":0.05", "\"windAccel\":5e-2");
+
+            MicrogameDefinitionV2 def = MicrogameDefinitionJson.Deserialize(json);
+
+            Assert.That((double)def.Params["windAccel"], Is.EqualTo(0.05));
+        }
+
+        [Test]
+        public void Deserialize_TruncatedString_ThrowsFormatException()
+        {
+            // Cut off mid string-literal: must be a loud FormatException, not an
+            // IndexOutOfRangeException from running off the end of the input.
+            const string truncated = "{\"schemaVersion\":2,\"id\":\"mg_apunta";
+
+            Assert.Throws<FormatException>(() => MicrogameDefinitionJson.Deserialize(truncated));
+        }
+
+        [Test]
+        public void Deserialize_TruncatedUnicodeEscape_ThrowsFormatException()
+        {
+            const string truncated = "{\"id\":\"a\\u12";
+
+            Assert.Throws<FormatException>(() => MicrogameDefinitionJson.Deserialize(truncated));
+        }
+
+        [Test]
+        public void Deserialize_BareGarbage_ThrowsFormatException()
+        {
+            Assert.Throws<FormatException>(() => MicrogameDefinitionJson.Deserialize("garbage"));
+        }
+
+        [Test]
+        public void Deserialize_TrailingGarbageAfterDocument_ThrowsFormatException()
+        {
+            // Fix round LOW-1: a valid document followed by junk indicates a
+            // corrupt/truncated-then-concatenated remote payload -- reject it
+            // rather than silently using the first value.
+            string json = MicrogameDefinitionJson.Serialize(BuildGddExample()) + " trailing-garbage";
+
+            Assert.Throws<FormatException>(() => MicrogameDefinitionJson.Deserialize(json));
+        }
+
+        [Test]
+        public void Deserialize_FractionalPayoutEntry_ThrowsFormatException()
+        {
+            // Fix round LOW-4: a fractional payoutTable entry was previously
+            // truncated silently (1.5 -> 1). Coins are integral (GDD §6.1) -- a
+            // fractional entry is authoring corruption and must fail loudly.
+            string json = MicrogameDefinitionJson.Serialize(BuildGddExample())
+                .Replace("\"payoutTable\":[6,4,2,1]", "\"payoutTable\":[6,4,2,1.5]");
+
+            Assert.Throws<FormatException>(() => MicrogameDefinitionJson.Deserialize(json));
+        }
+
         // ── helpers ──────────────────────────────────────────────────────────────
 
         private static void AssertDefinitionsEqual(MicrogameDefinitionV2 expected, MicrogameDefinitionV2 actual)
@@ -134,6 +265,8 @@ namespace Barcade.Core.Tests
             Assert.That(actual.StageProfile.EntityPrefabSet, Is.EqualTo(expected.StageProfile.EntityPrefabSet));
             Assert.That(actual.MinPlayers, Is.EqualTo(expected.MinPlayers));
             Assert.That(actual.Tags, Is.EqualTo(expected.Tags));
+            Assert.That(actual.LegacyHintText, Is.EqualTo(expected.LegacyHintText));
+            Assert.That(actual.LegacyDifficultyTier, Is.EqualTo(expected.LegacyDifficultyTier));
         }
 
         private static bool DeepEqual(object a, object b)

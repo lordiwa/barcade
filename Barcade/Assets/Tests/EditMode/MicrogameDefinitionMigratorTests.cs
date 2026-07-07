@@ -131,6 +131,23 @@ namespace Barcade.Core.Tests
         }
 
         [Test]
+        public void Migration_DefaultsMinPlayersToTwo_PerGdd11_1Example()
+        {
+            // Fix round MEDIUM-1 (orchestrator decision under the GDD-canonical
+            // directive): the v1 schema has no minPlayers, so the migrator fills a
+            // default -- and that default is 2, because GDD §11.1's own example
+            // uses minPlayers: 2 for a competitive definition and §1.3 makes
+            // 2-3-player sessions a hard constraint. A default of 4 would lock
+            // every migrated microgame out of 2-3-player sessions.
+            var v1 = new LegacyMicrogameDefinitionFields(
+                "aporrea", "¡APORREA!", string.Empty, 5f, 1, string.Empty);
+
+            MicrogameDefinitionV2 v2 = MicrogameDefinitionMigrator.MapV1ToV2(v1);
+
+            Assert.That(v2.MinPlayers, Is.EqualTo(2));
+        }
+
+        [Test]
         public void LegacyMechanicWithNoGddIdentity_CarriesIdForwardUnchanged()
         {
             // aporrea/apunta/timing/recolecta predate the GDD's MECH_XX set and are
