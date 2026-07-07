@@ -10,7 +10,7 @@
     "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
     "Tests-first (red captured); victory resolution (last-standing or lowest mean |theta|) handles ties without fabricated winners; fast suite green, no regression; legacy consumers keep compiling."
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -29,7 +29,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T15:12:07.239Z",
-  "updated_at": "2026-07-07T15:12:07.239Z",
+  "updated_at": "2026-07-07T16:38:11.519Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

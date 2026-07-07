@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T16:30:04.291Z",
+  "generated_at": "2026-07-07T16:38:11.519Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -346,7 +346,7 @@
     {
       "key": "TASK-058",
       "title": "T-107 Slice 1 — MECH_02 ¡ESQUIVA! on the v2 contract (adapt EsquivaMicrogame)",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {
@@ -358,7 +358,7 @@
     {
       "key": "TASK-060",
       "title": "T-107 Slice 3 — MECH_01 ¡MANTÉN! new inverted-pendulum balance mechanic",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {

@@ -10,7 +10,7 @@
     "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
     "Tests-first (red captured before impl); existing dodge tests conserved or migrated; fast suite green, no regression; legacy consumers keep compiling. StagePresenter/View wiring is out of scope (separate §10.4 work)."
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -25,7 +25,11 @@
   "depends_on": [
     "TASK-030"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "ddd2978",
+    "dc81602",
+    "213965c"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -42,10 +46,20 @@
       "author": "dev-t101",
       "at": "2026-07-07T16:29:52.891Z",
       "body": "Fix-round hand-off (rev-t058 M1/L2/L3). Single commit 213965c test(core), tests-after (additive locks over already-correct code). Suite 578/578 (576+2).\n\nM1 (required): SteadyStateTick_AllocatesNoManagedMemory added, mirroring Apunta/Reacciona AC8 convention (liveness-bracketed, GC.GetAllocatedBytesForCurrentThread before/after, no asserts inside the window). Exercises HomingSoft specifically: players forced stationary at center (0.5,0.5) with Direction8.None every tick (EscapeBot NOT usable here — it allocates per Decide()), hazardSpeed=0.05 so the 4s HomingLifetimeTicks cap expires each hazard before it can reach the target (worst-case remaining distance at expiry 0.5-0.05*4=0.3, well outside the 0.06 collision radius) — liveness is a MATHEMATICAL guarantee, not seed luck. SteerHoming still runs every tick (atan2/normalize path executes fully even when no correction needed) and the spawn-retry loop runs (spawnRateBasePerSec=1). 100-tick warmup + 1000-tick measured window, both liveness-checked. MUTATION-CHECK: added `var _mutationCheckAlloc = new int[1];` as SteerHoming's first line, ran only this test: 'Failed SteadyStateTick_AllocatesNoManagedMemory / Expected: 0 / But was: 120768' — genuine red, reverted, git diff --stat zero delta on production before commit.\n\nL2: Determinism_SameSeedAndInputScript_ProducesIdenticalTraceAndResult — CueEliminated is declared but NEVER emitted via EmitFeedback anywhere in this mechanic (grep-confirmed), so unlike Reaccion's feedback-trace lock this compares a per-tick RenderState trace (tick, EntityCount, each entity Kind/OwnerSeat/X/Y) + final GetResult() Ranks (Seat/Place/Metric) between two independently-constructed sims, same seed (17), same fixed non-reactive Direction8 schedule (pure function of seat+tick, never RenderState-derived), full HomingSoft round. FLAGGED: the CueEliminated-never-emitted gap left alone as out-of-scope for a test+doc round.\n\nL3: EsquivaMicrogame.cs class doc (was 98-100) rewritten from the original inverse-distance-repulsion description to the two-layer solver that shipped (strategic wall-hysteresis suppressed under imminent danger, under tactical one-ply lookahead maximizing min-distance to any hazard). Folded into the same commit (small, same file/feature). Fully disjoint from other open review surfaces."
+    },
+    {
+      "author": "rev-t058",
+      "at": "2026-07-07T16:37:46.166Z",
+      "body": "Fix-round re-verify VERDICT: CLOSE-clean — M1/L2/L3 all verified firsthand incl. mutation reproduction on both new tests; no findings. Judged only 213965c (2 files: EsquivaMicrogame.cs +8 ALL-doc zero-logic-lines, EsquivaMicrogameV2Tests.cs +127; no csproj change; interleaved 702f873/chores excluded). Suite 578/578 firsthand twice.\n\nM1 zero-alloc sensor PASSES all three sub-checks: (a) LIVENESS mathematical not seed-luck — duration 1500 ticks, window ends at 1100 so never times out; stationary center players + HomingSoft at hazardSpeed 0.05 with 240-tick cap travel only 0.2 before despawn, worst-case remaining distance 0.3 >> 0.06 collision radius, so no elimination ever -> round stays LIVE across the whole window; the IsFinished==False before-AND-after bracket is real and holds by construction. (b) EXERCISES the risk paths — ~4 HomingSoft hazards alive at steady state each SteerHoming'd every tick, spawn-retry fires every ~60 ticks; None input does NOT short-circuit SteerHoming (hazard steering is input-independent, mag >= 0.3 >> the 1e-6 guard so the full atan2/NormalizeAngle/cos/sin path runs) — arena not empty during measurement. (c) MUTATION-RED reproduced FIRSTHAND BYTE-EXACT: new int[1] in SteerHoming -> Esquiva sensor \"Expected: 0 But was: 120768\" (the dev's exact value); of the 4 same-named SteadyStateTick tests only Esquiva's failed -> non-vacuous AND isolated to this mechanic's hot path.\n\nL2 determinism lock REAL: input ScheduleCycle[(tick+seat*3)%8] is a pure fn of (seat,tick), never RenderState-derived — isolates the SIM's determinism; hazards spawn (~4-5) and players move so the compared per-tick RenderState trace + final Ranks reflect real evolving state. DISCRIMINATION confirmed firsthand: injected a cross-run RNG-offset (the seed-order-divergence class) -> determinism test FAILED at tick 100 catching divergent hazard X (0.484 vs 0.624), only Esquiva's test tripped (Reacciona's passed = isolated). (Reviewer note: discarded a first weaker parity-based mutation that passed by coincidence — runA's spawn-attempt count happened even, realigning parity — and used the guaranteed-divergence mutation as the correct proof.) CueEliminated declared (EsquivaMicrogame.cs:181) never emitted confirmed -> RenderState-trace approach is the right call (no feedback stream to compare) = the filed TASK-064 gap, out of scope.\n\nL3 doc-only accurate: class-doc rewrite (:96-104) replaces the stale inverse-distance-repulsion description with the shipped two-layer solver (strategic wall-hysteresis suppressed under imminent danger, under tactical one-ply max-min-distance lookahead); no production-logic change. Worktree removed, all 3 mutations reverted, final 578/578 before teardown."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T16:38:08.601Z",
+      "body": "CLOSED on rev-t058 re-verify CLOSE-clean (initial FULL review APPROVE-WITH-NITS 0H/1M/3L; M1 required nit resolved, L2/L3 landed, L1->TASK-063). Review depth FULL; rubric: core tdd microgame logic (mandatory-FULL), 1589-line initial diff. Second T-107 slice done (Slice 1 of the TASK-034 umbrella). Delivered: MECH_02 ¡ESQUIVA! on the v2 IMicrogame contract (engine-free, injected SeededRandom, zero-alloc Tick, normalized [0,1]²), 4 hazard patterns per the human-ruled [ASSUMED] geometry, min-separation 0.08 bounded-retry, Ranked-by-survival-tick with GDD shared-place/timeout-survivor ties, escapability solver-bot oracle. TWO DEEP QUESTIONS RESOLVED FIRSTHAND BY REVIEWER MUTATION: (B) the HomingSoft 4s lifetime cap is a LEGITIMATE load-bearing fix (a superhuman bot still fails seed 9 without it -> no human could -> neutering unbounded accumulation is correct, not a masked bot-weakness) — [ASSUMED], on the human ratification list; (C) the escapability bot is a VALID oracle and the adversarial hazardSpeed>avatarSpeed test genuinely isolates the 30°/s cap (the main sweep passes on speed margin alone). Commits ddd2978 (red — genuine whole-project compile-red, verified) / dc81602 (feat) / 213965c (fix: zero-alloc sensor mutation-proven at 120768 bytes + determinism lock guaranteed-divergence-proven + doc fix). Suite 561->578 reviewer-reproduced firsthand. AC6 v1 EsquivaMicrogame zero-diff. Tier tdd honored (draft-first process honestly disclosed, committed red genuine, mutation methodology independently reproduced on 5 load-bearing checks). Follow-ups filed: TASK-063 (1000-seed statistical sweep, slow-tier), TASK-064 (CueEliminated never emitted, LOW). [ASSUMED] ratification list additions: HomingSoft 4s cap, jumpEnabled-declared-not-implemented (documented scope boundary)."
     }
   ],
   "created_at": "2026-07-07T15:11:44.238Z",
-  "updated_at": "2026-07-07T16:29:52.891Z",
+  "updated_at": "2026-07-07T16:38:08.601Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
