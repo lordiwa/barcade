@@ -34,6 +34,8 @@ namespace Barcade.Core
                 throw new ArgumentOutOfRangeException(nameof(ticksPerSecond), "must be positive.");
             if (tapWindowTicks < 0)
                 throw new ArgumentOutOfRangeException(nameof(tapWindowTicks), "must be non-negative.");
+            if (mashMinHz < 0f)
+                throw new ArgumentOutOfRangeException(nameof(mashMinHz), "must be non-negative — a negative floor would make MashForce report a phantom positive force at 0 Hz.");
             if (mashSatHz <= mashMinHz)
                 throw new ArgumentOutOfRangeException(nameof(mashSatHz), "must be greater than mashMinHz.");
             if (mashWindowSeconds <= 0f)

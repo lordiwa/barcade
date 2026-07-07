@@ -207,17 +207,22 @@ namespace Barcade.Core
         /// Diagonal-collapse helper (GDD §3.2 anti-ghosting). A pure cardinal
         /// passes through unchanged (and becomes the caller's new "most-recent
         /// dominant" for subsequent calls). A diagonal collapses to
-        /// <paramref name="previousDominant"/> — the last pure cardinal seen.
-        /// <see cref="Direction8.None"/> collapses to <see cref="CardinalDir.None"/>
-        /// without implying any change to dominant-cardinal memory: a centred
-        /// stick is not a reset, it simply reports no direction this tick.
+        /// <paramref name="previousDominant"/> only when that dominant is actually
+        /// one of the diagonal's two cardinal components (e.g. NE collapses to a
+        /// dominant of Up or Right, never Down or Left). <see cref="Direction8.None"/>
+        /// collapses to <see cref="CardinalDir.None"/> without implying any change
+        /// to dominant-cardinal memory: a centred stick is not a reset, it simply
+        /// reports no direction this tick — but that means the memory can go
+        /// stale relative to the axis the stick is now on (e.g. N, then centre,
+        /// then SE — Up is not a component of SE).
         ///
-        /// Cold start (a diagonal with no prior dominant cardinal — e.g. the very
-        /// first tick, or right after <see cref="Reset"/>) deterministically
-        /// prefers the horizontal component: NE/SE collapse to East, NW/SW
-        /// collapse to West — mirroring the existing
-        /// <see cref="InputSnapshot.CardinalDirection"/> tie-break, which also
-        /// favors the X axis.
+        /// Cold start (no prior dominant cardinal at all — e.g. the very first
+        /// tick, or right after <see cref="Reset"/>) and a stale dominant (one
+        /// that belongs to neither component of the current diagonal) are
+        /// therefore handled by the same deterministic fallback, which prefers
+        /// the horizontal component: NE/SE fall back to East, NW/SW fall back to
+        /// West — mirroring the existing <see cref="InputSnapshot.CardinalDirection"/>
+        /// tie-break, which also favors the X axis.
         ///
         /// Pure, stateless, and allocation-free — usable directly by any consumer
         /// that maintains its own dominant-cardinal memory, not just through a
@@ -233,11 +238,17 @@ namespace Barcade.Core
                 case Direction8.S: return CardinalDir.Down;
                 case Direction8.W: return CardinalDir.Left;
                 case Direction8.NE:
+                    return previousDominant == CardinalDir.Up || previousDominant == CardinalDir.Right
+                        ? previousDominant : CardinalDir.Right;
                 case Direction8.SE:
-                    return previousDominant != CardinalDir.None ? previousDominant : CardinalDir.Right;
+                    return previousDominant == CardinalDir.Down || previousDominant == CardinalDir.Right
+                        ? previousDominant : CardinalDir.Right;
                 case Direction8.NW:
+                    return previousDominant == CardinalDir.Up || previousDominant == CardinalDir.Left
+                        ? previousDominant : CardinalDir.Left;
                 case Direction8.SW:
-                    return previousDominant != CardinalDir.None ? previousDominant : CardinalDir.Left;
+                    return previousDominant == CardinalDir.Down || previousDominant == CardinalDir.Left
+                        ? previousDominant : CardinalDir.Left;
                 default: return CardinalDir.None;
             }
         }
