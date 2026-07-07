@@ -59,6 +59,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SessionStateMachineTests.cs" />
     <!-- TASK-035 (GDD T-108): v2 microgame selector (quotas, anti-repeat, bias) -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MicrogameSelectorTests.cs" />
+    <!-- TASK-044 (GDD §13): PCG32 SeededRandom + stream derivation + analyzer rule -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\Pcg32SeededRandomTests.cs" />
   </ItemGroup>
 
 </Project>
