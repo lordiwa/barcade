@@ -63,6 +63,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\Pcg32SeededRandomTests.cs" />
     <!-- TASK-037 (GDD T-109): §6 scoring — payouts, FINAL_WAGER, bonus stars, tiebreaks -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\ScoringV2Tests.cs" />
+    <!-- TASK-046: shared v2 InputBridge (extracted from Reaccion/Apunta's private copies) -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputBridgeTests.cs" />
   </ItemGroup>
 
 </Project>
