@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using Barcade.Core;
 using Barcade.Core.Microgames.V2;
+using Barcade.Core.Scoring;
 // Same collision as ReaccionaMicrogameTests/ApuntaMicrogameV2Tests: this file's
 // namespace (Barcade.Core.Tests) is lexically nested inside Barcade.Core, so an
 // unqualified name resolves against Barcade.Core's own members before any
@@ -60,13 +61,14 @@ namespace Barcade.Core.Tests
             public bool InitializeCalled { get; private set; }
             public float LastDifficultyMult { get; private set; } = float.NaN;
 
-            public FakeMicrogame(int finishAfterTicks, V2Result? result = null)
+            public FakeMicrogame(int finishAfterTicks, V2Result? result = null, MicrogameId id = MicrogameId.Reacciona)
             {
                 _finishAfterTicks = finishAfterTicks;
                 _result = result ?? new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0);
+                Id = id;
             }
 
-            public MicrogameId Id => MicrogameId.Reacciona;
+            public MicrogameId Id { get; }
 
             public void Initialize(SeededRandom rng, PlayerRoster roster, float difficultyMult)
             {
@@ -768,6 +770,317 @@ namespace Barcade.Core.Tests
             Assert.That(fake.IsFinished, Is.False, "sensor setup: must remain live for the whole measured window, or it wasn't measuring the live path");
             Assert.That(everLeftMgPlay, Is.False, "sensor setup: must remain in MgPlay for the whole measured window");
             Assert.That(after - before, Is.EqualTo(0L));
+        }
+
+        // ── TASK-051: ScoringV2-FSM wiring ────────────────────────────────────────
+
+        private static V2Result Ranked(params (int seat, int place, int metric)[] entries)
+        {
+            var ranks = new PlayerRank[entries.Length];
+            for (int i = 0; i < entries.Length; i++)
+                ranks[i] = new PlayerRank(entries[i].seat, entries[i].place, entries[i].metric);
+            return new V2Result(ResultKind.Ranked, ranks, 0);
+        }
+
+        [Test]
+        public void FinalWager_CapturesStickChoicePerSeat_TimeoutDefaultsForAbsentChoice()
+        {
+            // AC1: FINAL_WAGER captures per-seat 25/50/75 stick choices during its
+            // 5s window via InputInterpreter. Verified indirectly through the
+            // resulting stakes -- the captured choice has no public accessor of
+            // its own, only its effect on the resolved wager.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(50), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "PRUEBA", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+
+            int[] preWagerCoins = (int[])fsm.Coins.Clone();
+            // Round 1's default competitive payout {6,4,2,1} for places [1,2,3,4].
+            Assert.That(preWagerCoins, Is.EqualTo(new[] { 6, 4, 2, 1 }),
+                "test setup sanity: round 1's default payout must have landed before the wager");
+
+            // Rojo=Quarter(Left), Azul=Half(Up), Amarillo=ThreeQuarters(Right), Verde=untouched.
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.W);
+                inputs.Set(PlayerSlot.Azul, false, Direction8.N);
+                inputs.Set(PlayerSlot.Amarillo, false, Direction8.E);
+                inputs.Set(PlayerSlot.Verde, false, Direction8.None);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalMg), "test setup sanity: must have exited FinalWager into FinalMg");
+
+            for (int t = 2000; t < 2020 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver));
+
+            Assert.That(fsm.LastWagerResult, Is.Not.Null);
+            Assert.That(fsm.LastWagerResult.Stakes[0], Is.EqualTo(preWagerCoins[0] * 25 / 100), "Rojo chose Quarter (Left)");
+            Assert.That(fsm.LastWagerResult.Stakes[1], Is.EqualTo(preWagerCoins[1] * 50 / 100), "Azul chose Half (Up)");
+            Assert.That(fsm.LastWagerResult.Stakes[2], Is.EqualTo(preWagerCoins[2] * 75 / 100), "Amarillo chose ThreeQuarters (Right)");
+            Assert.That(fsm.LastWagerResult.Stakes[3], Is.EqualTo(preWagerCoins[3] * 50 / 100), "Verde never chose a direction -- timeout defaults to Half");
+        }
+
+        [Test]
+        public void Wager_PotResolvesOnFinalMgCompletion_MatchingFinalWagerResolveDirectly()
+        {
+            // AC1: pot resolution runs on FINAL_MG completion with exact GDD 6.2
+            // math -- verified by independently calling FinalWager.Resolve with
+            // the same (coins, choices, climax places) the FSM itself derived,
+            // and asserting an exact field-by-field match (not just plausible
+            // numbers).
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(54), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "PRUEBA", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+
+            int[] preWagerCoins = (int[])fsm.Coins.Clone();
+
+            var climaxRanks = new (int seat, int place, int metric)[] { (1, 1, 0), (0, 2, 0), (3, 3, 0), (2, 4, 0) };
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1, result: Ranked(climaxRanks));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.E);   // ThreeQuarters
+                inputs.Set(PlayerSlot.Azul, false, Direction8.W);   // Quarter
+                inputs.Set(PlayerSlot.Amarillo, false, Direction8.N); // Half
+                inputs.Set(PlayerSlot.Verde, false, Direction8.E);  // ThreeQuarters
+                fsm.Tick(inputs.Build(t));
+            }
+            for (int t = 2000; t < 2020 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver));
+
+            var expectedChoices = new WagerChoice?[]
+                { WagerChoice.ThreeQuarters, WagerChoice.Quarter, WagerChoice.Half, WagerChoice.ThreeQuarters };
+            var expectedClimaxPlaces = new int[4];
+            foreach ((int seat, int place, int metric) in climaxRanks) expectedClimaxPlaces[seat] = place;
+            WagerResult expected = FinalWager.Resolve(preWagerCoins, expectedChoices, expectedClimaxPlaces);
+
+            Assert.That(fsm.LastWagerResult.Pot, Is.EqualTo(expected.Pot));
+            Assert.That(fsm.LastWagerResult.Stakes, Is.EqualTo(expected.Stakes));
+            Assert.That(fsm.LastWagerResult.Shares, Is.EqualTo(expected.Shares));
+            Assert.That(fsm.LastWagerResult.CoinsAfter, Is.EqualTo(expected.CoinsAfter));
+
+            int totalShares = 0;
+            foreach (int s in fsm.LastWagerResult.Shares) totalShares += s;
+            Assert.That(totalShares, Is.EqualTo(fsm.LastWagerResult.Pot), "GDD 5.3: every pot coin is redistributed, none vanish");
+        }
+
+        [Test]
+        public void SessionCounters_ReaccionaRound_FeedsGatilloLatency()
+        {
+            // AC2: Gatillo (best/mean REACCIONA latency) has a real feed today --
+            // the cumulative tick-latency Metric a Reacciona-identified round
+            // reports is converted to milliseconds and recorded per seat.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(51), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 60), (1, 2, 120), (2, 3, 180), (3, 4, 240)),
+                id: MicrogameId.Reacciona);
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
+
+            Assert.That(fsm.Counters.WinnerOf(StarKind.Gatillo, 0b1111), Is.EqualTo(0),
+                "seat 0's metric (60 ticks = 1000ms @ 60Hz) is the lowest (best) latency");
+        }
+
+        [Test]
+        public void SessionCounters_ApuntaRound_DoesNotFeedGatilloLatency()
+        {
+            // Companion pin: a non-Reacciona mechanic's Metric has no defined
+            // counters mapping (see class doc) -- must not be misread as latency.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(55), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 5), (1, 2, 10), (2, 3, 15), (3, 4, 20)),
+                id: MicrogameId.Apunta);
+            fsm.SetActiveMicrogame(fake, "PRUEBA", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fsm.Counters.WinnerOf(StarKind.Gatillo, 0b1111), Is.EqualTo(-1),
+                "no REACCIONA samples were ever recorded -- Apunta's Metric must not feed Gatillo");
+        }
+
+        [Test]
+        public void MicrogameWins_IncrementsOnCompetitivePlace1_AndCoopSuccessCreditsEveryone()
+        {
+            var config = FastConfig(totalRounds: 2);
+            var fsm = new SessionStateMachine(new SeededRandom(52), config);
+            var round1 = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((1, 1, 0), (0, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(round1, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.Intermission; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission));
+            Assert.That(fsm.MicrogameWins, Is.EqualTo(new[] { 0, 1, 0, 0 }), "seat 1 won round 1 (place 1)");
+
+            var round2 = new FakeMicrogame(finishAfterTicks: 1,
+                result: new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0));
+            fsm.SetActiveMicrogame(round2, "R2", playDurationSeconds: 0.02f);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+            Assert.That(fsm.MicrogameWins, Is.EqualTo(new[] { 1, 2, 1, 1 }), "a coop success credits every active seat with a win");
+        }
+
+        [Test]
+        public void GameOver_RanksViaFinalRanking_UsingDrawnBonusStars()
+        {
+            // AC3: GAME_OVER ranks via FinalRanking (estrellas -> monedas ->
+            // victorias -> shared podium) using the drawn bonus stars.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(53), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver));
+
+            Assert.That(fsm.LastBonusStarResult, Is.Not.Null);
+            Assert.That(fsm.FinalPlaces, Is.Not.Null);
+
+            // Independently recompute via the same public API the FSM itself uses.
+            int[] expectedPlaces = FinalRanking.Rank(fsm.LastBonusStarResult.StarsAfter, fsm.Coins, fsm.MicrogameWins, 0b1111);
+            Assert.That(fsm.FinalPlaces, Is.EqualTo(expectedPlaces));
+
+            foreach (int place in fsm.FinalPlaces)
+                Assert.That(place, Is.InRange(1, 4), "every active seat must land on a valid podium slot");
+        }
+
+        [Test]
+        public void FullSessionReplay_Deterministic_IncludingWagerChoices()
+        {
+            // AC3/AC4: deterministic replay through the FULL FSM path (attract ->
+            // game over) with wager choices in the input sequence.
+            (WagerResult wager, BonusStarResult stars, int[] places) RunOnce()
+            {
+                var config = FastConfig(totalRounds: 1);
+                var fsm = new SessionStateMachine(new SeededRandom(99), config);
+                var round1 = new FakeMicrogame(finishAfterTicks: 2,
+                    result: Ranked((0, 1, 60), (1, 2, 90), (2, 3, 120), (3, 4, 150)),
+                    id: MicrogameId.Reacciona);
+                fsm.SetActiveMicrogame(round1, "R1", playDurationSeconds: 0.05f);
+
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+                for (int t = 0; t < 300 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                var climax = new FakeMicrogame(finishAfterTicks: 2,
+                    result: Ranked((0, 2, 0), (1, 1, 0), (2, 4, 0), (3, 3, 0)));
+                fsm.SetActiveMicrogame(climax, "FINAL", playDurationSeconds: 0.05f);
+
+                for (int t = 1000; t < 1300 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+                {
+                    inputs.Set(PlayerSlot.Rojo, false, Direction8.W);
+                    inputs.Set(PlayerSlot.Azul, false, Direction8.N);
+                    inputs.Set(PlayerSlot.Amarillo, false, Direction8.E);
+                    fsm.Tick(inputs.Build(t));
+                }
+
+                for (int t = 2000; t < 2300 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity");
+                return (fsm.LastWagerResult, fsm.LastBonusStarResult, fsm.FinalPlaces);
+            }
+
+            (WagerResult wager, BonusStarResult stars, int[] places) a = RunOnce();
+            (WagerResult wager, BonusStarResult stars, int[] places) b = RunOnce();
+
+            Assert.That(b.wager.Pot, Is.EqualTo(a.wager.Pot));
+            Assert.That(b.wager.Stakes, Is.EqualTo(a.wager.Stakes));
+            Assert.That(b.wager.Shares, Is.EqualTo(a.wager.Shares));
+            Assert.That(b.wager.CoinsAfter, Is.EqualTo(a.wager.CoinsAfter));
+            Assert.That(b.stars.First, Is.EqualTo(a.stars.First));
+            Assert.That(b.stars.Second, Is.EqualTo(a.stars.Second));
+            Assert.That(b.stars.FirstWinner, Is.EqualTo(a.stars.FirstWinner));
+            Assert.That(b.stars.SecondWinner, Is.EqualTo(a.stars.SecondWinner));
+            Assert.That(b.stars.StarsAfter, Is.EqualTo(a.stars.StarsAfter));
+            Assert.That(b.places, Is.EqualTo(a.places));
+        }
+
+        [Test]
+        public void GameOver_ReturnsToAttract_ClearsScoringState()
+        {
+            // Scoring-side companion to the existing GameOver roster/ready/round
+            // reset pin: a fresh session must not read back the previous
+            // session's coins/wins/wager/stars/podium before its own Join even
+            // completes.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(56), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            bool loopedToAttract = false;
+            for (int t = 1000; t < 5000 && !loopedToAttract; t++)
+            {
+                fsm.Tick(inputs.Build(t));
+                if (t > 1050 && fsm.CurrentPhase == SessionPhase.Attract) loopedToAttract = true;
+            }
+            Assert.That(loopedToAttract, Is.True, "test setup sanity: the probe must complete a full session");
+
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 0, 0, 0, 0 }));
+            Assert.That(fsm.MicrogameWins, Is.EqualTo(new[] { 0, 0, 0, 0 }));
+            Assert.That(fsm.LastWagerResult, Is.Null);
+            Assert.That(fsm.LastBonusStarResult, Is.Null);
+            Assert.That(fsm.FinalPlaces, Is.Null);
+            Assert.That(fsm.Counters.WinnerOf(StarKind.Kamikaze, 0b1111), Is.EqualTo(-1), "a fresh SessionCounters has no eliminations recorded");
         }
     }
 }
