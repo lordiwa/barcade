@@ -74,6 +74,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\MantenMicrogameV2Tests.cs" />
     <!-- TASK-059 (T-107 slice 2, GDD MECH_03): ¡CORRE! v2 contract -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CorreMicrogameV2Tests.cs" />
+    <!-- TASK-031 (T-113, hito 4): BoardModel: ring, stop-meter, casillas, economia -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\BoardModelTests.cs" />
   </ItemGroup>
 
 </Project>
