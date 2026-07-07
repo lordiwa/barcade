@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:39:38.500Z",
+  "generated_at": "2026-07-07T14:45:50.649Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -310,7 +310,7 @@
     {
       "key": "TASK-052",
       "title": "Thread per-definition payoutTable through the microgame contract into SessionStateMachine payouts",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "medium"
     },
     {
@@ -322,7 +322,7 @@
     {
       "key": "TASK-054",
       "title": "Verify Framework HID→InputSnapshot adapter (ArcadeInputBridge) against GDD Annex D.1; apply stick deadzone",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     }
   ]
