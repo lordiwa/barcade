@@ -317,6 +317,96 @@ namespace Barcade.Core.Tests
             }
 
             Assert.That(mg.ShotsFired(PlayerSlot.Rojo), Is.EqualTo(1), "the still-held button must auto-fire exactly once at timeout");
+
+            // LOW-1 (TASK-026 review): pin the landing point against the exact power
+            // the auto-fire used. Rojo's press confirms at tick 1 (2-tick debounce)
+            // and is held continuously, so HoldDurationTicks(tick) == tick for
+            // tick >= 1 — the auto-fire tick is durationTicks-1, so that IS the
+            // exact charge (in ticks) it fires with; no need to sample it live.
+            int durationTicks = (int)MathF.Round(p.DurationSeconds * p.InputConfig.TicksPerSecond);
+            int chargeAtFire = durationTicks - 1;
+            float expectedPower = V2Apunta.ChargePower(chargeAtFire, p.ChargeCycleSeconds, p.InputConfig.TicksPerSecond);
+            float expectedDistance = p.ProjectileSpeedMin + expectedPower * (p.ProjectileSpeedMax - p.ProjectileSpeedMin);
+            (float dx, float dy) = V2Apunta.DirectionToUnit(Direction8.E);
+            (float cx, float cy) = V2Apunta.TurretCorner(PlayerSlot.Rojo);
+
+            Assert.That(mg.LastLandingX(PlayerSlot.Rojo), Is.EqualTo(cx + dx * expectedDistance).Within(0.001f),
+                "the auto-fired shot must use the instantaneous charge power at the moment of timeout");
+            Assert.That(mg.LastLandingY(PlayerSlot.Rojo), Is.EqualTo(cy + dy * expectedDistance).Within(0.001f));
+        }
+
+        // ── HIGH-1 (TASK-026 review) — firing must be gated on round duration ──
+
+        [Test]
+        public void HoldThroughExpiry_ReleaseDuringOvertime_FiresOnlyOnce()
+        {
+            // Holding through the round's nominal end (auto-fire happens at
+            // durationTicks-1) and only releasing a beat later — the most natural
+            // human behavior — must not mint a SECOND shot from the same physical
+            // hold. Firing (release-triggered and auto-fire alike) must be gated
+            // on _tick < _durationTicks.
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 3, targetMovingEnabled: false, targetMovingSpeed: 0f,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.3f,
+                durationSeconds: 0.5f, hitRadius: 0.18f, centralZoneMin: 0.4f, centralZoneMax: 0.6f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(200), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            // durationTicks = round(0.5*60) = 30; hold continuously through it and
+            // 10 ticks into overtime before releasing.
+            for (int t = 0; t < 40; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, Direction8.E, true);
+                mg.Tick(inputs.Build(t));
+            }
+            Assert.That(mg.ShotsFired(PlayerSlot.Rojo), Is.EqualTo(1), "the timeout auto-fire must have already fired exactly once by now");
+
+            inputs.Set(PlayerSlot.Rojo, Direction8.E, false);
+            mg.Tick(inputs.Build(40));
+            mg.Tick(inputs.Build(41)); // confirms the release (2-tick debounce)
+
+            for (int t = 42; t < 200 && !mg.IsFinished; t++)
+                mg.Tick(inputs.Build(t));
+
+            Assert.That(mg.ShotsFired(PlayerSlot.Rojo), Is.EqualTo(1),
+                "a release during overtime must not fire a second shot from the same physical hold");
+        }
+
+        [Test]
+        public void MashingThroughOvertime_StillReachesFinishedWithinBoundedTicks()
+        {
+            // If firing weren't gated on duration, continuous mashing through
+            // overtime keeps minting new in-flight projectiles faster than they
+            // resolve, and AnyProjectileActive() (which IsFinished waits on) never
+            // goes false — a permanent hang for whatever sequencer eventually
+            // drives this microgame.
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 3, targetMovingEnabled: false, targetMovingSpeed: 0f,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.3f,
+                durationSeconds: 0.5f, hitRadius: 0.18f, centralZoneMin: 0.4f, centralZoneMax: 0.6f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+            int durationTicks = (int)MathF.Round(p.DurationSeconds * p.InputConfig.TicksPerSecond); // 30
+            int flightTicks = (int)MathF.Round(p.ProjectileFlightSeconds * p.InputConfig.TicksPerSecond); // 18
+            int bound = durationTicks + flightTicks + 10; // 58
+
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(201), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            int finishedAtTick = -1;
+            for (int t = 0; t < bound + 1000; t++) // generous safety margin beyond the asserted bound
+            {
+                bool pressed = (t % 4) < 2; // continuous rapid mashing, before AND through overtime, never stops
+                inputs.Set(PlayerSlot.Rojo, Direction8.E, pressed);
+                mg.Tick(inputs.Build(t));
+                if (mg.IsFinished) { finishedAtTick = t; break; }
+            }
+
+            Assert.That(finishedAtTick, Is.Not.EqualTo(-1), "the round must eventually finish even under continuous overtime mashing");
+            Assert.That(finishedAtTick, Is.LessThanOrEqualTo(bound),
+                $"expected IsFinished by tick {bound} (durationTicks {durationTicks} + flightTicks {flightTicks} + slack), but it took until {finishedAtTick}");
         }
 
         // ── AC6 — same-tick contested target ────────────────────────────────────
@@ -368,6 +458,48 @@ namespace Barcade.Core.Tests
                 "only one seat may score the sole, single target");
             Assert.That(mg.HitCount(PlayerSlot.Rojo), Is.EqualTo(1), "Rojo aimed straight at the target and must win the contest");
             Assert.That(mg.HitCount(PlayerSlot.Azul), Is.EqualTo(0), "Azul's off-target shot loses the contest and has no other target to pass to");
+        }
+
+        [Test]
+        public void SameTickTwoTargets_LoserCascadesToSecondTargetAndScores()
+        {
+            // LOW-2 (TASK-026 review): the positive half of the cascade rule — with
+            // 2 shots arriving the same tick and 2 targets both close enough to be
+            // candidates for either, each shot must end up scoring a DISTINCT
+            // target rather than one shot's hit being wasted. A tiny (0.02-wide)
+            // central zone puts both targets near (0.5,0.5); a generous hitRadius
+            // means any landing point near center is a candidate for both.
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 2, targetMovingEnabled: false, targetMovingSpeed: 0f,
+                windAccel: 0f, projectileSpeedMin: 0.3f, projectileSpeedMax: 0.3f, projectileFlightSeconds: 0.2f,
+                durationSeconds: 5f, hitRadius: 0.5f, centralZoneMin: 0.49f, centralZoneMax: 0.51f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(60), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            // Rojo (0,0) aims NE, Azul (1,0) aims NW — both land near (0.5,0.5).
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, true);
+            inputs.Set(PlayerSlot.Azul, Direction8.NW, true);
+            mg.Tick(inputs.Build(0));
+            mg.Tick(inputs.Build(1));
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, false);
+            inputs.Set(PlayerSlot.Azul, Direction8.NW, false);
+            mg.Tick(inputs.Build(2));
+            mg.Tick(inputs.Build(3));
+
+            for (int t = 4; t < 200; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, Direction8.None, false);
+                inputs.Set(PlayerSlot.Azul, Direction8.None, false);
+                mg.Tick(inputs.Build(t));
+            }
+
+            Assert.That(mg.HitCount(PlayerSlot.Rojo) + mg.HitCount(PlayerSlot.Azul), Is.EqualTo(2),
+                "each shot should score a distinct target rather than one being wasted");
+            Assert.That(mg.HitCount(PlayerSlot.Rojo), Is.EqualTo(1));
+            Assert.That(mg.HitCount(PlayerSlot.Azul), Is.EqualTo(1));
         }
 
         // ── AC7 — ranking ────────────────────────────────────────────────────────
@@ -440,25 +572,236 @@ namespace Barcade.Core.Tests
             throw new InvalidOperationException("seat not found in result");
         }
 
+        // ── MEDIUM-2 (TASK-026 review) — render/HUD contract ────────────────────
+
+        [Test]
+        public void RenderState_PublishesInFlightProjectiles()
+        {
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 1, targetMovingEnabled: false, targetMovingSpeed: 0f,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.3f,
+                durationSeconds: 5f, hitRadius: 0.18f, centralZoneMin: 0.4f, centralZoneMax: 0.6f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(210), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, true);
+            mg.Tick(inputs.Build(0));
+            mg.Tick(inputs.Build(1));
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, false);
+            mg.Tick(inputs.Build(2));
+            mg.Tick(inputs.Build(3)); // Fire() called here — a shot is now in flight
+
+            RenderState rs = mg.GetRenderState();
+            int projectileCount = 0;
+            for (int i = 0; i < rs.EntityCount; i++)
+                if (rs.Entities[i].Kind == EntityKind.Projectile) projectileCount++;
+
+            Assert.That(projectileCount, Is.EqualTo(1), "an in-flight shot must be published as a Projectile entity so the presenter can draw it");
+        }
+
+        [Test]
+        public void HudState_ExposesLiveChargeMeterPerSeat()
+        {
+            ApuntaParams p = DefaultParams;
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(211), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            // Not charging: the meter must read 0.
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, false);
+            mg.Tick(inputs.Build(0));
+            Assert.That(mg.GetRenderState().Hud.Meters[(int)PlayerSlot.Rojo], Is.EqualTo(0f));
+
+            // Charging: the meter must track the oscillating ChargePower live.
+            inputs.Set(PlayerSlot.Rojo, Direction8.NE, true);
+            mg.Tick(inputs.Build(1));
+            mg.Tick(inputs.Build(2)); // confirmed press at tick 2, HoldDurationTicks=1
+            mg.Tick(inputs.Build(3)); // HoldDurationTicks=2
+
+            int chargeNow = mg.CurrentChargeTicks(PlayerSlot.Rojo);
+            float expected = V2Apunta.ChargePower(chargeNow, p.ChargeCycleSeconds, p.InputConfig.TicksPerSecond);
+            Assert.That(mg.GetRenderState().Hud.Meters[(int)PlayerSlot.Rojo], Is.EqualTo(expected).Within(0.0001f));
+        }
+
+        [Test]
+        public void RenderState_AimInterpProgress_RampsToFullOverQuarterSecond()
+        {
+            ApuntaParams p = DefaultParams; // 60 ticks/sec -> interp window = round(0.25*60) = 15 ticks
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(212), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            // Establish an initial aim and let it fully settle before testing a change.
+            inputs.Set(PlayerSlot.Rojo, Direction8.N, false);
+            for (int t = 0; t < 20; t++) mg.Tick(inputs.Build(t));
+
+            // Change aim now and check progress immediately on the very tick it changes.
+            inputs.Set(PlayerSlot.Rojo, Direction8.E, false);
+            mg.Tick(inputs.Build(20));
+            RenderEntity justChanged = FindAvatar(mg.GetRenderState(), (int)PlayerSlot.Rojo);
+            Assert.That(justChanged.VisualVariant, Is.LessThan(255), "progress must not already be full on the very tick the aim changes");
+
+            // Hold the new aim through the full 0.25s (15-tick) interp window and beyond.
+            for (int t = 21; t < 40; t++) mg.Tick(inputs.Build(t));
+            RenderEntity settled = FindAvatar(mg.GetRenderState(), (int)PlayerSlot.Rojo);
+            Assert.That(settled.VisualVariant, Is.EqualTo(255), "progress must be full well after the 0.25s interp window elapses");
+        }
+
+        private static RenderEntity FindAvatar(RenderState rs, int ownerSeat)
+        {
+            for (int i = 0; i < rs.EntityCount; i++)
+                if (rs.Entities[i].Kind == EntityKind.PlayerAvatar && rs.Entities[i].OwnerSeat == ownerSeat)
+                    return rs.Entities[i];
+            throw new InvalidOperationException("avatar not found for seat");
+        }
+
+        // ── MEDIUM-3 (TASK-026 review) — moving targets ─────────────────────────
+
+        [Test]
+        public void TargetMoving_SameSeed_ProducesSameTrajectory()
+        {
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 2, targetMovingEnabled: true, targetMovingSpeed: 0.2f,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.3f,
+                durationSeconds: 5f, hitRadius: 0.18f, centralZoneMin: 0.3f, centralZoneMax: 0.7f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+
+            var mgA = new V2Apunta(p);
+            mgA.Initialize(new SeededRandom(300), PlayerRoster.AllHuman, 1f);
+            var mgB = new V2Apunta(p);
+            mgB.Initialize(new SeededRandom(300), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            for (int t = 0; t < 100; t++)
+            {
+                mgA.Tick(inputs.Build(t));
+                mgB.Tick(inputs.Build(t));
+            }
+
+            List<(float X, float Y)> posA = GetTargetPositions(mgA.GetRenderState());
+            List<(float X, float Y)> posB = GetTargetPositions(mgB.GetRenderState());
+            Assert.That(posA.Count, Is.EqualTo(p.TargetCount));
+            for (int i = 0; i < posA.Count; i++)
+            {
+                Assert.That(posB[i].X, Is.EqualTo(posA[i].X).Within(0.00001f));
+                Assert.That(posB[i].Y, Is.EqualTo(posA[i].Y).Within(0.00001f));
+            }
+        }
+
+        [Test]
+        public void TargetMoving_StaysWithinZoneBounds_EvenWhenStepSizeExceedsSpan()
+        {
+            // Zone span is tiny (0.01) and speed is large (2.0 units/sec) relative to
+            // it — per-tick movement (2.0/60 ~= 0.033) exceeds the whole zone span,
+            // which a naive single-step mirror reflection compounds into unbounded
+            // drift instead of converging. Clamp-based reflection must keep the
+            // target inside the zone regardless.
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 1, targetMovingEnabled: true, targetMovingSpeed: 2.0f,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.3f,
+                durationSeconds: 5f, hitRadius: 0.18f, centralZoneMin: 0.495f, centralZoneMax: 0.505f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(301), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            for (int t = 0; t < 300; t++)
+            {
+                mg.Tick(inputs.Build(t));
+                List<(float X, float Y)> positions = GetTargetPositions(mg.GetRenderState());
+                Assert.That(positions[0].X, Is.InRange(p.CentralZoneMin, p.CentralZoneMax), $"tick {t}: X escaped the zone");
+                Assert.That(positions[0].Y, Is.InRange(p.CentralZoneMin, p.CentralZoneMax), $"tick {t}: Y escaped the zone");
+            }
+        }
+
+        [Test]
+        public void TargetMoving_DegenerateZeroSpanZone_StaysStationary()
+        {
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 1, targetMovingEnabled: true, targetMovingSpeed: 0.5f,
+                windAccel: 0f, projectileSpeedMin: 0.45f, projectileSpeedMax: 0.95f, projectileFlightSeconds: 0.3f,
+                durationSeconds: 5f, hitRadius: 0.18f, centralZoneMin: 0.5f, centralZoneMax: 0.5f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+
+            var mg = new V2Apunta(p);
+            mg.Initialize(new SeededRandom(302), PlayerRoster.AllHuman, 1f);
+            var inputs = new FakeInputs();
+
+            for (int t = 0; t < 300; t++)
+            {
+                mg.Tick(inputs.Build(t));
+                List<(float X, float Y)> positions = GetTargetPositions(mg.GetRenderState());
+                Assert.That(positions[0].X, Is.EqualTo(0.5f), $"tick {t}: a zero-span zone must keep the target stationary");
+                Assert.That(positions[0].Y, Is.EqualTo(0.5f), $"tick {t}: a zero-span zone must keep the target stationary");
+            }
+        }
+
+        private static List<(float X, float Y)> GetTargetPositions(RenderState rs)
+        {
+            var result = new List<(float, float)>();
+            for (int i = 0; i < rs.EntityCount; i++)
+                if (rs.Entities[i].Kind == EntityKind.Target)
+                    result.Add((rs.Entities[i].X, rs.Entities[i].Y));
+            return result;
+        }
+
         // ── AC8 — zero heap allocation in steady-state Tick ────────────────────
 
         [Test]
         public void SteadyStateTick_AllocatesNoManagedMemory()
         {
-            var mg = new V2Apunta(DefaultParams);
+            // Fix (TASK-026 review, MEDIUM-1 — the 4th occurrence of this defect
+            // class across the project; see ReaccionaMicrogame's and TASK-025's
+            // identical fix): the original version measured 1000 ticks right after
+            // a 300-tick warmup with GddDefaults (duration 5s = 300 ticks), so the
+            // round had already finished and the measured window only ever hit the
+            // `if (_isFinished) return;` no-op — Fire() never ran and CueHit never
+            // fired at all in the whole test (both shots geometrically missed
+            // anyway). This version uses a very long DurationSeconds, many
+            // co-located targets, and a repeating 4-tick press/release cycle (2
+            // ticks pressed, 2 released) that fires a real projectile every cycle
+            // at a fixed distance — landing on one of the targets — so Fire and a
+            // real CueHit both resolve repeatedly throughout the measured window,
+            // asserted explicitly rather than assumed.
+            var p = new ApuntaParams(
+                chargeCycleSeconds: 1.2f, targetCount: 150, targetMovingEnabled: false, targetMovingSpeed: 0f,
+                windAccel: 0f, projectileSpeedMin: 0.3f, projectileSpeedMax: 0.3f, projectileFlightSeconds: 0.05f,
+                durationSeconds: 1000f, hitRadius: 0.5f, centralZoneMin: 0.5f, centralZoneMax: 0.5f,
+                inputConfig: InputInterpreterConfig.GddDefaults);
+            var mg = new V2Apunta(p);
             mg.Initialize(new SeededRandom(123), PlayerRoster.AllHuman, 1f);
             var inputs = new FakeInputs();
-            inputs.Set(PlayerSlot.Rojo, Direction8.E, true);
-            inputs.Set(PlayerSlot.Azul, Direction8.N, false);
-            inputs.Set(PlayerSlot.Amarillo, Direction8.NW, true);
-            inputs.Set(PlayerSlot.Verde, Direction8.None, false);
+            inputs.Set(PlayerSlot.Azul, Direction8.N, true); // held continuously throughout: never fires, just charges
 
-            for (int i = 0; i < 300; i++) mg.Tick(inputs.Build(i)); // warm up (JIT, first charge/fire cycles)
+            int hitsSoFar = 0;
+            for (int i = 0; i < 500; i++)
+            {
+                inputs.Set(PlayerSlot.Rojo, Direction8.NE, (i % 4) < 2);
+                mg.Tick(inputs.Build(i));
+                RenderState rsWarm = mg.GetRenderState();
+                for (int f = 0; f < rsWarm.FeedbackCount; f++)
+                    if (rsWarm.Feedback[f].Cue == V2Apunta.CueHit) hitsSoFar++;
+            }
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: the round must still be live after warmup");
+            Assert.That(hitsSoFar, Is.GreaterThan(0), "sensor setup: warmup should already exercise at least one real hit");
 
+            bool sawHitDuringMeasuredWindow = false;
             long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 300; i < 1300; i++) mg.Tick(inputs.Build(i));
+            for (int i = 500; i < 1500; i++)
+            {
+                inputs.Set(PlayerSlot.Rojo, Direction8.NE, (i % 4) < 2);
+                mg.Tick(inputs.Build(i));
+                RenderState rs = mg.GetRenderState();
+                for (int f = 0; f < rs.FeedbackCount; f++)
+                    if (rs.Feedback[f].Cue == V2Apunta.CueHit) sawHitDuringMeasuredWindow = true;
+            }
             long after = GC.GetAllocatedBytesForCurrentThread();
 
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: the round must still be live after the measured window too");
+            Assert.That(sawHitDuringMeasuredWindow, Is.True, "sensor setup: at least one real hit must resolve inside the measured window, not just during warmup");
             Assert.That(after - before, Is.EqualTo(0L));
         }
 

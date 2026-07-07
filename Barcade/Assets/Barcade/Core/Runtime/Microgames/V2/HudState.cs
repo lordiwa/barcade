@@ -12,5 +12,13 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>Per-seat running score/metric, length 4, indexed like <c>(int)PlayerSlot</c>.</summary>
         public readonly int[] Scores = new int[4];
+
+        /// <summary>
+        /// Per-seat live meter value in [0,1], length 4, indexed like <c>(int)PlayerSlot</c>
+        /// ("medidores" — GDD Annex D.2). Mechanic-defined meaning: e.g. ¡APUNTA!'s
+        /// oscillating charge power while a seat is holding, 0 while not charging.
+        /// Added additively (T-104) — REACCIONA never populates this.
+        /// </summary>
+        public readonly float[] Meters = new float[4];
     }
 }
