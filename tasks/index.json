@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T14:01:31.562Z",
+  "generated_at": "2026-07-07T14:10:56.159Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -268,7 +268,7 @@
     {
       "key": "TASK-045",
       "title": "MicrogameContentGenerator stale vs v2 schema — Specs durations 7-10s violate the [3,8] bound; reconcile generator with GDD §11.1 and the on-disk assets",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "medium"
     },
     {
@@ -316,7 +316,7 @@
     {
       "key": "TASK-053",
       "title": "Replace SessionStateMachine's nested sign-pure InputBridge with the shared V2 InputBridge",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     }
   ]

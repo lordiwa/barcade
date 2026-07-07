@@ -8,7 +8,7 @@
     "If the generator is re-run: the 12 on-disk assets and the migrated v2 JSON stay consistent (migrator fixtures/tests still green); if retired: the generator is marked deprecated with a pointer to the v2 pipeline",
     "Fast suite green, no regression; any Unity-side regeneration is verified through the batchmode/Unity gate"
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -23,9 +23,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "dev-t101",
+      "at": "2026-07-07T14:09:47.229Z",
+      "body": "Hand-off. Two commits on master: b055882 fix(content) = Specs durations brought within GDD §11.1 [3,8]; bcdd724 test(content) = regression lock. Fast suite 553/553 (550 baseline + 3 new).\n\nKEY FINDING (reframes the ticket): the 12 on-disk MicrogameDefinition .asset files were NEVER stale — all 12 read directly, they already carry GDD-compliant 3-6s durations. Only the generator's Specs array (7,8,9,9,8,9,8,8,7,10,9,8) was out of bounds. Existing coverage discovered: MicrogameDefinitionMigratorTests.cs already reads the real on-disk .asset YAML fresh every run through the migrator/validator pipeline — live content was covered; the generator's Specs array was not.\n\nAC1: each Specs entry matched to its corresponding on-disk asset's duration exactly, 1:1 by id+difficulty (verbText pairing confirmed, e.g. \"¡ESQUIVA RÁPIDO!\" ↔ esquiva-d3-02). New values 5,4,3,5,4,5,4,5,3,6,5,4 — all in [3,8]; GenerateAll now claimed to reproduce current on-disk assets byte-for-byte if re-run (zero churn).\n\nAC2 (design call): generator NOT retired. Class doc now documents: MigrateAll reads v1 assets from disk as its input, so \"migrate before generate\" is structurally invalid — generate-then-migrate-then-validate is the only sound pipeline order. With Specs matching disk exactly, a re-run is a confirmation pass, not a risky regen.\n\nAC3: satisfied by construction — Specs mirrors on-disk durations, migrator fixtures won't churn on re-run.\n\nAC4/lock: MicrogameContentGenerator.cs is UnityEditor-dependent, not linked into the fast-test project — reused MicrogameDefinitionMigratorTests' established pattern: new MicrogameContentGeneratorSpecsTests.cs reads the generator's .cs source text, regex-parses each Specs entry's 5 fields, runs each through the real MicrogameDefinitionMigrator -> MicrogameDefinitionValidator pipeline. Three tests: fixture guard (exactly 12 parsed), duration-bound check, full migrate-and-validate. Mutation-checked: one entry temporarily reverted to 9f, both new tests genuinely red with the exact bound-violation messages, reverted, 553/553 green before commit.\n\nUNITY-GATE STEP (dev hard-blocked by sandbox): next human Editor window, run in order — GenerateAll, MigrateAll, ValidateAll (menu items or batchmode -executeMethod). Expected: zero diff to the 12 .asset files and ValidateAll reports 0 invalid. Folds into the TASK-030 Unity-gate punch list.\n\nSurface discipline: stayed off Loop/, Scoring/, Microgames/V2 core; touched Editor tooling + one new fast-test file + csproj registration."
+    }
+  ],
   "created_at": "2026-07-07T05:12:37.536Z",
-  "updated_at": "2026-07-07T13:56:41.478Z",
+  "updated_at": "2026-07-07T14:10:51.473Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
