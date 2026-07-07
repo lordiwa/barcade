@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T05:33:34.890Z",
+  "generated_at": "2026-07-07T05:48:17.230Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -178,7 +178,7 @@
     {
       "key": "TASK-030",
       "title": "GDD T-106 — MicrogameDefinition schema v2 + validator + asset migrator (§11.1)",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {

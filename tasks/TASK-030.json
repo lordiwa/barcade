@@ -10,7 +10,7 @@
     "Existing consumers of MicrogameDefinition keep compiling and their tests stay green",
     "Tests-first: red validator/round-trip/migrator tests committed strictly before implementation; fast suite green after, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -21,7 +21,13 @@
   ],
   "assignee": null,
   "depends_on": [],
-  "linked_commits": [],
+  "linked_commits": [
+    "e1bdb13",
+    "b6b3257",
+    "cf8ddca",
+    "e852ab0",
+    "286b41e"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -38,10 +44,20 @@
       "author": "developer",
       "at": "2026-07-07T05:28:02.064Z",
       "body": "Fix round complete on the worktree branch (dev-t030), master untouched, nothing pushed. Commits: cf8ddca test(TASK-030) red fix-round tests (10 red + 7 green MEDIUM-3 hardening pins; +213 lines across 3 test files) -> e852ab0 fix(TASK-030) (+76/-9 across 5 production files). Red evidence verbatim: 10 failed for the findings' exact reasons — MinPlayers Expected 2 But was 4 (M1); four type-invalid params silently validating (M2: quoted numeric string / bool / null / nested object); Duration NaN accepted (LOW-3); truncated string/unicode throwing wrong exception types (LOW-2 x2); trailing garbage and fractional payout silently passing (LOW-1, LOW-4). Fixes: M1 MinPlayers=2 with full [ASSUMED] doc rationale (GDD 11.1 example, 1.3 hard constraint), pinned; M2 ValidateParams rejects type-invalid values for DECLARED range names with OffendingField=params.<name> naming the declared range and received type — boundary pinned both ways (undeclared params like the GDD example's nested targetMoving object still accepted); M3 codec hardening through the public MicrogameDefinitionJson surface (multi-line designer copy with quotes/backslash/tab/accents/emoji in LegacyHintText; \\uXXXX incl. surrogate pair; raw U+0001 writer path; negative/exponent/exact-int incl. int.MaxValue payouts bit-exact; malformed-input loud failures) + AssertDefinitionsEqual now asserts the Legacy fields. Cheap includes: LOW-3 gate rewritten !(d>=Min&&d<=Max); LOW-6 MigrateAll null-load logs error + increments failed -> nonzero batchmode exit (Unity-gate-pending). ALL FOUR optionals taken: LOW-1 trailing-content rejection; LOW-2 full ParseString bounds hardening PLUS an unlisted hole (ParseObject unguarded colon index on truncated input) guarded the same way; LOW-4 GetIntArray throws FormatException on fractional/out-of-Int32 payouts; LOW-5 doc note deferring SchemaVersion dispatch to the §12 remote-loader ticket. Suite from worktree: 399/399 (382 + 17), zero new warnings. Transparency: a test-authoring escape glitch briefly left a raw U+0001 byte in MicrogameDefinitionV2Tests.cs, caught and replaced with the \u0001 C# escape BEFORE the test commit (committed file verified clean ASCII). Review diff range for verification: b6b3257..e852ab0."
+    },
+    {
+      "author": "reviewer",
+      "at": "2026-07-07T05:36:41.584Z",
+      "body": "Fix-round verification (rev-t030) of b6b3257..e852ab0: MERGE-READY — no new findings above nit level. Suite from worktree at e852ab0: 399/399 (382 + 17; the 17 independently counted: 10 codec + 6 validator + 1 migrator). Red evidence EMPIRICALLY REPRODUCED: fresh clone checked out at cf8ddca ran 10 failed / 389 passed — exactly the claimed 10, and static analysis of which tests MUST fail pre-fix matched 1:1; the other 7 new tests are regression locks that were legitimately already green. Commit order strict; cf8ddca touches only test files. Per-finding: M1 FIXED (MinPlayers=2, [ASSUMED] doc citing 11.1 example + 1.3 constraint + orchestrator decision, pinned); M2 FIXED with the boundary exactly right (four type-invalid shapes reject loudly naming params.<name> and got-type; undeclared names stay free-form pinned by the GDD example's own nested targetMoving; missing declared param still validates — presence not required, only type+range when present); M3 COVERED via the public MicrogameDefinitionJson surface — judged CORRECT indirection, better than internal MiniJson tests since it is the §12 loader's real path (verified: designer-copy/surrogate-pair/raw-control round-trips, negative/exponent/int.MaxValue bit-exact, exponent-notation reads, all malformed inputs -> FormatException, AssertDefinitionsEqual now asserts both Legacy fields — retroactively strengthening the original round-trip tests). LOWs 1/2/3/4/6 FIXED (parser fully bounds-guarded — re-swept every entry: ParseObject/ParseArray/Expect/ParseNumber truncation paths all end in FormatException); LOW-5 disposed as documented deferral to the §12 loader; dev's extra ParseObject colon guard verified correct. Transparency item verified: byte-level control-character scan of all 8 committed files clean. Regression sweep: no test weakened or removed; parser strictness only rejects previously mis-accepted/wrong-typed inputs. ONE COSMETIC NIT (non-blocking, message-only): GetIntArray's exception message interpolates the double with current-culture formatting (could print '1,5' on an es-ES cabinet); never parsed. MERGE PICTURE UNCHANGED vs master@11ca84c: exactly one conflict, fast-tests csproj at the Compile-Include union point — resolve as union; REACCIONA fix files and APUNTA feat auto-merge cleanly; branch contributes 43 new tests over its fork point; post-merge total = master's count at merge time + 43, re-run to confirm. Outstanding post-merge (unchanged): Unity-gate MigrateAll/ValidateAll + EditMode-runner path (LOW-7); generator durations = TASK-045. ORCHESTRATOR NOTE: merge deferred until dev-t101's in-flight TASK-026 fix round lands — one merge onto a quiet tree."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T05:48:17.230Z",
+      "body": "CLOSED on reviewer MERGE-READY verdict + green post-merge suite. Review depth FULL — rubric inputs: schema surface (MicrogameDefinition v2 data schema + build-pipeline-gating validator, mandatory-FULL) + core tdd-tier logic, 570+ line initial diff + 289-line fix round. Review chain (rev-t030, fresh context): (1) FULL review of ce89984..b6b3257 on the isolated worktree branch — APPROVE-WITH-NITS, 0 HIGH / 3 MEDIUM / 8 LOW, suite 382/382 independently re-run, compile-fail red verified via ls-tree, both schema decisions (legacy mechanic-id carry-forward; Legacy* superset fields) APPROVED as GDD-correct; (2) fix-round verification of b6b3257..e852ab0 — MERGE-READY, red EMPIRICALLY reproduced (fresh clone at cf8ddca: exactly the claimed 10 failures, 1:1 with static must-fail analysis), M1 MinPlayers=2 ([ASSUMED], orchestrator decision under GDD-canonical), M2 type-invalid params fail loudly with exact boundary semantics, M3 codec hardened through the public JSON surface (judged the correct indirection), LOWs 1/2/3/4/6 fixed incl. an extra parser hole the dev found itself, LOW-5 documented deferral; one cosmetic culture-formatting nit accepted. MERGED to master as 286b41e (single predicted csproj conflict, union-resolved); post-merge suite 449/449 (406 + 43 branch tests). Delivered: engine-free Barcade.Core.Content (MicrogameDefinitionV2, MechanicParamSchemas incl. MECH_05 signalMode/colorFilter reservations, Validator, MiniJson codec, JSON mapping, Migrator) + Editor-only MigrationTool (MigrateAll/ValidateAll, executeMethod). UNITY-GATE PENDING (next Editor window): run MigrateAll (writes the 12 v2 JSONs) + ValidateAll, re-run MicrogamePoolIntegrationTests PlayMode, LOW-7 EditMode-runner fixture-path question. Related follow-ups: TASK-045 (generator duration drift), TASK-044 (PCG32). Worktree branch worktree-agent-a0865bf6024861315 merged; worktree being removed."
     }
   ],
   "created_at": "2026-07-07T04:19:29.477Z",
-  "updated_at": "2026-07-07T05:28:02.064Z",
+  "updated_at": "2026-07-07T05:48:17.230Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
