@@ -11,7 +11,7 @@
     "Existing RoundPhaseMachine consumers keep compiling and passing (extension, not rewrite)",
     "Tests-first: failing fast-suite tests for the invariants above committed strictly before implementation; suite green after with no regression"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -28,7 +28,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T03:25:56.079Z",
-  "updated_at": "2026-07-07T03:25:56.079Z",
+  "updated_at": "2026-07-07T05:49:53.243Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

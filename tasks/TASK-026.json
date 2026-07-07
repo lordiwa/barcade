@@ -13,7 +13,7 @@
     "Steady-state Tick allocates zero heap memory (projectiles pooled)",
     "Tests-first: red tests for each AC committed strictly before implementation; fast suite green after, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "critical",
   "labels": [
     "gdd-v2",
@@ -27,7 +27,13 @@
   "depends_on": [
     "TASK-023"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "a6337ed",
+    "c7c0322",
+    "847d43b",
+    "f433e1a",
+    "4408774"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -44,10 +50,15 @@
       "author": "developer",
       "at": "2026-07-07T05:45:54.718Z",
       "body": "Fix round complete on master (dev-t101): f433e1a test(core) red fix-round tests -> 4408774 fix(core). Reacciona files untouched as instructed. Red evidence verbatim: 7 failed pre-fix for the findings' exact reasons — double-fire (Expected 1 But was 2), unbounded overtime (IsFinished never true), no Projectile entity published (Expected 1 But was 0), charge meter 0.0 vs expected live value, interp progress stuck 0, and both moving-target divergence cases escaping the zone; 18 other new tests were already-green regression locks. HIGH-1: entire per-seat aim/charge/fire block (release-fire AND timeout auto-fire) gated on _tick < durationTicks; overtime runs only MoveTargets/ResolveArrivals/PublishRenderState; hold-then-release-in-overtime fires exactly once; overtime mashing reaches IsFinished within durationTicks + flightTicks + 10. MEDIUM-2: (a) in-flight shots publish as EntityKind.Projectile (linear launch->landing interpolation over fixed flight), RenderState capacity pre-sized SeatCount+TargetCount+PoolCapacity at construction; (b) NEW ADDITIVE FIELD HudState.Meters (float[4]) — live oscillating charge power while holding (NOTE: touches the shared V2 HudState contract type — additive per its documented pattern); (c) per-seat _aimChangeTick; RenderEntity.VisualVariant on PlayerAvatar encodes 0-255 progress through the GDD 0.25 s interp window — sim still snaps aim instantly, purely a presentation hint, documented. MEDIUM-3: mirror-reflection replaced by clamp-to-boundary with inward-forced velocity — hard guarantee against divergence for any span/speed ratio incl. degenerate zero-span (stationary); 3 tests (determinism / pathological ratio bounds / degenerate zone). MEDIUM-1: alloc sensor rebuilt per the REACCIONA pattern — long duration, 150 co-located targets, repeating 4-tick press/release firing a real projectile every cycle, at least one CueHit resolving INSIDE the measured window, IsFinished==false asserted before and after; measures 0 bytes through Fire + hit resolution + the new publication code. LOWs: (1) timeout test now asserts LastLandingX/Y against analytically computed ChargePower at the auto-fire tick; (2) SameTickTwoTargets_LoserCascadesToSecondTargetAndScores pins the positive cascade (2 distinct targets scored); (4) difficultyMult comment fixed — GDD 11.1's MECH_04 example DOES declare difficultyScaling [targetMoving.speed, windAccel]; wiring deferred to T-106, stated explicitly; (5) flight-vs-pool threshold documented with exact derivation (32/60 ≈ 0.533 s at 4-seat max cadence) on ProjectileFlightSeconds rather than a cross-type ctor guard — dev's call, flagged. Suite 397 -> 406 green (9 new). Commits sit on top of d04708d (TASK-025 close chore)."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T11:31:36.821Z",
+      "body": "CLOSED on rev-t026 fix-round verdict CLOSE (2026-07-07 ~06:20Z). Review depth FULL — rubric inputs: core tdd-tier logic (mandatory-FULL surface, Barcade.Core.Microgames.V2), well over 150 changed lines across the 5-commit range a6337ed..4408774, new shared-contract touch (HudState.Meters additive field). Round 1 (rev-t026, pinned 847d43b): REQUEST-CHANGES 1 HIGH / 3 MEDIUM / 5 LOW. Fix round f433e1a (red: 7 failed, one per flagged defect, reproduced firsthand by reviewer) -> 4408774 (fix). Final verification pinned at 4408774: 406/406 green, commit order verified, HIGH-1 duration gating confirmed with 'nobody loses their shot' preserved, MEDIUM-1 alloc sensor genuinely live end-to-end, MEDIUM-2a/b projectile publication + HudState.Meters additive confirmed, MEDIUM-3 clamp+inward-velocity bounce divergence-proof, LOW-1/2/4 fixed, LOW-5 accepted with threshold math verified. Record correction: f433e1a is not production-free — it carries the inert HudState.Meters scaffold (declared in its commit message, accepted as test-enabling). MEDIUM-2c residual (VisualVariant 0-255 interp-progress semantic overload) downgraded to LOW -> follow-up ticket TASK-048 (must land before any presenter consumes RenderState, i.e. before/with TASK-027). Other follow-ups already on file: TASK-046 shared InputBridge, TASK-047 duplicate .meta GUID."
     }
   ],
   "created_at": "2026-07-07T03:26:21.103Z",
-  "updated_at": "2026-07-07T05:45:54.718Z",
+  "updated_at": "2026-07-07T11:31:36.821Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

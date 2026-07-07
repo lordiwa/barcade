@@ -1,0 +1,34 @@
+{
+  "key": "TASK-048",
+  "title": "Regularize RenderEntity.VisualVariant contract + pin overtime-landing scoring (TASK-026 review residuals)",
+  "description": "Residuals from the TASK-026 APUNTA review (rev-t026, MEDIUM-2c downgraded to LOW + one optional test pin). (1) ApuntaMicrogame encodes 0-255 aim-interpolation progress in RenderEntity.VisualVariant on PlayerAvatar entities — a semantic overload that is permissible under the field's 'mechanic-defined' wording but is undocumented on RenderEntity itself and in tension with GDD §10.4 prefab mapping (which reads VisualVariant as a prefab/skin selector). Decide and document the contract: either bless per-mechanic scalar-channel use of VisualVariant on RenderEntity's own doc comment (with the GDD §10.4 interaction spelled out), or move the interp progress to a dedicated field/channel. Must be resolved BEFORE any presenter consumes RenderState — sequence before or together with TASK-027 (StagePresenter). (2) Optional regression pin: a test asserting that the auto-fired shot landing during overtime still scores (the 'nobody loses their shot' GDD clause) — currently protected only indirectly.",
+  "acceptance_criteria": [
+    "The VisualVariant contract decision is recorded: RenderEntity's doc comment states exactly what the field may carry (prefab/skin selector vs mechanic-defined scalar), and the GDD §10.4 prefab-mapping interaction is addressed either in the doc or by moving Apunta's interp progress to a dedicated channel",
+    "If the field semantics change, ApuntaMicrogame and its tests are updated and the fast suite stays green with no regression",
+    "A regression test pins that an auto-fired shot which lands during the overtime window still scores (GDD 'nobody loses their shot')",
+    "No presenter (TASK-027+) consumes RenderState before this contract is settled"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-1",
+    "core",
+    "render-contract",
+    "follow-up",
+    "MECH_04"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-026"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T11:31:52.422Z",
+  "updated_at": "2026-07-07T11:31:52.422Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T05:48:17.230Z",
+  "generated_at": "2026-07-07T11:31:52.422Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -142,7 +142,7 @@
     {
       "key": "TASK-024",
       "title": "GDD T-102 — SessionStateMachine: full session FSM with per-state timeouts (§2.1/§2.2)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
@@ -154,7 +154,7 @@
     {
       "key": "TASK-026",
       "title": "GDD T-104 — MECH_04 ¡APUNTA! hold-charge aiming microgame (§4 MECH_04, IMicrogame contract §10.2)",
-      "status": "in_review",
+      "status": "done",
       "priority": "critical"
     },
     {
@@ -282,6 +282,12 @@
       "title": "Fix repo-wide duplicate .meta GUID shared by ArcadeControls.inputactions and InputSystem_Actions.inputactions",
       "status": "todo",
       "priority": "low"
+    },
+    {
+      "key": "TASK-048",
+      "title": "Regularize RenderEntity.VisualVariant contract + pin overtime-landing scoring (TASK-026 review residuals)",
+      "status": "todo",
+      "priority": "medium"
     }
   ]
 }
