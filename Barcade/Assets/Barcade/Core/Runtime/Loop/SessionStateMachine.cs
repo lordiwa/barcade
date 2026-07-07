@@ -93,28 +93,30 @@ namespace Barcade.Core
     /// </para>
     ///
     /// <para>
-    /// <b>[ASSUMED] Regular-round payout application (TASK-051).</b> Every
-    /// completed regular round (not the climax — see below) applies
-    /// <see cref="PayoutRules.DefaultCompetitive"/>/<see cref="PayoutRules.DefaultCoopSuccess"/>/
-    /// <see cref="PayoutRules.DefaultCoopFail"/> to <see cref="Coins"/> based on
-    /// the round's <see cref="V2.MicrogameResult.Kind"/>. GDD §6.1 describes these
-    /// as the payout DEFAULTS; a real per-definition <c>payoutTable</c> (TASK-030
-    /// content) isn't threaded through <see cref="V2.IMicrogame"/>/<see cref="SetActiveMicrogame"/>
-    /// yet, so this uses the GDD defaults rather than leaving coins permanently at
-    /// zero — without SOME accumulation, FINAL_WAGER (AC1) would only ever have a
-    /// zero pot to test against. Flagged for reviewer confirmation; the real fix
-    /// (reading the active definition's own table) is TASK-052's job ("Thread
-    /// per-definition payoutTable through the microgame contract into
-    /// SessionStateMachine payouts") — filed as the named owning follow-up
-    /// (TASK-051 review fix round, M2). Coop's payout counts as a win for every active seat when
-    /// it succeeds (no individual place makes sense for a shared outcome);
-    /// competitive places 1 count as a win for whoever holds them (ties share the
-    /// credit, matching every other competition-ranking convention in this
-    /// codebase). The CLIMAX round is exempt from this per-round payout (its
-    /// outcome feeds <see cref="FinalWager"/> instead, GDD §6.2) but still counts
-    /// toward <see cref="V2.MicrogameId.Reacciona"/> latency samples and win
-    /// counts — a microgame win is a microgame win regardless of which round it
-    /// happened in.
+    /// <b>Regular-round payout application (TASK-051, per-definition table via
+    /// TASK-052).</b> Every completed regular round (not the climax — see below)
+    /// applies a payout to <see cref="Coins"/> based on the round's
+    /// <see cref="V2.MicrogameResult.Kind"/>: the active microgame's own
+    /// per-definition <c>payoutTable</c> (GDD §11 schema / Annex D.2
+    /// <c>MicrogameDefinitionV2.PayoutTable</c>, passed in via
+    /// <see cref="SetActiveMicrogame"/>'s <c>payoutTable</c> parameter) when one is
+    /// set for that round, otherwise <see cref="PayoutRules.DefaultCompetitive"/>/
+    /// <see cref="PayoutRules.DefaultCoopSuccess"/>/<see cref="PayoutRules.DefaultCoopFail"/>
+    /// as a FALLBACK. GDD §6.1's defaults are the design's baseline tuning values,
+    /// not a hardcoded requirement — TASK-052 delivered the real per-definition
+    /// path this paragraph used to call unowned (see <see cref="SetActiveMicrogame"/>'s
+    /// own doc for the payoutTable channel's design rationale). A coop table is 2
+    /// entries [success, fail] (TASK-050's already-validated shape convention);
+    /// a mismatched length fails loudly rather than mis-indexing. Coop's payout
+    /// counts as a win for every active seat when it succeeds (no individual
+    /// place makes sense for a shared outcome); competitive places 1 count as a
+    /// win for whoever holds them (ties share the credit, matching every other
+    /// competition-ranking convention in this codebase). The CLIMAX round is
+    /// exempt from this per-round payout (its outcome feeds
+    /// <see cref="FinalWager"/> instead, GDD §6.2) — including any payoutTable set
+    /// on the climax microgame itself — but still counts toward
+    /// <see cref="V2.MicrogameId.Reacciona"/> latency samples and win counts — a
+    /// microgame win is a microgame win regardless of which round it happened in.
     /// </para>
     ///
     /// <para>
@@ -236,6 +238,17 @@ namespace Barcade.Core
             PlayerSlot.Rojo, PlayerSlot.Azul, PlayerSlot.Amarillo, PlayerSlot.Verde
         };
 
+        /// <summary>
+        /// GDD §6.1 / TASK-050 shape convention: a coop payoutTable is exactly 2
+        /// entries, [success, fail]. Matches
+        /// <c>Barcade.Core.Content.MicrogameDefinitionValidator</c>'s own (private)
+        /// <c>CoopPayoutTableLength</c> constant by value -- cited here rather than
+        /// referenced directly since that constant isn't public, but the two must
+        /// always agree: this is the same contract TASK-050 already validates a
+        /// definition's payoutTable against before it ever reaches this class.
+        /// </summary>
+        private const int CoopPayoutTableLength = 2;
+
         private readonly SessionStateMachineConfig _config;
         private readonly SeededRandom _rng;
         private readonly int _scoringSeed;
@@ -261,6 +274,10 @@ namespace Barcade.Core
         private string _activeVerb;
         private float _activePlayDurationSeconds;
         private float _activeDifficultyMult = 1f;
+        // TASK-052: null means "no per-definition table for this round" -- the GDD
+        // §6.1 defaults apply, exactly as before this ticket. See SetActiveMicrogame
+        // and CaptureResult.
+        private int[] _activePayoutTable;
         private V2.MicrogameResult? _lastResult;
 
         private SessionCounters _counters = new SessionCounters();
@@ -382,13 +399,37 @@ namespace Barcade.Core
         /// T-108's selector can plug a real number in here without any further FSM
         /// change.
         /// </para>
+        ///
+        /// <para>
+        /// <b>[DESIGN] <paramref name="payoutTable"/> channel (TASK-052).</b> An
+        /// additive optional parameter, defaulting to null (every existing call
+        /// site keeps compiling and behaves exactly as before this ticket — GDD
+        /// §6.1 session defaults). When set, it is this round's per-definition
+        /// <c>MicrogameDefinitionV2.PayoutTable</c> (GDD §11 schema, Annex D.2) and
+        /// overrides the default at <see cref="CaptureResult"/> time: 4 entries
+        /// (one per place) for a competitive round, or 2 entries [success, fail]
+        /// for a coop round (TASK-050's already-validated shape convention — see
+        /// <see cref="CoopPayoutTableLength"/>). Two other channels were
+        /// considered and rejected as heavier than this ticket needs: extending
+        /// <see cref="V2.IMicrogame"/> itself (would touch every v2 mechanic's
+        /// contract for one field) and threading the whole
+        /// <c>MicrogameDefinitionV2</c> object through (couples this class to
+        /// <c>Barcade.Core.Content</c> for data it doesn't otherwise use — verb,
+        /// duration and difficulty already flow through this same method's
+        /// existing parameters, not a definition reference). A raw <c>int[]</c> is
+        /// the minimal shape that satisfies this ticket; a future ticket can widen
+        /// the channel if more definition data needs to reach the FSM.
+        /// </para>
         /// </summary>
-        public void SetActiveMicrogame(V2.IMicrogame microgame, string verb, float playDurationSeconds = 5f, float difficultyMult = 1f)
+        public void SetActiveMicrogame(
+            V2.IMicrogame microgame, string verb, float playDurationSeconds = 5f, float difficultyMult = 1f,
+            int[] payoutTable = null)
         {
             _activeMicrogame = microgame;
             _activeVerb = verb ?? string.Empty;
             _activePlayDurationSeconds = playDurationSeconds;
             _activeDifficultyMult = difficultyMult;
+            _activePayoutTable = payoutTable;
         }
 
         /// <summary>Advances the session by exactly one fixed 60 Hz tick.</summary>
@@ -532,8 +573,9 @@ namespace Barcade.Core
         /// Also (TASK-051): feeds <see cref="_microgameWins"/> and whichever
         /// <see cref="SessionCounters"/> have a real source today (currently just
         /// Gatillo's REACCIONA latency — see class doc), and, for regular rounds
-        /// only (<paramref name="isClimax"/> false), applies the [ASSUMED] default
-        /// payout to <see cref="Coins"/>.
+        /// only (<paramref name="isClimax"/> false), applies a payout to
+        /// <see cref="Coins"/> — the active round's per-definition payoutTable
+        /// (TASK-052) when set, else the GDD §6.1 default (see class doc).
         /// </summary>
         private void CaptureResult(bool isClimax)
         {
@@ -581,7 +623,12 @@ namespace Barcade.Core
                     var places = new int[4];
                     for (int i = 0; i < result.Ranks.Length; i++)
                         places[result.Ranks[i].Seat] = result.Ranks[i].Place;
-                    PayoutRules.ApplyCompetitive(_coins, places, PayoutRules.DefaultCompetitive);
+                    // TASK-052: per-definition table overrides the GDD §6.1 default
+                    // when set; ApplyCompetitive's own ValidateTable already throws
+                    // if a non-null table isn't exactly 4 entries, so no separate
+                    // length guard is needed on this branch.
+                    int[] payoutTable = _activePayoutTable ?? PayoutRules.DefaultCompetitive;
+                    PayoutRules.ApplyCompetitive(_coins, places, payoutTable);
                 }
             }
             else
@@ -593,7 +640,25 @@ namespace Barcade.Core
 
                 if (!isClimax)
                 {
-                    int payout = success ? PayoutRules.DefaultCoopSuccess : PayoutRules.DefaultCoopFail;
+                    int payout;
+                    if (_activePayoutTable != null)
+                    {
+                        // TASK-052: unlike ApplyCompetitive, ApplyCoop takes a single
+                        // int (not a table), so this class owns the [success, fail]
+                        // index lookup and must guard the shape itself.
+                        if (_activePayoutTable.Length != CoopPayoutTableLength)
+                        {
+                            throw new ArgumentException(
+                                $"coop payoutTable must have exactly {CoopPayoutTableLength} entries " +
+                                $"[success, fail] (GDD §6.1 / TASK-050 shape); got {_activePayoutTable.Length}",
+                                nameof(_activePayoutTable));
+                        }
+                        payout = success ? _activePayoutTable[0] : _activePayoutTable[1];
+                    }
+                    else
+                    {
+                        payout = success ? PayoutRules.DefaultCoopSuccess : PayoutRules.DefaultCoopFail;
+                    }
                     PayoutRules.ApplyCoop(_coins, success, payout, ActiveSeatsMask());
                 }
             }
