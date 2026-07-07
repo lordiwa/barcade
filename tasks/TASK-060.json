@@ -10,7 +10,7 @@
     "The v2 definition declares difficultyScaling params and passes the TASK-030 validator.",
     "Tests-first (red captured); victory resolution (last-standing or lowest mean |theta|) handles ties without fabricated winners; fast suite green, no regression; legacy consumers keep compiling."
   ],
-  "status": "in_progress",
+  "status": "in_review",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -27,9 +27,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "dev-t101",
+      "at": "2026-07-07T17:07:57.587Z",
+      "body": "Hand-off. tdd two-commit: 24d8938 test RED (whole-project compile-red: CS0234 MantenMicrogame absent, CS0246 MantenParams/SeededValueNoise1D absent) -> edf1526 feat GREEN. Suite 610/610 (578+32: 24 MantenMicrogameV2Tests + 8 SeededValueNoise1DTests). Legacy consumers compile (additive MicrogameId.Manten=3).\n\nNOISE HELPER (Barcade.Core.SeededValueNoise1D, RNG folder): lattice of independently-seeded [-1,1] values drawn ONCE from the injected SeededRandom at construction, smoothstep-interpolated between neighbors; Sample() zero-alloc. NoisePointsPerSecond=4 (private engineering constant, not a GDD param — same status as AlcocheckSim's drunkChangeInterval) makes the wobble continuous vs a discrete re-roll.\n\n[ASSUMED] TAGS (both cite the human ruling, both in-code): (1) value-noise not true Perlin (SeededValueNoise1D + MantenMicrogame class docs); (2) damping term (MantenParams.Damping) for Euler stability, GDD ODE is literally undamped.\n\nTWO MORE ASSUMPTIONS NOT PRE-RULED (flagged, not guessed silently): (3) SHARED perturbation curve across all 4 seats — one noise instance/round, same perturbación(t) applied to every seat's angularAccel each tick, NOT 4 independent per-seat curves. GDD's formula names a single 'seed, t' with no player index, so read as one shared 'gust'. Consequence: seats with identical initial conditions + identical input fall on the EXACT same tick, byte-identical trajectories. Independent per-seat sway is a straightforward change (4 noise instances) if wanted. THIS IS THE ONE REAL DESIGN FORK wanting a human read. (4) difficultyScaling target — GDD names no difficultyScaling list for MECH_01 like §11.1's MECH_04 example; mapped difficultyMult -> perturbAmplitude0+perturbRamp (the 'how strong/dense is the disturbance' analog of Esquiva's hazardSpeed+spawnRate), leaving gravityFactor/torqueGain/thetaMax as fixed physics constants. Declared DifficultyScaling=[perturbAmplitude0,perturbRamp].\n\nCORRECTION ORACLE (CorrectionOracle, test-only): reactive PD-style full-authority bang-bang, NOT a hardcoded survivor. Reads ONLY RenderEntity.Rotation (theta degrees — the only channel a real observer of rendered tilt has) + its own previous-tick memory for a finite-difference velocity estimate; never touches sim private state. errorSignal = theta + Kd*velocityEstimate (Kd=0.15), pushes full E/W on deadband cross, SAME sign as predicted lean (the GDD formula subtracts torqueGain*input, so countering disturbance D needs input of the SAME sign as D — derived + documented in the class doc). Diagonal-input test proves the sign/magnitude convention; the 20-seed oracle sweep (real PCG32) proves it holds under noise.\n\nGddDefaults (tuned via a THROWAWAY System.Random prototype in scratch — NOT committed; committed tests use real PCG32 SeededRandom): gravityFactor=3.0, perturbAmplitude0=1.2, perturbRamp=0.3, torqueGain=10.0, thetaMaxDegrees=35 (GDD literal), damping=1.2, durationSeconds=8.0 (top of GDD's 5-8s note — the extra time is what makes null-input-always-falls reliable across seeds). Both AC3 sweeps (null-falls seeds 0-19, oracle-survives seeds 0-19) passed FIRST run vs real PCG32, no iteration.\n\nZERO-ALLOC SENSOR (M1, written in-ticket per the brief): SteadyStateTick_AllocatesNoManagedMemory uses gravityFactor=perturbAmplitude0=perturbRamp=0 (every force term EXACTLY zero, not a probabilistic margin) so liveness across the 1000-tick window is mathematically guaranteed, while the full noise+integration hot path still executes (Sample IS called, result multiplied by amplitude=0, not skipped). MUTATION-RED: new int[1] as Sample's first line -> 'Failed SteadyStateTick_AllocatesNoManagedMemory / Expected: 0 / But was: 32000', reverted, grepped clean.\n\nGDD AMBIGUITY SURFACED (item 3 above) is the one I'd most want the human's read on — a real design fork, picked the literal-formula-favoring interpretation without a ruling behind it."
+    }
+  ],
   "created_at": "2026-07-07T15:12:07.239Z",
-  "updated_at": "2026-07-07T16:38:11.519Z",
+  "updated_at": "2026-07-07T17:07:57.960Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
