@@ -28,10 +28,12 @@ namespace Barcade.Core.Content
 
     /// <summary>
     /// Validates a v2 microgame definition against GDD §11.1's declared rules:
-    /// duration in [3, 8], payoutTable respects the §6.1 minimum-reward invariant
-    /// (no zero payout for any place -- a coop failure included), and every
-    /// declared mechanic param stays within the range the mechanic declares
-    /// (§11.1, <see cref="MechanicParamSchemas"/>).
+    /// duration in [3, 8], payoutTable has the §6.1 shape for its dynamics (4
+    /// entries, one per place, for competitive/asym1v3; 2 entries [success,
+    /// fail] for coop -- TASK-050) and respects the §6.1 minimum-reward
+    /// invariant (no zero payout for any place -- a coop failure included), and
+    /// every declared mechanic param stays within the range the mechanic
+    /// declares (§11.1, <see cref="MechanicParamSchemas"/>).
     ///
     /// Runs in the fast suite (AC3) and is the same code the Editor build-pipeline
     /// hook (Barcade.EditorTools.MicrogameDefinitionMigrationTool.ValidateAll)
@@ -69,16 +71,39 @@ namespace Barcade.Core.Content
                     $"[{MinDurationSeconds}, {MaxDurationSeconds}]");
             }
 
-            ValidationResult payoutResult = ValidatePayoutTable(def.PayoutTable);
+            ValidationResult payoutResult = ValidatePayoutTable(def.Dynamics, def.PayoutTable);
             if (!payoutResult.IsValid) return payoutResult;
 
             return ValidateParams(def.Mechanic, def.Params);
         }
 
-        private static ValidationResult ValidatePayoutTable(int[] payoutTable)
+        /// <summary>GDD §6.1: coop's payoutTable is [success, fail] -- 2 entries, not one per place.</summary>
+        private const int CoopPayoutTableLength = 2;
+
+        /// <summary>GDD §6.1: competitive (and, absent any separate GDD shape, asym1v3 -- see class doc) is one payout per place, 1st..4th.</summary>
+        private const int RankedPayoutTableLength = 4;
+
+        private static ValidationResult ValidatePayoutTable(MicrogameDynamics dynamics, int[] payoutTable)
         {
             if (payoutTable == null || payoutTable.Length == 0)
                 return ValidationResult.Fail("payoutTable", "payoutTable must declare at least one payout");
+
+            // TASK-050 (rev-c037 finding): the validator used to accept ANY
+            // length >= 1 here while PayoutRules.ApplyCompetitive throws unless
+            // length == 4 -- a [6,4,2] definition validated green and crashed at
+            // scoring time mid-session. GDD S6.1 names two different shapes under
+            // the same field: 4 entries (ranked places) for competitive/asym1v3,
+            // 2 entries [success, fail] for coop.
+            int requiredLength = dynamics == MicrogameDynamics.Coop ? CoopPayoutTableLength : RankedPayoutTableLength;
+            if (payoutTable.Length != requiredLength)
+            {
+                string shape = dynamics == MicrogameDynamics.Coop
+                    ? "coop requires exactly 2 entries: [success, fail]"
+                    : "competitive/asym1v3 requires exactly 4 entries, one per place (1st..4th)";
+                return ValidationResult.Fail(
+                    "payoutTable",
+                    $"payoutTable has {payoutTable.Length} entries for dynamics {dynamics}; GDD §6.1: {shape}");
+            }
 
             for (int i = 0; i < payoutTable.Length; i++)
             {
