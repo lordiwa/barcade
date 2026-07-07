@@ -110,6 +110,25 @@ namespace Barcade.Core
     /// <c>ZeroInputSession_StillReachesGameOver</c>.
     /// </para>
     ///
+    /// <para>
+    /// <b>[ASSUMED] Join stays open past its own minimum (TASK-024 review fix
+    /// round, MEDIUM-1, orchestrator ruling).</b> Reaching GDD §2.1's documented
+    /// "&gt;=2 listos" minimum does NOT close Join — it stays open for the rest of
+    /// its <see cref="SessionStateMachineConfig.JoinTimeoutSeconds"/> window so
+    /// seats 3/4 can still claim, exiting early only once every seat (all 4) has
+    /// claimed. GDD §2.1's ">=2 listos" label is ambiguous between "the minimum to
+    /// proceed" and "closes the window right then"; GDD §9.3 budgets up to 30s for
+    /// color choice; and closing the instant 2 claim would lock out seats 3/4
+    /// mid-claim, the worst reading given the social-cabinet premise. Cost
+    /// accepted: a 2-3-player group waits out the full window (a future "start
+    /// now" confirmation gesture could shorten this — out of scope here). The
+    /// zero-ready/zero-input timeout fallback above is unchanged by this — it
+    /// still fires on its own, regardless of ready count. Pinned by
+    /// <c>Join_TwoReadyPlayers_StaysOpenUntilAllFourOrTimeout</c>,
+    /// <c>Join_ThirdAndFourthPlayerCanStillJoinAfterMinimumReached</c>, and
+    /// <c>Join_AllFourClaimed_AdvancesBeforeTimeout</c>.
+    /// </para>
+    ///
     /// Pure C# — no UnityEngine dependency. C# 9 compatible. Zero heap allocation in
     /// steady-state <see cref="Tick"/> — the one exception is the per-seat roster
     /// array built exactly once, at the Join-&gt;BoardMove transition (a once-per-
@@ -142,6 +161,7 @@ namespace Barcade.Core
         private V2.IMicrogame _activeMicrogame;
         private string _activeVerb;
         private float _activePlayDurationSeconds;
+        private float _activeDifficultyMult = 1f;
         private V2.MicrogameResult? _lastResult;
 
         public SessionStateMachine(SeededRandom rng, SessionStateMachineConfig? config = null)
@@ -198,12 +218,23 @@ namespace Barcade.Core
         /// internal state every call (by design, see ReaccionaMicrogame/
         /// ApuntaMicrogame). If never called, the next MgPlay/FinalMg is skipped in
         /// &lt;=1 tick — see class doc.
+        ///
+        /// <para>
+        /// <paramref name="difficultyMult"/> (TASK-024 review fix round, MEDIUM-3):
+        /// forwarded verbatim to <see cref="V2.IMicrogame.Initialize"/>. Defaults
+        /// to 1f (no difficulty scaling) — this ticket does not compute a real
+        /// difficulty curve (GDD §9.1's D_final=1.5x for the climax round is T-108
+        /// territory), it just stops hardcoding the value at the call site so
+        /// T-108's selector can plug a real number in here without any further FSM
+        /// change.
+        /// </para>
         /// </summary>
-        public void SetActiveMicrogame(V2.IMicrogame microgame, string verb, float playDurationSeconds = 5f)
+        public void SetActiveMicrogame(V2.IMicrogame microgame, string verb, float playDurationSeconds = 5f, float difficultyMult = 1f)
         {
             _activeMicrogame = microgame;
             _activeVerb = verb ?? string.Empty;
             _activePlayDurationSeconds = playDurationSeconds;
+            _activeDifficultyMult = difficultyMult;
         }
 
         /// <summary>Advances the session by exactly one fixed 60 Hz tick.</summary>
@@ -296,7 +327,12 @@ namespace Barcade.Core
 
             _phaseElapsed += dt;
 
-            if (_readyCount >= _config.JoinMinReady || _phaseElapsed >= _config.JoinTimeoutSeconds)
+            // MEDIUM-1 (TASK-024 review fix round, [ASSUMED]): reaching the
+            // documented minimum no longer closes the window by itself — see
+            // class doc. The only early exit left is every seat having claimed;
+            // the timeout is the sole other way out, unconditionally (0 ready
+            // included — AC2).
+            if (_readyCount >= AllSlots.Length || _phaseElapsed >= _config.JoinTimeoutSeconds)
                 CompleteJoin();
         }
 
@@ -314,7 +350,7 @@ namespace Barcade.Core
         private void BeginRound()
         {
             _interpreter.Reset();
-            _activeMicrogame?.Initialize(_rng, _roster, 1f);
+            _activeMicrogame?.Initialize(_rng, _roster, _activeDifficultyMult);
 
             float effectivePlayDuration = _activeMicrogame != null ? _activePlayDurationSeconds : 0f;
             _roundMachine.StartRound(_activeVerb ?? string.Empty, effectivePlayDuration);
@@ -322,6 +358,29 @@ namespace Barcade.Core
 
             _phase = MapInnerPhase(_roundMachine.CurrentPhase);
             _phaseElapsed = 0f;
+
+            // LOW-1 (TASK-024 review fix round): with mgIntroSeconds == 0 AND an
+            // effective play duration of 0, the flush above can cascade straight
+            // through CommandShow and Play into Result within this same call —
+            // TickRoundSubLoop's own "just arrived at Result" capture never gets a
+            // chance to run for this round, so without this check LastMicrogameResult
+            // would silently keep whatever it was before this round.
+            if (_roundMachine.CurrentPhase == PhaseKind.Result)
+                CaptureResult();
+        }
+
+        /// <summary>
+        /// Captures <see cref="_lastResult"/> from the active microgame if it
+        /// genuinely finished, else leaves it null — shared by
+        /// <see cref="TickRoundSubLoop"/>'s normal "just arrived at Result"
+        /// transition and <see cref="BeginRound"/>'s same-call flush-to-Result
+        /// edge case (LOW-1), so both paths capture identically.
+        /// </summary>
+        private void CaptureResult()
+        {
+            _lastResult = _activeMicrogame != null && _activeMicrogame.IsFinished
+                ? _activeMicrogame.GetResult()
+                : (V2.MicrogameResult?)null;
         }
 
         private void TickRoundSubLoop(in V2.InputSnapshot input, float dt)
@@ -339,9 +398,7 @@ namespace Barcade.Core
                 // intentionally terminal, so arm our own external result-window
                 // timer and capture the outcome exactly once (see class doc).
                 _phaseElapsed = 0f;
-                _lastResult = _activeMicrogame != null && _activeMicrogame.IsFinished
-                    ? _activeMicrogame.GetResult()
-                    : (V2.MicrogameResult?)null;
+                CaptureResult();
             }
 
             _phase = mapped;
@@ -357,7 +414,7 @@ namespace Barcade.Core
         private void BeginFinalMg()
         {
             _interpreter.Reset();
-            _activeMicrogame?.Initialize(_rng, _roster, 1f);
+            _activeMicrogame?.Initialize(_rng, _roster, _activeDifficultyMult);
             EnterSimplePhase(SessionPhase.FinalMg);
         }
 
@@ -384,6 +441,11 @@ namespace Barcade.Core
             _readyCount = 0;
             _roundIndex = 0;
             _lastResult = null;
+            // LOW-2 (TASK-024 review fix round): clear the roster too, or the
+            // previous session's seat claims would still read back via Roster
+            // during the fresh Attract cycle, before Join runs again. SeatState.Empty
+            // == 0, so a freshly allocated array is already all-Empty.
+            _roster = new V2.PlayerRoster(new V2.SeatState[4]);
             EnterSimplePhase(SessionPhase.Attract);
         }
 

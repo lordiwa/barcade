@@ -518,8 +518,15 @@ namespace Barcade.Core.Tests
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
 
-            // 9 ticks configured; assert it hasn't advanced 1 tick early.
-            for (int i = 0; i < 8; i++) fsm.Tick(inputs.Build(1000 + i));
+            // 9 ticks configured. Unlike Intermission/FinalWager (entered via a
+            // bare EnterSimplePhase from a DIFFERENT call, so the transition tick
+            // itself doesn't also accumulate toward the new phase), MgResult's
+            // "just arrived" reset-and-capture and its "accumulate, check timeout"
+            // check both live in TickRoundSubLoop and run unconditionally every
+            // call -- so the very tick MgResult is entered on already counts as
+            // its first elapsed tick. 7 more ticks (8 total) must still be inside
+            // the window; the 8th more (9 total) crosses it.
+            for (int i = 0; i < 7; i++) fsm.Tick(inputs.Build(1000 + i));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult), "must not advance before the configured 9-tick MgResult window elapses");
 
             fsm.Tick(inputs.Build(2000));

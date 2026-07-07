@@ -13,7 +13,17 @@ namespace Barcade.Core
         /// <summary>Join's own timeout, in seconds (GDD §2.1: "timeout 30 s").</summary>
         public readonly float JoinTimeoutSeconds;
 
-        /// <summary>Minimum ready seats for Join to complete early (GDD §2.1: "&gt;=2 jugadores listos").</summary>
+        /// <summary>
+        /// GDD §2.1's own documented minimum ("&gt;=2 jugadores listos"). As of the
+        /// TASK-024 review fix round (MEDIUM-1, [ASSUMED] orchestrator ruling) this
+        /// no longer closes Join the instant it's reached — Join stays open for
+        /// the rest of its <see cref="JoinTimeoutSeconds"/> window so seats 3/4 can
+        /// still claim, exiting early only once every seat has claimed. Kept as a
+        /// field for GDD traceability and potential future use (e.g. a presenter
+        /// "ready to start" indicator); it no longer drives
+        /// <see cref="SessionStateMachine"/>'s own exit condition, which now checks
+        /// all-4-claimed OR <see cref="JoinTimeoutSeconds"/> only.
+        /// </summary>
         public readonly int JoinMinReady;
 
         /// <summary>MgIntro's fixed duration, in seconds (GDD §2.2 table: 0.8s, "fijo").</summary>
