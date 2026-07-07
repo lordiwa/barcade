@@ -8,7 +8,7 @@
     "GAME_OVER ranks via FinalRanking (estrellas -> monedas -> victorias -> shared podium) using the drawn bonus stars; deterministic replay test through the full FSM path",
     "Tests-first for the FSM-visible behavior; fast suite green, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -23,7 +23,13 @@
     "TASK-024",
     "TASK-037"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "2c44d2a",
+    "0d1b052",
+    "ba124c1",
+    "f04e2cc",
+    "2196921"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -40,10 +46,20 @@
       "author": "dev-t101",
       "at": "2026-07-07T13:55:22.733Z",
       "body": "Fix-round hand-off (rev-t051 AWN MEDIUMs/LOWs). Three commits on master, in order: ba124c1 docs(core) = M2 (class doc names TASK-052 as payoutTable owner) + L1 (Gatillo feed documented ordering-only-meaningful) + L2 (zero-alloc para cites CaptureResult's per-round places allocation); f04e2cc feat(core) = M3 additive SessionStateMachine(SeededRandom, int sessionSeed, SessionStateMachineConfig?) overload; 2196921 test(core) = M1 FinalWager gesture-capture pins. Suite 550/550 (544 baseline + 6 new).\n\nM1 tests: FinalWager_LaterGestureOverridesEarlierOne, _ChooseThenReleaseToNeutral_StaysSticky, _DownOrNeverTouched_ResolveToTimeoutDefaultHalf, plus optional _GestureDuringIntermission_DoesNotCarryOver. Mutation sanity check run: latch temporarily flipped to first-write-wins, override test went genuinely red (\"the LATER gesture (ThreeQuarters) must win, not the first (Quarter) / Expected: 4 / But was: 1\"), mutation reverted with zero delta verified before staging. Self-caught test-authoring bug during development: first attempt held the first gesture for the entire wager window leaving no ticks for the second gesture; fixed by widening the test window to 30 ticks (0.5s), first gesture held for 10.\n\nM3: existing constructor now delegates to the overload via DeriveScoringSeed(rng) in its constructor initializer — original first-draw behavior byte-for-byte, pinned by a test cross-checking SeededRandom(42).NextInt(int.MinValue,int.MaxValue) against the two-arg constructor's observable bonus-star draw (no public _scoringSeed accessor). Class doc para tagged [ASSUMED], names the overload as the migration target. Determinism test proves the overload's result depends only on the explicit seed, not the rng argument.\n\nL1 disposition (dev call, orchestrator-delegated): documented ordering-only, did NOT normalize per tanda — normalization needs the tanda count (ReaccionaParams.Rounds), which the IMicrogame/MicrogameResult contract doesn't expose (PlayerRank.Metric is a bare cumulative value); extending the contract is outside this fix round's Loop/Scoring surface. Telemetry implication carried into TASK-033 as an orchestrator note."
+    },
+    {
+      "author": "rev-t051",
+      "at": "2026-07-07T14:01:09.091Z",
+      "body": "Fix-round re-verify VERDICT: CLOSE — all three MEDIUMs properly resolved, no HIGH/MEDIUM residuals; one non-blocking LOW carried as a rider on TASK-052. Suite 550/550 verified firsthand at 2196921 (544+6 exact). Surface isolation confirmed: ba124c1/f04e2cc touch only Loop/SessionStateMachine.cs, 2196921 is 260 pure test insertions; interleaved TASK-046/chore commits untouched.\n\nM1 pins VERIFIED non-vacuous both directions: override test leaves ~20 registrable ticks for the second gesture (authoring bug genuinely fixed); mutation-red arithmetically consistent (preWagerCoins[0]=6 -> last-write 6*75/100=4 vs first-write 6*25/100=1, matching the quoted red); mutation cleanly reverted (latch at head unchanged; f04e2cc..2196921 has no production change); sticky test discriminates (neutral-clears would yield 3 not 1); Down/never-touched covers the untouched seat; Intermission no-carry correctly authored with a sawIntermission sanity gate.\n\nM3 byte-for-byte VERIFIED FOR PRINCIPLED REASONS: two-arg ctor initializer `: this(rng, DeriveScoringSeed(rng), config)` evaluates first; DeriveScoringSeed performs the same single NextInt(int.MinValue,int.MaxValue) that was previously the ctor body's first statement; delegated body draws nothing — the one NextInt remains the FIRST draw from rng, same bounds, same count. Null-contract preserved (ArgumentNullException before any draw). [ASSUMED] tag present, names the overload as migration target. TwoArgConstructor pin's oracle route sound (external SeededRandom(42) fed to the explicit-seed overload with a deliberately different rng must match the two-arg machine's bonus-star combo; desync probability 14/15 on any derivation change). Overload determinism test covers same-explicit-seed + different-rng discrimination.\n\nLOW RESIDUAL (non-blocking, carried to TASK-052): neither new test covers different-explicit-sessionSeeds -> different draws, and no suite test pins the FSM's THREADING of _scoringSeed into BonusStarDraw.Draw — a refactor passing a constant would keep all 550 green (TASK-037 pins Draw's seed-sensitivity at unit level only). Fix shape: RunWith(rngSeed:1, sessionSeed:777) vs (rngSeed:1, sessionSeed:778), assert the (First,Second) star pair differs; deterministic with pickable seeds since holders are -1 in that fixture.\n\nL1 disposition ENDORSED: the FSM genuinely cannot normalize (PlayerRank.Metric is a bare cumulative; no tanda count in the contract; dividing by a hardcoded default would be calibration laundering); feed-site comment says exactly the true thing; TASK-033 carry-in confirmed present. Bookkeeping verified: TASK-052 exists with precisely the title quoted in the class doc; ba124c1's doc changes match intent with no behavior change. Observation, no action: the [ASSUMED] migration para attaches no ticket number for future session-seed threading — acceptable, the code-level migration target supersedes a doc pointer."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T14:01:31.562Z",
+      "body": "CLOSED on rev-t051 re-verify CLOSE verdict (initial FULL review APPROVE-WITH-NITS 0H/3M/3L; all MEDIUMs resolved in the fix round; one non-blocking LOW residual carried as a named rider on TASK-052). Review depth FULL; rubric inputs: tdd-tier core session-loop logic (mandatory-FULL surface), high priority, Hito-2-gate-adjacent scoring wiring, diff well over 150 lines. Delivered: ScoringV2 wired into the session loop — FINAL_WAGER gesture capture (last-held-wins, sticky-across-neutral, timeout default Half, all [ASSUMED]-documented + test-pinned), SessionCounters feeds from mechanics (Gatillo min-mean with ordering-only-meaningful doc, TASK-033 telemetry carry-in filed), [ASSUMED] default payouts on regular rounds with TASK-052 filed+named as the payoutTable-threading owner, explicit-sessionSeed constructor overload as the seed-migration target ([ASSUMED]-tagged), full-path replay determinism test. Commits: 2c44d2a (test, red CS1061 via production-revert capture — reviewer independently reproduced) -> 0d1b052 (feat) -> fix round ba124c1 (docs M2/L1/L2) / f04e2cc (feat M3 overload, draw-order-identical verified for principled reasons) / 2196921 (test M1 pins x4, mutation-red verified arithmetically consistent). Suite 538/538 at 0d1b052 and 550/550 at 2196921, both reviewer-reproduced firsthand. Tests-first discipline honored; commit order verified. [ASSUMED] calibrations pending human ratification: wager gestures L/U/R sticky mapping, timeout default = Half, JOIN semantics carried from TASK-024."
     }
   ],
   "created_at": "2026-07-07T12:42:00.283Z",
-  "updated_at": "2026-07-07T13:55:22.733Z",
+  "updated_at": "2026-07-07T14:01:31.562Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
