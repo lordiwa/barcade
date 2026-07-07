@@ -10,7 +10,7 @@
     "D(r) ramp attached per round with D_final = 1.5 for the climax microgame",
     "Existing Sequencer consumers keep compiling; tests-first; fast suite green after, no regression"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -19,7 +19,7 @@
     "sequencer",
     "T-108"
   ],
-  "assignee": null,
+  "assignee": "developer-cloud",
   "depends_on": [
     "TASK-030"
   ],
@@ -27,7 +27,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T04:20:38.128Z",
-  "updated_at": "2026-07-07T04:20:38.128Z",
+  "updated_at": "2026-07-07T09:20:00.000Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

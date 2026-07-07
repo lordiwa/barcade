@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T09:05:00.000Z",
+  "generated_at": "2026-07-07T09:20:00.000Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -208,7 +208,7 @@
     {
       "key": "TASK-035",
       "title": "GDD T-108 — Sequencer: cuotas, anti-repetición y bias anti-frustración (§9.2, §6.4)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
