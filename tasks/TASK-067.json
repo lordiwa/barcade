@@ -1,0 +1,32 @@
+{
+  "key": "TASK-067",
+  "title": "Harden the slow-tier ESQUIVA fairness sweep + gate longer-duration ESQUIVA on escape-existence",
+  "description": "Filed from TASK-063 review (rev-t063 APPROVE-WITH-NITS: 4 LOW test-hardening nits + one human-routed design gate). The slow-tier fairness sweep (slow-tests/Barcade.Core.SlowTests) shipped green, but the ESQUIVA leg has thinner non-vacuity guarantees than MANTÉN/CORRE, and a real duration-sensitivity was surfaced.\\n\\nTEST-HARDENING (dev, low): (LOW-1) ESQUIVA survival sweep has NO in-suite non-vacuity dual — MANTÉN pairs its sweep with a null-input 'falls-by-default' sweep, ESQUIVA rests on argument only; add a stationary/weak-bot companion asserting elimination on a strong majority of seeds (or cite the 7-8s elimination data as the anchor in the test doc). (LOW-2) the turn-cap-only hard regime (hazardSpeed>avatarSpeed, escape guaranteed by the 30 deg/s cap alone) is only fast-tested at 20 seeds (EsquivaMicrogameV2Tests.cs:477) — sweep it at scale. (LOW-3) the ESQUIVA sweep asserts IsEliminated(Rojo) only though the bot drives all 4 seats (FairnessSweepTests.cs:110) — assert all 4 (MANTÉN/CORRE already do; nearly free, strictly stronger). (LOW-4) the full failing-seed list goes to TestContext.Progress which some dotnet loggers filter — the assert message inlines first 25 + total; make the full tail robust (Console.WriteLine or a --logger note) for >25-failure runs.\\n\\nDESIGN GATE (HUMAN decision, the substantive item): at the fast-test 8s stress duration the reactive one-ply EsquivaEscapeBot is eliminated on 6/4000 HomingSoft seeds (124/451/479/865/906/958, elimination ticks 404-472 = 6.7-7.9s) due to late-game homing-hazard crowding in the 1x1 arena. This is HARMLESS for all SHIPPED configs (EsquivaParams.GddDefaults=5.0s; the mg_esquiva difficulty assets ramp DOWN: d1=5s/d2=4s/d3=3s; 8s is physically unreachable in any shipped round). BUT nothing stops a future author setting baseDuration:7/8 in a new/remote ESQUIVA definition, where a reactive player would hit those rare HomingSoft traps. The GDD guarantee is 'siempre existe escape' (escape always EXISTS) — the dev claims a deeper/multi-ply solver dodges these seeds (escape exists; only the reactive bot fails) but that was asserted, not demonstrated in-diff. GATE: before shipping any ESQUIVA definition with baseDuration>6, verify escape-EXISTENCE via a multi-ply/exhaustive solver on the HomingSoft pattern (not just reactive-bot survival), OR cap ESQUIVA duration at <=6s in the validator. Human decides which.",
+  "acceptance_criteria": [
+    "ESQUIVA slow-sweep gains an in-suite non-vacuity anchor (weak/stationary-bot elimination dual, or documented 7-8s data reference) so its PASS is provably meaningful.",
+    "The turn-cap-only hard regime (hazardSpeed>avatarSpeed) is swept at >=1000 seeds; the ESQUIVA sweep asserts elimination for all 4 seats, not Rojo only; the full failing-seed tail is captured logger-independently.",
+    "DESIGN GATE ratified by the human: either (a) a multi-ply/exhaustive escape-EXISTENCE check is required for any ESQUIVA definition with baseDuration>6 (carrying the 6 documented HomingSoft seeds as the regression set), or (b) the MicrogameDefinition validator caps ESQUIVA duration at <=6s. The GDD 'siempre existe escape' guarantee is protected either way."
+  ],
+  "status": "todo",
+  "priority": "low",
+  "labels": [
+    "gdd-v2",
+    "testing",
+    "fairness",
+    "slow-tier",
+    "MECH_02",
+    "follow-up",
+    "design-gate"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T20:55:51.198Z",
+  "updated_at": "2026-07-07T20:55:51.198Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}

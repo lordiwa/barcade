@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T20:12:19.698Z",
+  "generated_at": "2026-07-07T20:56:20.533Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -376,7 +376,7 @@
     {
       "key": "TASK-063",
       "title": "Slow-tier statistical escapability/fairness sweep for competitive mechanics (1000+ seeds)",
-      "status": "todo",
+      "status": "done",
       "priority": "low"
     },
     {
@@ -394,6 +394,12 @@
     {
       "key": "TASK-066",
       "title": "Retire-or-keep the redundant RunnerSim/RunnerBootstrap standalone demo (superseded by MECH_03 CORRE)",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "key": "TASK-067",
+      "title": "Harden the slow-tier ESQUIVA fairness sweep + gate longer-duration ESQUIVA on escape-existence",
       "status": "todo",
       "priority": "low"
     }

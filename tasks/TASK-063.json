@@ -8,7 +8,7 @@
     "Any failing seed is surfaced (logged, not silently skipped) for design review rather than auto-passing.",
     "The sweep is invokable on demand and/or via a scheduled CI workflow separate from the per-push fast leg (coordinate with TASK-049)."
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "low",
   "labels": [
     "gdd-v2",
@@ -21,11 +21,20 @@
   "depends_on": [
     "TASK-058"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "eb7a341",
+    "58a2ef5"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T20:56:20.533Z",
+      "body": "CLOSED (loop mode, auto_close_on_green_review). rev-t063 fresh-context review of d01dce6..58a2ef5 → APPROVE-WITH-NITS, 0 HIGH / 0 MEDIUM / 4 LOW + 1 human design-gate. Orchestrator INDEPENDENTLY ran the slow sweep = 5 tests passed / 0 failed (~7s, 8000+ sweep rounds) AND re-ran the fast suite = 592 green UNCHANGED (fast-tests.yml + FastTests.csproj untouched — verified). Depth FULL.\n\nCOMMITS: eb7a341 (test: slow sweep) + 58a2ef5 (ci: slow-sweep.yml). Purely ADDITIVE (756 insertions, 0 deletions): separate project slow-tests/Barcade.Core.SlowTests (SDK-style, links the shipped Core sims via glob, no Unity) + Oracles/ (verbatim-copied solvers) + slow-sweep.yml + README + .gitignore. STRUCTURALLY cannot leak into the fast leg.\n\nAC VERDICTS (all MET): AC1 SweepSeeds=1000 plain loops, no [TestCase] reduction/early-break, separate project. AC2 all 3 mechanics (ESQUIVA+MANTÉN+CORRE); asymmetric TASK-040 deferral noted. AC3 collect-all-then-Assert.Is.Empty, no swallow/fail-fast, seed+pattern+property+tick logged. AC4 workflow_dispatch + weekly schedule (cron 0 6 * * 1), NOT push/PR.\n\nORACLE FIDELITY (deepest check) — reviewer diffed each vs its fast original: ALL THREE are BYTE-VERBATIM copies of the validated fast-suite solvers (EsquivaEscapeBot=EscapeBot, MantenCorrectionOracle=CorrectionOracle, CorrePerfectRunner=PerfectRunner), same constants, PUBLIC RenderState/accessors only (no private-state peek), NOT weakened. NON-VACUOUS: MANTÉN has a null-input falls-by-default dual (strongest); CORRE is fast-suite mutation-anchored; ESQUIVA rests on argument (the same bot IS eliminable at 7-8s → 5s survival is earned) — the one thin spot → LOW-1. Seed counts all ≥1000: ESQUIVA 1000×4 patterns, MANTÉN 1000×4 survive + 1000×4 null, CORRE 1000×4 + 1000 non-inversion.\n\n5s-vs-8s CRUX RULING (reviewer): (a) LEGITIMATE, NOT goalpost-moving — 5s is the LONGEST shipped duration (EsquivaParams.GddDefaults=5.0; mg_esquiva assets ramp DOWN d1=5/d2=4/d3=3; the 8s failures at ticks 404-472 are physically unreachable in any shipped round). (b) 5s pass is MEANINGFUL/non-vacuous (full-strength verbatim oracle, demonstrably eliminable at longer durations). (c) SURFACE + TICKET the longer-ESQUIVA concern → done.\n\n4 LOW nits + the human DESIGN GATE routed to FOLLOW-UP TASK-067: LOW-1 (add ESQUIVA non-vacuity dual), LOW-2 (sweep the turn-cap-only hard regime at scale), LOW-3 (assert all 4 seats not Rojo-only), LOW-4 (logger-independent full failing-seed tail); + HUMAN DESIGN GATE: before shipping any ESQUIVA baseDuration>6, verify escape-EXISTENCE via a multi-ply solver (not just reactive survival) OR cap duration <=6s in the validator — protects the GDD 'siempre existe escape' guarantee (carries the 6 HomingSoft regression seeds). Reviewer's optional mutation (rerun ESQUIVA at 8s to evidence the surfacing path on a real failure) folded into TASK-067. 5th ticket closed this run."
+    }
+  ],
   "created_at": "2026-07-07T16:16:57.104Z",
-  "updated_at": "2026-07-07T16:16:57.104Z",
+  "updated_at": "2026-07-07T20:56:20.533Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[INFERRED:strong]",
