@@ -31,10 +31,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T12:41:21.049Z",
       "body": "[RE-APPLIED] Calibration-risk note from the TASK-037 review (rev-c037 LOW-2, 2026-07-07): nothing at runtime enforces the GDD 5.6 economy envelope (sinks absorbing ~70% of ~35-coin income). The scoring layer's 'wager swings ~1 star' property holds ONLY inside that envelope — if the live economy drifts, the property silently degrades and comebacks inflate past design intent. When this telemetry ticket lands, include per-session coin-flow metrics (income, sink absorption rate, wager swing in star-equivalents) so envelope drift is observable in pilot data."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T13:55:33.066Z",
+      "body": "CARRY-IN from TASK-051 (rev-t051 LOW-1, disposition: documented not normalized): SessionCounters' Reacciona/Gatillo latency feed stores the CUMULATIVE tick-latency across all tandas converted to ms — including Reacciona's 1,000,000-tick failure sentinel (~16.7M \"ms\") for false starts/DNFs. Ordering across seats is correct (WinnerOf sound; same tanda count for all active seats per round), but the stored mean is NOT a genuine per-tanda latency. When implementing GDD §15 telemetry (mg_result: latencias) or any HUD display of latency, normalize at the source: per-tanda normalization needs the tanda count (ReaccionaParams.Rounds), which the IMicrogame/MicrogameResult contract does not currently expose (PlayerRank.Metric is a bare cumulative value) — extending MicrogameResult/PlayerRank or having the mechanic self-normalize is this ticket's design decision to make. Feed-site doc comment landed in TASK-051 fix commit ba124c1."
     }
   ],
   "created_at": "2026-07-07T04:20:03.925Z",
-  "updated_at": "2026-07-07T12:41:21.049Z",
+  "updated_at": "2026-07-07T13:55:33.066Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
