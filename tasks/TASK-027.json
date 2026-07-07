@@ -1,0 +1,36 @@
+{
+  "key": "TASK-027",
+  "title": "GDD T-104b — StagePresenter 3D: logical→world projection, StageProfiles (4 camera rigs), base prefab set (§10.4)",
+  "description": "Framework (Unity) layer generalizing the Esquiva-3D scene approach per GDD §10.4. StagePresenter consumes Core RenderState (entities in logical [0,1]² + Height + EntityKind + OwnerSeat + VisualVariant, Annex D.2) and projects it into the 3D URP world according to the active StageProfile (data): camera rig topDownOrtho | frontFixed | runnerLateral | boardOverview; logical-plane-to-world mapping; EntityKind+VisualVariant -> low-poly prefab set with pooled instances and headless-safe primitive fallback (same pattern as DodgeGameBootstrap). Camera is placed at MG_INTRO and stays fixed during MG_PLAY (feedback shake <= 300 ms only; runnerLateral is the single travelling exception). Avatars get player-color tint (Rojo #E5484D, Azul #3B82F6, Amarillo #FACC15, Verde #22C55E) plus the redundant shape marker overhead (circle/square/triangle/rhombus, §8.1). Render interpolates between the two most recent sim states (§10.3 double buffer). Respect §14 budgets (unlit/simple-lit, no per-frame allocs). Read GDD §10.3/§10.4, §8.1, §14 and Annex D.1 (Esquiva-3D row) before coding. Unity Editor/MCP required for compile gate and scene verification — coordinate with orchestrator.",
+  "acceptance_criteria": [
+    "StageProfile is data (camera type, plane mapping, prefab-set id) selectable per microgame definition; all 4 camera rigs implemented and placed at MG_INTRO",
+    "RenderState entities are projected every frame with interpolation between the two last sim states; steady-state rendering performs no per-frame heap allocations (pooled instances)",
+    "Camera never moves during MG_PLAY except feedback shake (<= 300 ms) — runnerLateral travelling is the only exception",
+    "Player avatars carry both channels: per-seat color tint AND the overhead shape marker (circle/square/triangle/rhombus)",
+    "Projection math (logical x,y,height -> world position per profile) is covered by fast or EditMode tests as regression locks",
+    "Headless-safe primitive fallback when a prefab is missing, mirroring the DodgeGameBootstrap pattern; compile gate clean in the Unity Editor"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-1",
+    "framework",
+    "3d",
+    "presentation",
+    "T-104b"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-023"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T03:26:33.247Z",
+  "updated_at": "2026-07-07T03:26:33.247Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

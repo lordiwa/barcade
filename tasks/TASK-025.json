@@ -1,0 +1,39 @@
+{
+  "key": "TASK-025",
+  "title": "GDD T-103 — MECH_05 ¡REACCIONA! quick-draw microgame (§4 MECH_05, IMicrogame contract §10.2)",
+  "description": "Highest-priority new mechanic (minimum code, maximum tension). Pure Barcade.Core simulation implementing the GDD §10.2 IMicrogame contract: Initialize(def, rng, roster, difficultyMult), Tick(in InputSnapshot), IsFinished, GetResult() -> MicrogameResult (Ranked), GetRenderState() -> RenderState POCO (Annex D.2 shapes). Rules per §4 MECH_05: seeded wait of t in [1.5, 4.5] s (uniform), then the signal; latency = ticks from signal to press edge; false start (press before signal) knocks the seat out of that tanda and repeated pre-signal presses count as ONE false start (anti-spam); latency under 90 ms is statistical anticipation and counts as a false start. Data-driven variants: fakeouts (0-2 visual feints), rounds (best-of-1 or best-of-3 tandas). Victory: lowest latency; same-tick presses tie and share Place. Read GDD §4 MECH_05, §10.2 and Annex D.2 before coding. Uses the TASK-023 InputInterpreter for edges.",
+  "acceptance_criteria": [
+    "Implements the IMicrogame contract from GDD 10.2 as engine-free Core code with MicrogameResult/PlayerRank/RenderState POCOs consistent with Annex D.2",
+    "Signal delay is uniform in [1.5, 4.5] s drawn from the injected SeededRandom; same seed gives the same delay and fakeout schedule (replay/determinism test)",
+    "Latency resolution is exactly 1 tick; two press edges in the same tick produce a genuine tie (both Place 1)",
+    "Press before the signal = false start: seat excluded from that tanda and flagged in render state; multiple pre-signal presses count as a single false start",
+    "Latency below 90 ms (5 ticks) is treated as anticipation and converted to a false start (bot-spam test proves pre-signal and sub-90ms inputs are discarded correctly)",
+    "fakeouts (0-2) and rounds (best-of-1/best-of-3) parameters honored from definition params; ranking aggregates across tandas for best-of-3",
+    "Empty seats are excluded from ranking; all-false-start tanda produces a valid shared result (no crash, no winner fabricated)",
+    "Steady-state Tick allocates zero heap memory",
+    "Tests-first: red tests for each AC committed strictly before implementation; fast suite green after with no regression to the 323 baseline"
+  ],
+  "status": "todo",
+  "priority": "critical",
+  "labels": [
+    "gdd-v2",
+    "hito-1",
+    "core",
+    "microgame",
+    "MECH_05",
+    "T-103"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-023"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T03:26:08.851Z",
+  "updated_at": "2026-07-07T03:26:08.851Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

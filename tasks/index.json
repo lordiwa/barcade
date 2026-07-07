@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-27T01:09:55.978Z",
+  "generated_at": "2026-07-07T03:26:52.215Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -131,6 +131,42 @@
       "key": "TASK-022",
       "title": "Esquiva 3D — player jump (hop over enemies + recover onto arena from collapsing edge)",
       "status": "done",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-023",
+      "title": "GDD T-101 — InputInterpreter: tap/hold/mash derivation, debounce, diagonal collapse (§3.2/§3.3)",
+      "status": "in_progress",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-024",
+      "title": "GDD T-102 — SessionStateMachine: full session FSM with per-state timeouts (§2.1/§2.2)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-025",
+      "title": "GDD T-103 — MECH_05 ¡REACCIONA! quick-draw microgame (§4 MECH_05, IMicrogame contract §10.2)",
+      "status": "todo",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-026",
+      "title": "GDD T-104 — MECH_04 ¡APUNTA! hold-charge aiming microgame (§4 MECH_04, IMicrogame contract §10.2)",
+      "status": "todo",
+      "priority": "critical"
+    },
+    {
+      "key": "TASK-027",
+      "title": "GDD T-104b — StagePresenter 3D: logical→world projection, StageProfiles (4 camera rigs), base prefab set (§10.4)",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "key": "TASK-028",
+      "title": "GDD T-105 — Hito 1 integration: minimal session JOIN → 5 microgames → podium, replay determinism (§17 Hito 1)",
+      "status": "todo",
       "priority": "high"
     }
   ]

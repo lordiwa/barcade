@@ -1,0 +1,39 @@
+{
+  "key": "TASK-026",
+  "title": "GDD T-104 — MECH_04 ¡APUNTA! hold-charge aiming microgame (§4 MECH_04, IMicrogame contract §10.2)",
+  "description": "Highest-priority mechanic. Pure Barcade.Core sim implementing IMicrogame (§10.2). Rules per §4 MECH_04: each player owns a corner turret in normalized [0,1]² space; the stick sets one of 8 discrete angles (the 0.25 s interpolation is presentation — sim tracks the discrete angle plus an interp factor exposed via RenderState); holding the button charges with the oscillating meter p(t) = 0.5*(1 + sin(w*t_hold)) where the full cycle lasts chargeCycleSec (1.2 s default); release fires a ballistic projectile (angle, p); targets appear at seeded positions in the central zone. Scoring: most hits in duration; tiebreak by summed precision (distance to target center). Edge cases from the GDD: button still held at timeout auto-fires with current power (nobody loses their shot); two projectiles hitting the same target the same tick — higher precision scores, the other passes to the next target if one exists. Params: chargeCycleSec, targetCount, targetMoving (enabled+speed), windAccel, projectileSpeedMin/Max, duration. Read GDD §4 MECH_04, §10.2, Annex D.2. Uses the TASK-023 InputInterpreter for hold tracking.",
+  "acceptance_criteria": [
+    "Implements the IMicrogame contract as engine-free Core code; all randomness through injected SeededRandom",
+    "Charge power follows p(t)=0.5*(1+sin(w*t_hold)) with full cycle = chargeCycleSec; a hold of duration d starting at the same tick always yields the same power (determinism test)",
+    "Release fires a ballistic projectile parameterized by (discrete angle, power); trajectories are deterministic in logical [0,1]² space; windAccel variant shifts trajectories deterministically",
+    "Targets spawn at seeded central-zone positions honoring targetCount and targetMoving params; every target is reachable from all 4 corners for every test seed (solver test, GDD AC2)",
+    "Button still held when duration expires auto-fires with the instantaneous power (timeout test, GDD AC3)",
+    "Two projectiles on the same target in the same tick: the more precise one scores, the other passes to the next remaining target if any (edge-case test)",
+    "Result ranks by hit count with summed-precision tiebreak; same-tick equal outcomes share Place",
+    "Steady-state Tick allocates zero heap memory (projectiles pooled)",
+    "Tests-first: red tests for each AC committed strictly before implementation; fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "critical",
+  "labels": [
+    "gdd-v2",
+    "hito-1",
+    "core",
+    "microgame",
+    "MECH_04",
+    "T-104"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-023"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T03:26:21.103Z",
+  "updated_at": "2026-07-07T03:26:21.103Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

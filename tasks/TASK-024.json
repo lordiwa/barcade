@@ -1,0 +1,36 @@
+{
+  "key": "TASK-024",
+  "title": "GDD T-102 — SessionStateMachine: full session FSM with per-state timeouts (§2.1/§2.2)",
+  "description": "Extend/wrap the existing RoundPhaseMachine (Barcade.Core — do NOT rewrite it; add states, per Annex D.1) into a SessionStateMachine covering the full GDD §2.1 graph: ATTRACT -> JOIN -> (BOARD_MOVE -> BOARD_RESOLVE -> MG_INTRO -> MG_PLAY -> MG_RESULT -> INTERMISSION)* -> FINAL_WAGER -> FINAL_MG -> GAME_OVER -> ATTRACT. Board states are part of the FSM now but pass through as stubs until BoardModel (Hito 4) is wired. FSM invariants from the GDD: no transition ever blocks on input (every state has a timeout, §2.2 budget table); MG_PLAY is the only state where gameplay input reaches the active microgame; state serializes per tick for deterministic replay (§13). JOIN: each player claims a color with a button press, needs >= 2 ready players, 30 s timeout; GAME_OVER returns to ATTRACT after 20 s. Read GDD §2 before coding.",
+  "acceptance_criteria": [
+    "SessionStateMachine implements every state and transition of GDD 2.1 including JOIN color-claim (>=2 players, 30 s timeout), the round loop, FINAL_WAGER, FINAL_MG, and GAME_OVER (20 s timeout back to ATTRACT)",
+    "Every state has a timeout from the GDD 2.2 budget table and a session driven with zero input still reaches GAME_OVER (no state can be blocked by an absent player)",
+    "Only MG_PLAY forwards gameplay input to the active microgame; all other states accept only confirmation taps / minimal navigation",
+    "BOARD_MOVE and BOARD_RESOLVE exist as pass-through stubs (advance in <= 1 tick when no board model is wired) so Hito 4 slots in without changing the FSM shape",
+    "FSM state is a serializable POCO and the machine is deterministic: same (seed, input sequence) produces an identical state trace (replay test)",
+    "Existing RoundPhaseMachine consumers keep compiling and passing (extension, not rewrite)",
+    "Tests-first: failing fast-suite tests for the invariants above committed strictly before implementation; suite green after with no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-1",
+    "core",
+    "fsm",
+    "T-102"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-023"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-07T03:25:56.079Z",
+  "updated_at": "2026-07-07T03:25:56.079Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}
