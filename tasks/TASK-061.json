@@ -8,7 +8,7 @@
     "Retirements remove the id cleanly from the MicrogameHost registry, MicrogameContentGenerator Specs, and the on-disk assets, with no dangling references; the TASK-030 validator/migrator stays green.",
     "Tests: rewrites are tdd with retuned debounce-aware expectations (documented, not blind-reblessed); retirements prove no production consumer references the removed id. Fast suite green; Framework registry compile verification rides the Unity gate."
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -24,7 +24,10 @@
     "TASK-030",
     "TASK-029"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "99c4450",
+    "9b5432a"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -46,10 +49,15 @@
       "author": "dev-t101",
       "at": "2026-07-07T17:42:16.577Z",
       "body": "CONFIRMATION for the reviewer (msg a3eff601 has full detail). HEAD 9b5432a, clean, 555/555 re-verified with a clean rebuild.\n\nCOMMIT SPLIT (reviewer base = 92b035e; full logical code diff = 92b035e..9b5432a): aa64b82 = orchestrator bookkeeping commit that swept in the 6 Core deletions (Aporrea/Timing/Apunta-v1 .cs + tests) mid-flight; 99c4450 = dev commit carrying the REST of the 3-id retirement (csproj fix, Specs 12->6, regex-lock update, doc fixes, MicrogameHost/View/PlayMode-test authoring) — took HEAD red->green for those 3; 9b5432a = dev commit, recolecta append (its Core deletion + same compensating pieces, Specs 6->3). dev found the human recolecta ruling itself via TASK-061's live record before the orchestrator relayed it.\n\nAPUNTA-V2-TESTS MODIFICATION — CONFIRMED INTENTIONAL, NOT COLLATERAL: git diff 92b035e..9b5432a on ApuntaMicrogameV2Tests.cs is an 8-line DOC-COMMENT-ONLY change, zero test-code changes; the V2 Apunta test file/class/aliases are untouched. The top-of-file comment used to justify the V2Apunta alias by the now-stale 'v1 Barcade.Core.ApuntaMicrogame from TASK-011 shares this simple name' collision (v1 is deleted, so that collision is gone); reworded to note the alias is retained for the SAME reason MicrogameResult/IMicrogame/InputSnapshot still need aliasing (their v1 versions remain live, e.g. Esquiva-v1) and that Apunta's own v1/v2 collision was retired in TASK-061. No behavior change (full green run confirms). The InputInterpreter.cs / V2 ApuntaMicrogame.cs doc touches are the same class of stale-present-tense-ref fix (repointed at SampleTapMicrogame, the one remaining live raw ButtonState.Pressed consumer)."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T18:06:44.386Z",
+      "body": "CLOSED (loop mode, auto_close_on_green_review). rev-t061 fresh-context review of 92b035e..9b5432a → APPROVE-WITH-NITS, 0 HIGH / 0 MEDIUM / 2 LOW (both doc-comment-only, zero compile/behavior/test impact). Closeable on the orchestrator-verified 555/555 fast-suite green at 9b5432a (610→555, −55 retired EditMode tests).\n\nAC VERDICTS: AC1 MET (all 4 ids aporrea/timing/apunta-v1/recolecta have a named executed fate = RETIRE; orchestrator-ratified 3 engineering calls + human ruling on recolecta). AC2 MET-VACUOUS (nothing survives as a rewrite → no v2 InputInterpreter integration; removed code WAS the un-debounced consumer set — Aporrea raw press-count, Timing/Apunta-v1 latch, recolecta stick-only; whole-tree ButtonState.Pressed grep confirms the ONLY surviving production raw consumer is the documented SampleTapMicrogame). AC3 MET (fast-suite scope) / RIDES-GATE (on-disk): zero dangling PRODUCTION references (every remaining type/id hit is a comment or a self-contained synthetic fixture in MicrogameSelectorTests/MicrogameDefinitionMigratorTests — confirmed, not flagged); csproj cleaned (4 dangling <Compile Include> removed, was the CS2001 red-CI cause); MicrogameHost down to esquiva-only. AC4 MET (retirements proven by negative assertion; Specs 12→3 esquiva-only, ExactlyThreeSpecsExist statically proven non-vacuous via ParseSpecs source-count — reviewer did NOT need the 6→3 mutation run). Survivors ShapeFactory.cs / EsquivaView.cs / EsquivaMicrogame.cs(v1) / V2 ApuntaMicrogame.cs confirmed untouched (empty diffs); doc-only touches to InputInterpreter.cs + V2 ApuntaMicrogame.cs verified behavior-neutral.\n\nLINKED COMMITS: 99c4450 (aporrea/timing/apunta-v1 retirement + csproj/Specs compile fix + red-CI recovery) + 9b5432a (recolecta retirement). NOTE: the Core .cs+test deletions for aporrea/timing/apunta-v1 were swept into bookkeeping commit aa64b82 during the 17:23Z commit-hygiene incident (legitimate deletions, wrong commit); the full logical code range is 92b035e..9b5432a. Depth FULL.\n\nTWO LOW DOC-NITS routed to the TASK-061 doc-cleanup rider (folded into the Unity-gate session — files are open there anyway; comment-only, no test impact): LOW-1 ApuntaMicrogameV2Tests.cs:11 (the new alias-rationale comment freshly cites the now-DELETED RecolectaMicrogame as a live v1 example → repoint at a still-live v1 type e.g. EsquivaMicrogame); LOW-2 IMicrogame.cs:14-16 (pre-existing doc lists all 6 implementers incl. the 4 deleted → prune to the 2 survivors). Neither blocks close.\n\nT-107 SLICE 4 of 5 DONE. TASK-034 umbrella STAYS OPEN pending Slice 2 (TASK-059 MECH_03, dispatching next). UNITY-GATE PUNCH LIST still pending (rides next Editor window): delete 9 orphaned on-disk assets (aporrea-d1-03/d3-04, timing-d1-07/d3-08, apunta-d1-05/d3-06, recolecta-d1-09/d2-10/d3-11)+.meta; strip their 9 entries from Barcade-Microgames.asset via the Addressables Groups window; recompile; GenerateAll→MigrateAll→ValidateAll; PlayMode MicrogamePoolIntegrationTests; flip MicrogameDefinitionMigratorTests.ExactlyTwelveDefinitionAssetsExist→3 in the SAME session (walks on-disk files, goes red the moment assets delete); + the 2 LOW doc-nits above."
     }
   ],
   "created_at": "2026-07-07T15:12:20.777Z",
-  "updated_at": "2026-07-07T17:42:16.577Z",
+  "updated_at": "2026-07-07T18:06:44.386Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

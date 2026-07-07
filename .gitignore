@@ -50,3 +50,6 @@ fast-tests/**/obj/
 
 # Root-level transient build/setup logs (e.g. MCP server build)
 /*.log
+
+# hivemind advisory session lock (transient, session-local)
+state/.lock
