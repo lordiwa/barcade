@@ -10,7 +10,7 @@
     "Determinism: same session seed + same counters -> same stars (replay test)",
     "Tests-first; fast suite green after, no regression; existing ScoreModel consumers keep compiling"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -23,7 +23,14 @@
   "depends_on": [
     "TASK-035"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "5b73b49",
+    "c64c44e",
+    "b81292a",
+    "6c0a34b",
+    "8ebe6c1",
+    "756ded3"
+  ],
   "linked_prs": [],
   "comments": [
     {
@@ -35,10 +42,15 @@
       "author": "developer",
       "at": "2026-07-07T12:56:58.566Z",
       "body": "INTEGRATION + FIX ROUND complete on master (dev-t101): cherry-picks 5b73b49 / c64c44e / b81292a / 6c0a34b (all four preserved, not squashed), fix round 8ebe6c1 (test, red) -> 756ded3 (fix). Suite: 515 after picks, 518/518 final (+3: gap=2 comeback pin, empty-pool fallback pin, malformed-place pin). Fix round: gap=2 allowed-side comeback pin (passed immediately, pure coverage); FinalWager.Resolve guards finalPlaces to 0/1..4 mirroring PayoutRules — genuine red (malformed place 5 previously silently transferred that seat's stake to others); swing-bound assert message reworded. EMPTY-POOL FALLBACK DESIGN CALL (dev, flagged for reviewer + orchestrator): chose LEAST-HARMFUL DRAW over throw — rationale: codebase has an established liveness-over-constraints pattern (selector's documented relaxation order, FSM's zero-input resilience); throwing mid-Game-Over on a live cabinet is the failure mode this project consistently avoids; GDD silent on the edge. Implemented WorstCrownedGap() (extracted, also backs the existing threshold check) + fallback picks among combos minimizing the worst crowned gap. Sensor honesty: first two scenario attempts had mixed-combo cases letting the nominal leader survive undetected (verified empirically); final scenario uses two trailers at different baseStars; non-vacuity confirmed by running against pre-fix code — fails at seed 4 (old code drew a gap-2 outcome when gap-1 was achievable), passes post-fix. Awaiting rev-c037 re-verify."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-07T13:02:00.153Z",
+      "body": "CLOSED on rev-c037 integration re-verify verdict CLOSE (2026-07-07 ~14:30Z). Review depth FULL — rubric inputs: core tdd-tier logic + Hito 2 gate ticket (both mandatory-FULL); cloud-authored ~20-test scoring layer + integration fix round. Two-stage review: (1) cloud tree pinned at 26d974f — APPROVE-WITH-NITS (0 HIGH / 2 MEDIUM / 3 LOW), 512/512 firsthand, 0f0d662 recalibration proven GDD-derived, GDD math exact, commit hygiene cleared; (2) integrated re-verify pinned at 756ded3 — 518/518 firsthand; red at 8ebe6c1 reproduced with EXACTLY the two claimed failures; pick fidelity proven via git patch-id (c64c44e/b81292a/6c0a34b patch-identical to reviewed cloud commits; 5b73b49 differs only by dropping tasks bookkeeping hunks, test blob byte-identical); TASK-044 dependency resolves against merged local PCG32. Fix round verified: MEDIUM-2 both sides pinned (gap=2 comeback via coins tiebreak traced; empty-pool sensor GENUINE — reviewer independently traced the rigged scenario, red confirmed, in-test sanity assertions close the vacuous-sensor risk); LOW-1 Resolve guards 0|1..4 (deliberate tightening: negative places now throw instead of treated-absent, matches documented contract, no caller affected); LOW-2 message states the real bound. DESIGN CALL ENDORSED by reviewer + orchestrator: empty-pool fallback = deterministic least-harmful draw (unreachable at GDD-canonical params; graceful degradation over Game-Over crash on an unattended cabinet; old silently-arbitrary behavior was the actual bug; invariant now clean: filter honored when satisfiable, else minimize worst crowned gap). WorstCrownedGap() extraction proven semantics-preserving (max>=t equiv exists>=t). Commits: cloud-authored 5b73b49/c64c44e/b81292a/6c0a34b + fix round 8ebe6c1/756ded3. Scoring side of the Hito 2 gate is now Core-complete; remaining Hito 2 = T-107 mechanics consolidation (TASK-034). Riders: MEDIUM-1 -> TASK-050; FSM wiring -> TASK-051; 5.6 envelope telemetry -> TASK-033; GDD bugs (Zen row line 496, 5.6-vs-6.3 star counts) await the human GDD pass."
     }
   ],
   "created_at": "2026-07-07T04:21:08.977Z",
-  "updated_at": "2026-07-07T12:56:58.566Z",
+  "updated_at": "2026-07-07T13:02:00.153Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
