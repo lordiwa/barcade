@@ -8,7 +8,7 @@
     "SeatState.Bot occupancy interoperates with the TASK-056 dead-seat tracker without regression (the tracker's claimed-Human assumption is reconciled)",
     "rev-t038 LOW-1 doc fix applied: EsquivaBotPolicy.cs:30's stale present-tense cross-ref to the deleted EsquivaEscapeBot is corrected. Tests-first where engine-free; fast suite green, no regression"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -27,7 +27,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-07T23:43:18.094Z",
-  "updated_at": "2026-07-07T23:43:18.094Z",
+  "updated_at": "2026-07-08T18:37:04.107Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T18:36:24.769Z",
+  "generated_at": "2026-07-08T18:37:04.107Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -412,7 +412,7 @@
     {
       "key": "TASK-069",
       "title": "Wire SeatState.Bot roster occupancy for bot-filled seats + HumanIdle scenario (TASK-038 AC5 completion)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     },
     {
