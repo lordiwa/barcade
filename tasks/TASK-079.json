@@ -9,7 +9,7 @@
     "Duration 75 s; a Jefe standing at timeout wins; payout is asym1v3 shape [6,2,2,2] (Jefe/leader 6, attackers 2 each) passing the validator",
     "Tests-first; full fast suite green after, no regression"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -24,11 +24,22 @@
   "depends_on": [
     "TASK-038"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "7e3c86c",
+    "834087f",
+    "fb41958",
+    "45bf119"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T18:36:24.769Z",
+      "body": "CLOSED (loop iter 4, TASK-041 slice 4/4) — tdd, depth FULL. All 5 ACs met; fresh-context review rev-t079 APPROVE-WITH-NITS (no HIGH); orchestrator fast-suite gate independently 840/0.\n\nDELIVERY: GDD §7.2 JEFE/Boss asymmetric phase on the v2 contract (engine-free, injected SeededRandom, zero-alloc). Commits: 7e3c86c (fast tests, genuine compile-red) / 834087f (feat: JefeMicrogame/JefeParams + MicrogameId.JefePhase) / fb41958 (.meta) / 45bf119 (LOW-4 fix). Fast 823->840 (+17, 0 regressions).\n\nAC2 SAME-TICK ROLE-SWAP CRUX (reviewer traced by hand): ResolveMeleeAttacks re-reads _jefeSeat FRESH each iteration, swap is inline (_jefeSeat=i; _jefeHits=2), single int field so 0-or-2-Jefes is structurally unrepresentable. FinalHit_NoInvulnerabilityFrame non-vacuous: two attackers confirm on the IDENTICAL tick, first lands the final hit + is crowned, the second's same-tick hit then damages the BRAND-NEW Jefe (hits 2->1, asserted) — any invuln window even scoped to the crowning tick would leave hits at 2. JefeSeat_IsAlwaysExactlyOneValidSeat holds every tick under ~300 ticks of repeated swaps.\n\nOTHER ACs (verified firsthand): AC3 telegraph blast in RenderState the same tick it fires, resolves at EXACTLY +36 ticks (round(0.6*60), not >=), stun applied only inside the resolution block (no damage without telegraph, P4), queue-of-1, immune target = Jefe AT RESOLUTION (handles mid-flight swap); AC1 determinism over the full 4500-tick duration + zero-alloc; AC4 [6,2,2,2] length-4 ranked (Jefe place1, attackers tie-share place2 via ApplyCompetitive), validator-passing, 75s=4500 ticks enforced in-mechanic; eligibility via IsEngaged (Jefe-must-be-engaged throws; idle can't melee); no existing test weakened (additive MicrogameId + csproj; MECH_06/07/08/09 untouched).\n\nLOW-4 FIX (45bf119, test-only — verified zero production change): reworked the zero-alloc sensor to exercise the melee-hit AND AoE-resolution branches inside the measured window (co-located avatars mashing on staggered cycles + short AoE cooldown), with sawSwap/sawAoeResolve sanity-count assertions (mirrors Sujeta's WindowsCompleted>0). Dev mutation-verified TWICE: disabling ResolveMeleeAttacks fails sawSwap only; disabling ResolveJefeAoe fails sawAoeResolve only — the two assertions independently discriminate. Zero-alloc guarantee now non-vacuous for the hot paths, matching the sibling-mechanic bar.\n\n*** [ASSUMED] REQUIRING HUMAN DESIGN SIGN-OFF before visual UAT (rev-t079 MEDIUM-1 + LOW-1, non-blocking for close but ratification-list items): (1) the Jefe AREA ATTACK's consequence is modeled as a 0.5s STUN (freeze movement+melee) — GDD §7.2 names the attack + 0.6s telegraph but is SILENT on what being caught does; dev reused CorreMicrogame's non-eliminating stun precedent (defensible, needed for the §7.2 'nadie quiere rematar demasiado pronto' tension, no lives system invented) but it materially affects balance and GDD doesn't authorize it. (2) JefeHitboxMultiplier=1.5 reuses GDD's '+50% vida' figure (which literally modifies HIT COUNT 3-vs-2) for hitbox SIZE, since 'hitbox mayor' names no number. Both flagged for a design pass. ***\n\nOTHER [ASSUMED] (reviewer-defensible): JefeSeat decided outside the mechanic (leader from session ScoreModel, same externalization as PersigueParams.SoloSeat); Jefe input scheme (button=self-centered AoE pulse, palanca=move) GDD-silent; melee tie-break fixed seat order Rojo->Verde on simultaneous final hits; engineering defaults (AvatarSpeed 0.35, MeleeRange 0.05, AoeBlastRadius 0.15, AoeCooldown 2.0s, stun 0.5s); no MechanicParamSchema entry (75s out-of-band for the [3,8]s validator, only payout-shape validation required/tested).\n\nDEFERRED LOW nits: LOW-2 movement gated on IsActive vs melee/AoE on _engaged (a HumanIdle seat can't melee/be-targeted but could move on non-neutral input — relies on idle=neutral; minor internal inconsistency vs Persigue/Corre uniform IsActive gating); LOW-3 GetResult ranks HumanIdle attackers at place 2 (2 coins) though they never engage (consistent with Persigue convention). Both no-AC-impact.\n\nNOTE: TASK-078 (coop phase, slice 3/4) remains BLOCKED on its own HIGH-1 design adjudication; TASK-041 epic stays blocked pending both TASK-078 resolution + this ticket. This closes the LAST independent TASK-041 slice."
+    }
+  ],
   "created_at": "2026-07-08T16:36:40.627Z",
-  "updated_at": "2026-07-08T18:02:35.157Z",
+  "updated_at": "2026-07-08T18:36:24.769Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
