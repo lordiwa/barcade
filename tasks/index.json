@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T17:33:44.446Z",
+  "generated_at": "2026-07-08T18:01:23.760Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -466,7 +466,7 @@
     {
       "key": "TASK-078",
       "title": "GDD T-112c — Special COOP phase §7.1 (ronda 3-4 coop scenario) [split from TASK-041]",
-      "status": "in_progress",
+      "status": "blocked",
       "priority": "high"
     },
     {

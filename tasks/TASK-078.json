@@ -9,7 +9,7 @@
     "bronze/plata/oro score thresholds pay exactly 2/4/6 coins to ALL players equally (coop payout, no internal ranking, P2)",
     "Tests-first; full fast suite green after, no regression"
   ],
-  "status": "in_progress",
+  "status": "blocked",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -27,9 +27,15 @@
   ],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T18:01:20.940Z",
+      "body": "HELD (blocked) pending HUMAN DESIGN ADJUDICATION — rev-t078 REQUEST-CHANGES (1 HIGH / 2 MEDIUM). Dev commits b97241a (test) / d609af4 (feat) are on local master (823/0 fast, additive, NOT pushed as done). NOT closed.\n\nHIGH-1 (GDD-semantic, human-only decision — no dev retry, no auth switch lifts it): the delivered model is STRICTLY SEQUENTIAL — the whole engaged team converges on ONE station at a time (CoopPhaseMicrogame.cs:236-257, _currentObjectiveIndex++). rev-t078 confirms this PASSES the literal ACs (AC3 is written narrowly: elements 'exist as composable level data' + 'collision only here') BUT hollows out 2 of the 4 GDD §7.1 ergonomic elements per the canonical text (Barcade_GDD_Tecnico.md:517): interseccionForzada='rutas óptimas cruzadas en X' (crossed routes require SIMULTANEOUS distinct destinations — a converging blob merges, never crosses) and sueloDinamico='las asignaciones deben renegociarse' (renegotiating a per-player division of labor — the sequential-together model has no assignments substrate). §7 lives under pillar P2 (max coordination); the catalog exists to force SIMULTANEOUS distributed coordination. Flagged HIGH to force a conscious accept/reject since GDD is canonical. THE FORK (human): (A) ACCEPT sequential as the Core-slice scope for now + tracked follow-up to restore simultaneous assignments/crossed-routing later -> downgrades to a documented deviation, primitives all reusable, then fix the 2 MEDIUMs + close; or (B) REBUILD now as simultaneous spatially-distributed multi-station (substantially larger: per-seat station assignments, concurrent sub-mechanic play, crossed-route geometry).\n\nMEDIUM-1 (fix regardless of the fork, per reviewer): shipped GddDefaults sueloDinamico is HALF-INERT — CoopLevelData.cs:121-138 places objectives 0/1 on the main diagonal (0.1,0.1)/(0.9,0.9), and ApplyDynamicFloorShift is an X/Y swap (reflection across the main diagonal) = literal no-op for diagonal objectives, so at t=30s only objectives 2<->3 move. The dedicated test uses off-diagonal coords so the suite never catches it. Concrete content defect.\n\nMEDIUM-2: cuelloBotella walls hardcoded at (0.5,0.35)/(0.5,0.65) regardless of objective layout (CoopPhaseMicrogame.cs:115-116,373-394) — non-composable unlike the other elements; make wall geometry level data.\n\nFIRSTHAND CONFIRMED PASSING (rev-t078): AC1 composition-not-reimplementation (real Sujeta/Iguala sub-instances built once in ctor, Initialize'd once, InputSnapshot forwarded verbatim; sub-mechanics use own internal _tick so global-tick forwarding is safe; +1/-1 can't mis-score) + zero-alloc mutation-proven; AC2 uniform movement (one AvatarSpeed field, no per-seat branch); AC3 each element ON/OFF + reviewer's OWN grep confirms ResolveAvatarCollisions is the ONLY avatar-vs-avatar collision in Core (Esquiva=avatar-vs-hazard); AC4 exact 2/4/6 9-case boundary sweep + never-zero (§6.1) + real end-to-end ApplyCoop identical payout + Ranks.Empty structural; abandonment via IsEngagedSeat (idle can't block arrival); no existing test weakened (additive only). Orchestrator fast gate 823/0.\n\nLOW/notes carried: [ASSUMED]#9 no bot policy — a bot-occupied seat counts as engaged for arrival but supplies no input, could stall a sub-mechanic (Sujeta hold); flag for TASK-041 sequencer wiring. [ASSUMED]#1 self-validates [60,90]s (no [3,8]s microgame validator) — defensible. [ASSUMED]#8 merged RenderState deferred to Framework presenter.\n\nORCHESTRATOR ACTION: TASK-078 -> blocked; loop continues on independent TASK-079 (Jefe phase) then TASK-069/071/074; TASK-041 epic stays blocked (dep on TASK-078). Human adjudicates HIGH-1 on return; then MEDIUM fixes + close (path A) or rebuild (path B)."
+    }
+  ],
   "created_at": "2026-07-08T16:36:28.515Z",
-  "updated_at": "2026-07-08T17:33:44.446Z",
+  "updated_at": "2026-07-08T18:01:23.760Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

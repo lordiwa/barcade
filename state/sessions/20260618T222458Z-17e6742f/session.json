@@ -2,13 +2,25 @@
   "schema_version": 2,
   "session_id": "20260618T222458Z-17e6742f",
   "lifecycle_state": "active",
-  "updated_at": "2026-07-08T17:52:24.868Z",
+  "updated_at": "2026-07-08T18:01:51.000Z",
   "active_task": null,
   "workflow_step": "review",
   "next_action": "Begin loop iteration 1: select TASK-040 (highest-priority ready goal ticket). Per-ticket: checkpoint fetch->transition in_progress->renew->checkpoint test(tdd)->spawn hivemind:developer (TDD, tests-first per tier)->renew->spawn fresh hivemind:reviewer->on HIGH bounce to dev (max 2)->renew->Gate1 close (auto_close authorized)->push (auto_push authorized)->checkpoint->refresh task list->next. Consolidation Gate 5 every 5 closes (auto_consolidate ON; drafts still surface). Surface+stop at any Unity/UAT/ambiguity gate or shouldStop backstop (maxIterations 20, maxNoProgress 3, maxReviewerRetries 2).",
   "handoff_summary": "LOOP RUN STARTED 2026-07-08T15:37Z (human: \"loop away until done\"), mode=loop, holder=orchestrator-loop, staleness 45min. TASK-027 StagePresenter 3D CLOSED this session (visual UAT passed, whole stack pushed, origin=fc7590f green). GOAL (keys, updated): TASK-040 CLOSED (763/0, pushed 1e05139). TASK-041 DECOMPOSED into TASK-076 (MECH_08 SUJETA), TASK-077 (MECH_09 IGUALA), TASK-078 (coop phase 7.1, dep 076+077), TASK-079 (Jefe phase 7.2); TASK-041 epic driven LAST for AC6 sequencer-quota + AC7 Hito3 gate. Remaining goal set: TASK-076,077,078,079,069,071,074,041. TASK-074 pre-ruled option A = pin headless NUnit to Unity-bundled version. AUTH: auto_close_on_green_review + auto_push_after_close + auto_consolidate = ON; uat_delegated=OFF (Unity UAT stays human); version-bump=OFF. HELD for a human+Editor window (loop will NOT self-complete): Unity-gated TASK-028/055/036/075; human design-gates TASK-066/067/070; TASK-072 blocked-on-future-mechanic; TASK-065 parked.",
-  "open_questions": [],
-  "blockers": [],
+  "open_questions": [
+    {
+      "at": "2026-07-08T18:01:51.000Z",
+      "question": "TASK-078 coop phase §7.1: accept the strictly-sequential whole-team model (path A: documented deviation + follow-up) or rebuild as simultaneous spatially-distributed multi-station (path B)? Determines whether the coop-phase code is fixed-and-closed or reworked."
+    }
+  ],
+  "blockers": [
+    {
+      "at": "2026-07-08T18:01:51.000Z",
+      "ticket": "TASK-078",
+      "kind": "gate-3-design-adjudication",
+      "summary": "HIGH-1 (rev-t078): coop phase §7.1 built STRICTLY SEQUENTIAL (whole team converges on one station at a time). Passes literal ACs but hollows out 2 of 4 GDD ergonomic elements (interseccionForzada=crossed routes, sueloDinamico=renegotiate assignments) which presuppose SIMULTANEOUS distributed play under pillar P2. GDD is canonical. FORK: (A) accept sequential for this Core slice + tracked follow-up, fix 2 MEDIUMs, close; (B) rebuild simultaneous multi-station (much larger). Human decides. TASK-078=blocked, TASK-041 epic blocked (dep on 078). MEDIUM-1 (half-inert sueloDinamico default, diagonal-swap no-op on diagonal objectives) fix regardless."
+    }
+  ],
   "decisions": [
     {
       "at": "2026-06-19T02:30:00.000Z",
