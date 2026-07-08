@@ -15,5 +15,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>Static cover (GDD §4 MECH_06's "2-3 obstáculos"). Added additively (T-111) — never moves, blocks avatar movement.</summary>
         Obstacle = 6,
+
+        /// <summary>One of MECH_08's 4 color switches (GDD §4 "¡SUJETA!"). Added additively (T-112) — never moves; OwnerSeat is the switch's assigned seat.</summary>
+        Switch = 7,
     }
 }

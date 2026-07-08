@@ -27,5 +27,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_07 — ¡BOMBARDEA! (GDD §4, asymmetric 1v3 inverted-power telegraph). T-111.</summary>
         Bombardea = 6,
+
+        /// <summary>MECH_08 — ¡SUJETA!/¡SINCRONIZA! (GDD §4, cooperative hold-all-switches). T-112.</summary>
+        Sujeta = 7,
     }
 }

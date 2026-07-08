@@ -173,6 +173,22 @@ namespace Barcade.Core.Content
                 new ParamRange("soloScorePerHit", 1.0, 10.0),
             });
 
+        /// <summary>
+        /// GDD §4 MECH_08 (T-112). <c>holdWindow</c>'s bracket brackets the
+        /// GDD-literal 1.5s default; <c>windowsToWin</c>'s bracket allows small
+        /// integer counts (GDD names the knob but not a default -- see
+        /// <see cref="Microgames.V2.SujetaParams"/>'s own doc). <c>mode</c> is
+        /// reserved (enum-string-valued, not range-checked).
+        /// </summary>
+        public static readonly MechanicParamSchema Mech08Sujeta = new MechanicParamSchema(
+            "MECH_08",
+            ranges: new[]
+            {
+                new ParamRange("holdWindow", 0.5, 4.0),
+                new ParamRange("windowsToWin", 1.0, 5.0),
+            },
+            reservedParamNames: new[] { "mode" });
+
         private static readonly Dictionary<string, MechanicParamSchema> ByMechanicId =
             new Dictionary<string, MechanicParamSchema>(StringComparer.Ordinal)
             {
@@ -183,6 +199,7 @@ namespace Barcade.Core.Content
                 { Mech03Corre.MechanicId, Mech03Corre },
                 { Mech06Persigue.MechanicId, Mech06Persigue },
                 { Mech07Bombardea.MechanicId, Mech07Bombardea },
+                { Mech08Sujeta.MechanicId, Mech08Sujeta },
             };
 
         public static bool TryGet(string mechanicId, out MechanicParamSchema schema) =>
