@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T03:28:43.151Z",
+  "generated_at": "2026-07-08T15:29:24.919Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -160,7 +160,7 @@
     {
       "key": "TASK-027",
       "title": "GDD T-104b — StagePresenter 3D: logical→world projection, StageProfiles (4 camera rigs), base prefab set (§10.4)",
-      "status": "in_progress",
+      "status": "done",
       "priority": "high"
     },
     {
