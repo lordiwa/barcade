@@ -8,7 +8,7 @@
     "SeatState.Bot occupancy interoperates with the TASK-056 dead-seat tracker without regression (the tracker's claimed-Human assumption is reconciled)",
     "rev-t038 LOW-1 doc fix applied: EsquivaBotPolicy.cs:30's stale present-tense cross-ref to the deleted EsquivaEscapeBot is corrected. Tests-first where engine-free; fast suite green, no regression"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -23,11 +23,20 @@
   "depends_on": [
     "TASK-038"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "8d7e3fe",
+    "673e7eb"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T19:05:32.943Z",
+      "body": "CLOSED (loop iter 5) — tdd, depth FULL. All 4 ACs met; fresh-context review rev-t069 APPROVE-WITH-NITS (no HIGH); orchestrator fast-suite gate independently 842/0.\n\nDELIVERY: wired genuine SeatState.Bot roster occupancy into SessionStateMachine.CompleteJoin (unclaimed seats -> Bot + published avatar, no longer inert Empty) + HumanIdle handoff scenario + TASK-056 interop proof + rev-t038 LOW-1 doc fix. Commits: 8d7e3fe (tests, genuine BEHAVIORAL red 'Expected Bot but was Empty') / 673e7eb (feat: CompleteJoin bot-fill + class-doc + EsquivaBotPolicy doc). Fast 840->842 (+2, 0 regressions).\n\nREGRESSION AUDIT of the shared CompleteJoin change (rev-t069 traced every FSM-roster consumer firsthand — higher blast radius than a leaf mechanic): PayoutEligibleSeatsMask excludes Empty+HumanIdle so Bot is payout-eligible (intended per AC1); ActiveSeatsMask includes Bot; dead-seat tracker UpdateDeadSeatTracking guard already excludes Bot by pre-existing construction (method UNTOUCHED by the diff); podium/FinishSessionScoring ranks Bot seats (intended); mechanics engagement (Sujeta/Iguala/Jefe/CoopPhase gate _engaged on Human||Bot) genuinely engages Bot. NO production consumer outside microgames reads the CompleteJoin roster; StagePresenter UAT + BotView build standalone rosters. Existing payout/wager/FinalPlaces tests use all-Human JoinReadyInputs so Empty->Bot can't shift them. The one renamed test (NovatoBot_FillsUnclaimedSeats) was STRENGTHENED (prior 'Azul==Empty' sanity -> 'all 3 unclaimed==Bot' + 'Rojo==Human'), nothing dropped.\n\nAC NON-VACUITY (all verified firsthand): AC1 test drives real Bot.Novato decisions off live GetRenderState for all 4 seats every tick to GameOver then asserts the 3 unclaimed==Bot (genuine end-to-end drive + no phase stall, not a flag read); AC2 HumanIdle honesty — sensor-asserts the seat actually crosses into HumanIdle before the bot handoff, reaches GameOver, asserts Human OR HumanIdle (Or correctly excludes the real failure modes Bot/Empty; not over-loosened, reflects resume-on-flanco); AC3 interop — BotOccupiedSeat_IsNeverMarkedIdle feeds zero input to ALL seats past 3x threshold, the CLAIMED Rojo DOES go HumanIdle (proves the window is a real test) while the 3 Bot seats never do; AC4 doc fix accurate + doc-only (EsquivaEscapeBot confirmed deleted in b7282cc). [ASSUMED] #2/#3 honest scoping (no new idle->Bot timeout tier invented; no production input driver built — caller's job, same as Human seats).\n\n*** [ASSUMED] #1 FOR HUMAN RATIFICATION (rev-t069 MEDIUM-1, non-blocking — built exactly to AC1, closed on recorded deferral): EVERY unclaimed seat is ALWAYS bot-filled, unconditional, no config. GDD §3.2 line 48 frames this as CONFIGURABLE ('bots novato ruidoso O SE EXCLUYEN, configurable') around a human-presence premise; the hardcode drops both. Consequence: a credit-then-zero-claims session spins up a full 4-bot game. Bounded/non-corrupting (InsertCredit is the ONLY Attract->Join path — an empty bar stays in Attract, can't self-run bots; clean GameOver->Attract reset), so NOT HIGH. FILED as follow-up TASK-080 (add fillEmptySeatsWithBots config + own the configurability in the class doc + human ratifies the default policy). Added to the ratification list. ***\n\nDEFERRED LOW (rev-t069 LOW-1, carried to TASK-080): sibling historical cross-refs to the deleted EsquivaEscapeBot at ReactionDelayBuffer.cs:21, EsquivaMicrogameV2Tests.cs:444/:757 — all past-tense/non-false (NOT the AC4-fixed 'still present verbatim'), optional cleanup only.\n\nNOTE: closes TASK-038 AC5's originally-thin 'fills a seat' + adds the missing HumanIdle half. TASK-078 (coop phase) + TASK-041 epic remain blocked on HIGH-1."
+    }
+  ],
   "created_at": "2026-07-07T23:43:18.094Z",
-  "updated_at": "2026-07-08T18:37:04.107Z",
+  "updated_at": "2026-07-08T19:05:32.943Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

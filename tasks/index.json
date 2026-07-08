@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T18:37:04.107Z",
+  "generated_at": "2026-07-08T19:05:32.943Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -412,7 +412,7 @@
     {
       "key": "TASK-069",
       "title": "Wire SeatState.Bot roster occupancy for bot-filled seats + HumanIdle scenario (TASK-038 AC5 completion)",
-      "status": "in_progress",
+      "status": "done",
       "priority": "medium"
     },
     {
@@ -474,6 +474,12 @@
       "title": "GDD T-112d — Special JEFE/Boss phase §7.2 (ronda 5-6, same-tick role swap) [split from TASK-041]",
       "status": "done",
       "priority": "high"
+    },
+    {
+      "key": "TASK-080",
+      "title": "Make empty-seat bot-fill configurable per GDD §3.2 (\"o se excluyen, configurable\") + own it in the FSM class doc",
+      "status": "todo",
+      "priority": "medium"
     }
   ]
 }

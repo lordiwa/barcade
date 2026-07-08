@@ -1,0 +1,35 @@
+{
+  "key": "TASK-080",
+  "title": "Make empty-seat bot-fill configurable per GDD §3.2 (\"o se excluyen, configurable\") + own it in the FSM class doc",
+  "description": "Filed from the TASK-069 review (rev-t069 MEDIUM-1). TASK-069 wired SessionStateMachine.CompleteJoin to ALWAYS fill every unclaimed seat with a Novato bot (SessionStateMachine.cs:695, `seats[i] = _ready[i] ? Human : Bot;`) — unconditional, no config, no min-human guard, built exactly to TASK-069's AC1. But GDD §3.2 (line 48) frames this as a CONFIGURABLE choice, not a mandate: 'los puestos vacíos se rellenan con bots de nivel novato ruidoso O SE EXCLUYEN DE LA RONDA, CONFIGURABLE', around a '2, 3 o 4 jugadores activos' (human-presence) premise; D.3 says 'rellena puestos vacíos en partida real'. The current hardcode drops both the configurability and the human-presence framing: a credit-then-zero-claims session now spins up a full 4-bot game (FinalWager, bonus-star draw, 4-bot podium, pays bots coins). rev-t069 judged this NON-corrupting and bounded (InsertCredit is the only Attract->Join path, so an empty bar stays in Attract; clean GameOver->Attract reset) — NOT a HIGH — but a genuine undocumented GDD divergence on the shared FSM.\\n\\nWORK (pending HUMAN ratification of the intended default): (1) HUMAN decides the §3.2 policy — always-fill (current), exclude-empty, or a min-human-count guard (e.g. only fill when >=1 human claimed). (2) Add a `fillEmptySeatsWithBots` (or equivalent) config dimension — likely on SessionStateMachineConfig — realizing §3.2's 'configurable', defaulting to whatever the human ratifies. (3) Amend the SessionStateMachine class doc (SessionStateMachine.cs:256-267), which currently cites only D.3's 'rellena puestos vacíos' and silently omits §3.2's 'o se excluyen... configurable' alternative + the human-presence premise — own the configurability instead of hardcoding it away. (4) Optional cleanup (rev-t069 LOW-1): sibling historical cross-refs to the deleted EsquivaEscapeBot at ReactionDelayBuffer.cs:21, EsquivaMicrogameV2Tests.cs:444 and :757 — all past-tense/non-false (NOT the AC4-fixed 'still present verbatim' claim), optional tidy. Core/engine-free, fast-testable.",
+  "acceptance_criteria": [
+    "HUMAN ratifies the §3.2 empty-seat policy (always-fill / exclude / min-human-guard) and it is recorded",
+    "A config dimension (e.g. SessionStateMachineConfig.fillEmptySeatsWithBots) realizes §3.2's 'configurable', with the ratified default; CompleteJoin honors it (test the non-default path)",
+    "The SessionStateMachine class doc owns the configurability + human-presence premise (no longer silently hardcoding one option); GDD §3.2 citation added",
+    "Fast suite green, no regression; the 0-human-claims session behavior matches the ratified policy under test"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "core",
+    "session-fsm",
+    "bots",
+    "follow-up",
+    "design-gate",
+    "T-110"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-069"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T19:05:03.277Z",
+  "updated_at": "2026-07-08T19:05:03.277Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
