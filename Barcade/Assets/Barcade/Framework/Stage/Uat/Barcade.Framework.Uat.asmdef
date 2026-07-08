@@ -1,0 +1,14 @@
+{
+  "name": "Barcade.Framework.Uat",
+  "rootNamespace": "Barcade.Framework.Stage.Uat",
+  "references": [
+    "Barcade.Core",
+    "Barcade.Presentation",
+    "Barcade.Framework"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false
+}
