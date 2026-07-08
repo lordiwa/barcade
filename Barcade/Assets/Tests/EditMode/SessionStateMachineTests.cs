@@ -491,6 +491,14 @@ namespace Barcade.Core.Tests
             // Inversión this round, BOARD_RESOLVE must not wait out any window.
             (SessionStateMachine fsm, FakeInputs inputs, int tapOffset) = DriveToBoardMove_RingReaches(BoardTileType.MonedaPositiva);
 
+            // DriveToBoardMove_RingReaches leaves buttons held from Join -- release
+            // them first, or the very first BOARD_MOVE tick freezes everyone at
+            // meterValue==1 regardless of tapOffset (level-triggered tap detection).
+            inputs.Set(PlayerSlot.Rojo, false);
+            inputs.Set(PlayerSlot.Azul, false);
+            inputs.Set(PlayerSlot.Amarillo, false);
+            inputs.Set(PlayerSlot.Verde, false);
+
             int t = 100;
             for (int i = 0; i < 15 * (tapOffset - 1); i++) fsm.Tick(inputs.Build(t++)); // stay neutral through the target bracket
             inputs.Set(PlayerSlot.Rojo, true);
@@ -515,6 +523,14 @@ namespace Barcade.Core.Tests
             // contract; nothing here shortens it even though every seat's stick
             // stays neutral the whole window).
             (SessionStateMachine fsm, FakeInputs inputs, int tapOffset) = DriveToBoardMove_RingReaches(BoardTileType.Inversion);
+
+            // DriveToBoardMove_RingReaches leaves buttons held from Join -- release
+            // them first, or the very first BOARD_MOVE tick freezes everyone at
+            // meterValue==1 regardless of tapOffset (level-triggered tap detection).
+            inputs.Set(PlayerSlot.Rojo, false);
+            inputs.Set(PlayerSlot.Azul, false);
+            inputs.Set(PlayerSlot.Amarillo, false);
+            inputs.Set(PlayerSlot.Verde, false);
 
             int t = 100;
             for (int i = 0; i < 15 * (tapOffset - 1); i++) fsm.Tick(inputs.Build(t++));
@@ -1092,9 +1108,13 @@ namespace Barcade.Core.Tests
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
             int[] preWagerCoins = (int[])fsm.Coins.Clone();
-            // Round 1's default competitive payout {6,4,2,1} for places [1,2,3,4].
-            Assert.That(preWagerCoins, Is.EqualTo(new[] { 6, 4, 2, 1 }),
-                "test setup sanity: round 1's default payout must have landed before the wager");
+            // TASK-068: no longer pinned to the exact default-payout value {6,4,2,1}
+            // -- BOARD_RESOLVE now also contributes real, seed-dependent coin flows
+            // before the wager, so preWagerCoins legitimately varies with the seed.
+            // Every assertion below derives its EXPECTED stake from this SAME
+            // dynamically-captured baseline, so the wager-math invariant under test
+            // (25/50/75% of whatever a seat actually had) stays fully rigorous
+            // regardless of that baseline's exact value.
 
             // Rojo=Quarter(Left), Azul=Half(Up), Amarillo=ThreeQuarters(Right), Verde=untouched.
             var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
@@ -1262,11 +1282,25 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+
+            // TASK-068: BOARD_RESOLVE now applies real, seed-dependent coin flows
+            // before this round's microgame payout ever runs -- capture the
+            // baseline the instant it completes (CurrentPhase reaches MgIntro) and
+            // assert the payout table's effect as a DELTA from it, isolating the
+            // invariant under test (payoutTable override) from board noise.
+            int t = 0;
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed BOARD_RESOLVE");
+            int[] coinsBeforePayout = (int[])fsm.Coins.Clone();
+
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
-            Assert.That(fsm.Coins, Is.EqualTo(new[] { 10, 8, 5, 3 }),
+            int[] delta = new int[4];
+            for (int i = 0; i < 4; i++) delta[i] = fsm.Coins[i] - coinsBeforePayout[i];
+            Assert.That(delta, Is.EqualTo(new[] { 10, 8, 5, 3 }),
                 "the custom payoutTable, not the GDD default {6,4,2,1}, must have applied");
         }
 
@@ -1283,11 +1317,22 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+
+            // TASK-068: isolate the payoutTable's effect from BOARD_RESOLVE's real,
+            // seed-dependent coin flows -- see the companion competitive-table test.
+            int t = 0;
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed BOARD_RESOLVE");
+            int[] coinsBeforePayout = (int[])fsm.Coins.Clone();
+
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
-            Assert.That(fsm.Coins, Is.EqualTo(new[] { 9, 9, 9, 9 }),
+            int[] delta = new int[4];
+            for (int i = 0; i < 4; i++) delta[i] = fsm.Coins[i] - coinsBeforePayout[i];
+            Assert.That(delta, Is.EqualTo(new[] { 9, 9, 9, 9 }),
                 "coop success must pay the custom table's success entry (9), not the GDD default (4), to every active seat");
         }
 
@@ -1303,11 +1348,22 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+
+            // TASK-068: isolate the payoutTable's effect from BOARD_RESOLVE's real,
+            // seed-dependent coin flows -- see the companion competitive-table test.
+            int t = 0;
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed BOARD_RESOLVE");
+            int[] coinsBeforePayout = (int[])fsm.Coins.Clone();
+
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
-            Assert.That(fsm.Coins, Is.EqualTo(new[] { 2, 2, 2, 2 }),
+            int[] delta = new int[4];
+            for (int i = 0; i < 4; i++) delta[i] = fsm.Coins[i] - coinsBeforePayout[i];
+            Assert.That(delta, Is.EqualTo(new[] { 2, 2, 2, 2 }),
                 "coop fail must pay the custom table's fail entry (2), not the GDD default (1), to every active seat");
         }
 
@@ -1961,10 +2017,28 @@ namespace Barcade.Core.Tests
 
             var inputs = new FakeInputs();
             fsm.InsertCredit();
-            for (int t = 0; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
+
+            // TASK-068: BOARD_RESOLVE now applies real, seed-dependent coin flows
+            // before this round's microgame payout ever runs -- capture the
+            // baseline the instant it completes (CurrentPhase reaches MgIntro) so
+            // the exclusion check below is a DELTA, isolated from board noise.
+            int t = 0;
+            for (; fsm.CurrentPhase != SessionPhase.MgIntro && t < 2000; t++)
             {
                 inputs.Set(PlayerSlot.Rojo, true, Direction8.None);           // neutral -> goes Idle
                 Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;  // flanco every tick -> stays active
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed BOARD_RESOLVE");
+            int[] coinsBeforePayout = (int[])fsm.Coins.Clone();
+
+            for (; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
                 inputs.Set(PlayerSlot.Azul, true, wig);
                 inputs.Set(PlayerSlot.Amarillo, true, wig);
                 inputs.Set(PlayerSlot.Verde, true, wig);
@@ -1976,7 +2050,9 @@ namespace Barcade.Core.Tests
 
             // Default competitive payout {6,4,2,1} for places [1,2,3,4]; Idle Rojo
             // (place 1) is excluded (0), the other three keep their per-place payout.
-            Assert.That(fsm.Coins, Is.EqualTo(new[] { 0, 4, 2, 1 }),
+            int[] delta = new int[4];
+            for (int i = 0; i < 4; i++) delta[i] = fsm.Coins[i] - coinsBeforePayout[i];
+            Assert.That(delta, Is.EqualTo(new[] { 0, 4, 2, 1 }),
                 "Idle Rojo (place 1) is excluded from the reparto; Azul/Amarillo/Verde keep their per-place payout");
         }
 
@@ -1993,7 +2069,23 @@ namespace Barcade.Core.Tests
 
             var inputs = new FakeInputs();
             fsm.InsertCredit();
-            for (int t = 0; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
+
+            // TASK-068: see the companion competitive-payout test for why this
+            // captures a pre-payout baseline and asserts a DELTA.
+            int t = 0;
+            for (; fsm.CurrentPhase != SessionPhase.MgIntro && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed BOARD_RESOLVE");
+            int[] coinsBeforePayout = (int[])fsm.Coins.Clone();
+
+            for (; fsm.CurrentPhase != SessionPhase.FinalWager && t < 2000; t++)
             {
                 inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
                 Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
@@ -2003,7 +2095,9 @@ namespace Barcade.Core.Tests
                 fsm.Tick(inputs.Build(t));
             }
             Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle));
-            Assert.That(fsm.Coins, Is.EqualTo(new[] { 0, 4, 4, 4 }),
+            int[] delta = new int[4];
+            for (int i = 0; i < 4; i++) delta[i] = fsm.Coins[i] - coinsBeforePayout[i];
+            Assert.That(delta, Is.EqualTo(new[] { 0, 4, 4, 4 }),
                 "coop success (default 4) pays each active non-Idle seat; Idle Rojo is excluded");
         }
 
@@ -2020,8 +2114,27 @@ namespace Barcade.Core.Tests
             var inputs = new FakeInputs();
             fsm.InsertCredit();
 
-            // Round 1: Rojo silent -> Idle -> excluded from R1 payout.
-            for (int t = 0; fsm.CurrentPhase != SessionPhase.Intermission && t < 2000; t++)
+            // TASK-068: BOARD_RESOLVE now applies real, seed-dependent coin flows
+            // before EACH round's microgame payout runs -- every exclusion/resume
+            // check below is a DELTA from that round's own BOARD_RESOLVE-complete
+            // baseline (captured at MgIntro), isolating the microgame-payout
+            // invariant under test from board noise. See the companion
+            // IdleSeat_ExcludedFromCompetitiveRoundPayout_OthersUnaffected test.
+            int t = 0;
+            for (; fsm.CurrentPhase != SessionPhase.MgIntro && t < 2000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed round 1's BOARD_RESOLVE");
+            int[] coinsBeforeR1Payout = (int[])fsm.Coins.Clone();
+
+            // Round 1: Rojo silent -> Idle -> excluded from R1's microgame payout.
+            for (; fsm.CurrentPhase != SessionPhase.Intermission && t < 2000; t++)
             {
                 inputs.Set(PlayerSlot.Rojo, true, Direction8.None);
                 Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
@@ -2032,13 +2145,13 @@ namespace Barcade.Core.Tests
             }
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission), "test setup: reached end of round 1");
             Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.HumanIdle), "Rojo Idle after a silent round 1");
-            Assert.That(fsm.Coins[(int)PlayerSlot.Rojo], Is.EqualTo(0), "Idle Rojo is excluded from round 1's payout");
-            int rojoAfterR1 = fsm.Coins[(int)PlayerSlot.Rojo];
+            Assert.That(fsm.Coins[(int)PlayerSlot.Rojo] - coinsBeforeR1Payout[(int)PlayerSlot.Rojo], Is.EqualTo(0),
+                "Idle Rojo is excluded from round 1's microgame payout");
 
             // Round 2: Rojo now gives input -> resumes to Human and is paid again.
             var r2 = new FakeMicrogame(finishAfterTicks: 20, result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
             fsm.SetActiveMicrogame(r2, "R2", playDurationSeconds: 1f);
-            for (int t = 1000; fsm.CurrentPhase != SessionPhase.FinalWager && t < 3000; t++)
+            for (; fsm.CurrentPhase != SessionPhase.MgIntro && t < 3000; t++)
             {
                 Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
                 inputs.Set(PlayerSlot.Rojo, true, wig); // Rojo active again
@@ -2047,11 +2160,23 @@ namespace Barcade.Core.Tests
                 inputs.Set(PlayerSlot.Verde, true, wig);
                 fsm.Tick(inputs.Build(t));
             }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed round 2's BOARD_RESOLVE");
+            int[] coinsBeforeR2Payout = (int[])fsm.Coins.Clone();
+
+            for (; fsm.CurrentPhase != SessionPhase.FinalWager && t < 3000; t++)
+            {
+                Direction8 wig = (t % 2 == 0) ? Direction8.E : Direction8.W;
+                inputs.Set(PlayerSlot.Rojo, true, wig);
+                inputs.Set(PlayerSlot.Azul, true, wig);
+                inputs.Set(PlayerSlot.Amarillo, true, wig);
+                inputs.Set(PlayerSlot.Verde, true, wig);
+                fsm.Tick(inputs.Build(t));
+            }
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager), "test setup: reached end of round 2");
             Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human),
                 "Rojo resumed to Human on input — never eliminated");
-            Assert.That(fsm.Coins[(int)PlayerSlot.Rojo], Is.EqualTo(rojoAfterR1 + 6),
-                "resumed Rojo (place 1) is included in round 2's payout (+6)");
+            Assert.That(fsm.Coins[(int)PlayerSlot.Rojo] - coinsBeforeR2Payout[(int)PlayerSlot.Rojo], Is.EqualTo(6),
+                "resumed Rojo (place 1) is included in round 2's microgame payout (+6)");
         }
 
         [Test]
