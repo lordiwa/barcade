@@ -94,6 +94,10 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CameraRigMathTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SeatVisualsTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RenderStateSnapshotTests.cs" />
+    <!-- TASK-040 (T-111, GDD MECH_06/MECH_07): asymmetric 1v3 mechanics -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SoloSeatRotationTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\PersigueMicrogameV2Tests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\BombardeaMicrogameV2Tests.cs" />
   </ItemGroup>
 
 </Project>

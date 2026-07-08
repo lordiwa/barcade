@@ -164,9 +164,12 @@ namespace Barcade.Core.Tests
         // GDD §6.1: "Reparto por microjuego competitivo (dato payoutTable): 1o=6,
         // 2o=4, 3o=2, 4o=1. Cooperativo: exito=4 a todos, fallo=1 a todos" -- two
         // DIFFERENT shapes under the same field name: 4 entries (one per place)
-        // for competitive/asym1v3 (both produce a ranked 1..4 podium -- the GDD
-        // gives no separate asym1v3 payout shape), 2 entries [success, fail] for
-        // coop. Found by rev-c037 (TASK-037 review): the validator accepted ANY
+        // for competitive/asym1v3 (both produce a ranked 1..4 podium), 2 entries
+        // [success, fail] for coop. GDD gives asym1v3 no separate payout SHAPE
+        // of its own -- but §7.2 DOES give values for its own asym1v3 round
+        // ("gana quien es Jefe... recompensa 6 monedas; atacantes 2"), expressible
+        // in the ranked 4-entry shape as [6,2,2,2] (attackers tie-share place 2).
+        // Found by rev-c037 (TASK-037 review): the validator accepted ANY
         // length >= 1 while PayoutRules.ApplyCompetitive throws unless length==4,
         // so a [6,4,2] definition validated green and crashed mid-session.
 
@@ -193,8 +196,9 @@ namespace Barcade.Core.Tests
         {
             // Asym1v3 rounds still resolve to a ranked 1..4 podium (RoundRecord.Places
             // in TASK-035 uses the same 1..4 shape for every dynamics) and have no
-            // GDD-described payout shape of their own -- same 4-entry contract as
-            // competitive.
+            // separate payout SHAPE of their own -- §7.2 gives asym1v3 the values
+            // 6/2 (Jefe/atacantes), expressible in that same 4-entry shape as
+            // [6,2,2,2] -- same 4-entry contract as competitive.
             MicrogameDefinitionV2 def = ValidApuntaDefinition();
             def.Dynamics = MicrogameDynamics.Asym1v3;
             def.PayoutTable = MakeTable(length);
