@@ -8,7 +8,7 @@
     "The 1000-session sweep asserts Coins == BoardSnapshot.Balances at every BOARD_RESOLVE exit (per-seed reconciliation, not just delta positivity)",
     "Fast + slow suites green, no regression; the strengthened gate still passes with zero violations (or surfaces a real one)"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -24,11 +24,22 @@
   "depends_on": [
     "TASK-042"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "04b614b",
+    "7feba60",
+    "46dc071",
+    "55ca759"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T19:46:57.995Z",
+      "body": "CLOSED (loop iter 6) — tdd, depth FULL. All 4 ACs met; fresh-context review rev-t071 APPROVE-WITH-NITS (no HIGH); orchestrator gates independently fast 848/0 + slow 11/0 (1000-session sweep with REAL payouts, zero violations).\n\nDELIVERY: strengthened the Hito 4 economic gate (rev-t042 M1+M2). Commits: 04b614b (tests, genuine red CS0029/CS1061) / 7feba60 (feat M1: PayoutRules emits Bank-origin CoinDeltas + SessionStateMachine.LastMicrogamePayout seam) / 46dc071 (test M2: gate drives real payouts + per-resolve reconciliation) / 55ca759 (fix-round M1/L1 anti-vacuity counters). Fast 842->848 (+6), slow 11/11.\n\nM1 (payout CoinDeltas): PayoutRules.ApplyCompetitive/ApplyCoop now RETURN CoinDelta[] (Bank->seat, one per paid seat) alongside the still-performed direct coins[seat]+= mutation. rev-t071 verified conservation firsthand: delta = new CoinDelta(Bank, seat, +amount), NEVER seat->seat; report-only (LastMicrogamePayout read solely by the gate, never replayed through ApplyCoinFlows) so no double-count, no §5.3 break; signature void->CoinDelta[] source-compatible across all ~15 callers (only the 2 real callers in CaptureResult capture it, rest are bare statements/comments); no seat silently stops being paid.\n\nM2 (real payouts + reconciliation): NeverFinishingMicrogame workaround REMOVED, replaced with a real EsquivaMicrogame (DurationSeconds:2f clears the 4s MgPlay ceiling; RoundPhaseMachine.Play is purely time-bounded, verified). The 1000-session sweep now drives REAL microgame payouts folded into the zero-violation check (CheckMicrogamePayoutInvariant: every delta>0, origin==Bank at the MgResult edge). CheckRoundInvariant now asserts Coins==BoardSnapshot.Balances seat-by-seat at EVERY resolve across all 1000 seeds. Both mutation-proven: commenting out SetBalances fails reconciliation; swapping payout origin/dest fails the Bank-origin check. LastMicrogamePayout reset per round (top of CaptureResult, mirrors LastResult) + proven by LastMicrogamePayout_ClimaxRound_IsEmpty.\n\nFIX ROUND (55ca759, slow-test only — rev-t071 M1+L1, the anti-vacuity hardening this gate-rigor ticket most needed): the gate now COUNTS observations, not just failures — payoutObservedCount and reconciliationRunCount both asserted Is.EqualTo(7000) (derived exactly = 1000 sessions x 7 regular rounds; climax has no board sub-loop / never reaches MgResult), not a bare >0. A real sweep confirmed 7000/7000 exact — so the gate now PROVES real payouts + real reconciliations genuinely occurred across the sweep, closing the 'zero violations among zero payouts' vacuity the ticket exists to prevent. Also empirically confirms IdleTimeout (45s) never fires in the bot-driven gate (no round's payout silently zeroed by idle exclusion).\n\n[ASSUMED] (reviewer-confirmed correct): Esquiva chosen as the gate microgame (input-independent duration-ceiling finish, least fragile for a zero-input bot sweep); DurationSeconds:2f harness value; the 'fold' interpretation (payout deltas into the violation-count list via positivity+Bank-origin, NOT into Coins==Balances — correct because payouts don't touch board Balances until the next EnterBoardMove resync, which precedes the resolve check; no coins escape a check). No new GDD gaps.\n\nNOTE: TASK-078 (coop phase) + TASK-041 epic remain blocked on HIGH-1. Next: TASK-074 (last independent goal ticket)."
+    }
+  ],
   "created_at": "2026-07-08T02:10:58.866Z",
-  "updated_at": "2026-07-08T19:06:19.734Z",
+  "updated_at": "2026-07-08T19:46:57.995Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

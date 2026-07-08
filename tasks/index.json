@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T19:06:19.734Z",
+  "generated_at": "2026-07-08T19:46:57.995Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -424,7 +424,7 @@
     {
       "key": "TASK-071",
       "title": "Strengthen the Hito 4 economic gate: emit microgame-payout CoinDeltas + per-seed ledger-reconciliation assertion",
-      "status": "in_progress",
+      "status": "done",
       "priority": "medium"
     },
     {
