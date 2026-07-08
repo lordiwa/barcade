@@ -33,5 +33,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_09 — ¡IGUALA! (GDD §4, cooperative color-relay, `colorRelay` mode). T-112.</summary>
         Iguala = 8,
+
+        /// <summary>GDD §7.1 — special cooperative phase (60-90s scenario composed from MECH_08/MECH_09). T-112.</summary>
+        CoopPhase = 9,
     }
 }
