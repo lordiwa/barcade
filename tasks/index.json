@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T02:29:35.096Z",
+  "generated_at": "2026-07-08T02:55:10.760Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -436,8 +436,14 @@
     {
       "key": "TASK-073",
       "title": "Fix Unity-NUnit compile blocker: Is.AnyOf in ReaccionaMicrogameTests (headless NUnit 3.14 vs Unity's bundled NUnit divergence)",
-      "status": "in_progress",
+      "status": "done",
       "priority": "high"
+    },
+    {
+      "key": "TASK-074",
+      "title": "Close the headless-NUnit vs Unity-NUnit divergence gap so Unity-incompatible test constructs are caught by the primary gate",
+      "status": "todo",
+      "priority": "medium"
     }
   ]
 }
