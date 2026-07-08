@@ -1,8 +1,16 @@
 // ============================================================================
 // THROWAWAY / DEV-ONLY UAT SCAFFOLDING -- TASK-027 (StagePresenter 3D visual
-// UAT). Lives in the Editor-only Barcade.Framework.Uat assembly; never ships
-// in a Player build.
+// UAT). Barcade.Framework.Uat is a normal RUNTIME assembly (StagePresenterUatDriver
+// and StagePresenterUatMicrogame must be AddComponent-able / instantiable in
+// Play mode) -- so the Editor-only surface in THIS file (the menu item itself)
+// is guarded by #if UNITY_EDITOR instead of relying on an Editor-only asmdef.
+// Fix round (TASK-027): an Editor-only asmdef made StagePresenterUatDriver
+// un-AddComponent-able (Unity refuses to add an Editor-assembly MonoBehaviour
+// to a scene GameObject -- AddComponent silently returned null), which NRE'd
+// at driver.Presenter = ... in Build(). See git history for the prior
+// (incorrect) Editor-only asmdef attempt.
 // ============================================================================
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -18,6 +26,12 @@ namespace Barcade.Framework.Stage.Uat
     /// files are checked in, mirroring the spirit of
     /// <c>Barcade.EditorTools.DodgeSceneBuilder</c> without its
     /// save-to-disk/add-to-build-settings steps).
+    ///
+    /// This class itself is compiled out of Player builds via the file-level
+    /// #if UNITY_EDITOR guard (it uses UnityEditor APIs directly, which don't
+    /// exist in a Player) -- StagePresenterUatDriver/StagePresenterUatMicrogame
+    /// are plain runtime types and compile into both Editor and Player, per
+    /// the fix-round note above.
     ///
     /// Usage: <b>Barcade/UAT/Build StagePresenter UAT</b>, then press Play. Use
     /// the StagePresenterUatDriver component's Inspector (on the
@@ -59,3 +73,4 @@ namespace Barcade.Framework.Stage.Uat
         }
     }
 }
+#endif

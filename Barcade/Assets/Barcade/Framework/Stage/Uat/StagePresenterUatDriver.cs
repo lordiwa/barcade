@@ -1,9 +1,13 @@
 // ============================================================================
 // THROWAWAY / DEV-ONLY UAT SCAFFOLDING -- TASK-027 (StagePresenter 3D visual
-// UAT). Lives in the Editor-only Barcade.Framework.Uat assembly; never ships
-// in a Player build. Does not modify production StagePresenter/
-// Barcade.Presentation code or the ratified design -- it only drives the
-// real, unmodified StagePresenter through its public Bind/Present/Unbind API.
+// UAT). A plain runtime MonoBehaviour (Barcade.Framework.Uat is a normal
+// runtime assembly -- an Editor-only asmdef would make this un-AddComponent-able
+// in Play mode, see StagePresenterUatSceneBuilder.cs's fix-round note); it
+// DOES compile into a Player build, but nothing in the shipped game ever
+// instantiates it (only the throwaway, never-saved scene the Editor menu item
+// builds does). Does not modify production StagePresenter/Barcade.Presentation
+// code or the ratified design -- it only drives the real, unmodified
+// StagePresenter through its public Bind/Present/Unbind API.
 // ============================================================================
 using UnityEngine;
 using Barcade.Core.Content;

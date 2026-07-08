@@ -6,7 +6,7 @@
     "Barcade.Presentation",
     "Barcade.Framework"
   ],
-  "includePlatforms": ["Editor"],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,
