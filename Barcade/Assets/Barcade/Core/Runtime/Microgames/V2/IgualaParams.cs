@@ -61,10 +61,20 @@ namespace Barcade.Core.Microgames.V2
         /// GDD-literal baseline calibration: ReactWindow0/WindowDecay are the
         /// GDD literals (0.9/0.05). SequenceLength is [ASSUMED] — GDD names the
         /// parameter but gives no default for colorRelay (the "3-5 símbolos"
-        /// figure it DOES give is for the separate simonSolo variant); 8 is
-        /// long enough to reach the 0.45s floor (at n=9) within a plausible
-        /// round and short enough to fit the validator's [3,8]s duration bound
-        /// at a reasonable pace.
+        /// figure it DOES give is for the separate simonSolo variant).
+        ///
+        /// rev-review LOW-1 correction: with SequenceLength=8, the per-symbol
+        /// index n used by <see cref="IgualaMicrogame.ReactWindowSeconds"/> only
+        /// ever ranges 0..7 (n = Progress, and Progress never reaches 8 while a
+        /// window is still being computed) — the window at the LAST symbol is
+        /// reactWindow(7) = 0.9 - 0.05*7 = 0.55s. This default calibration
+        /// never actually decays down to the 0.45s floor; the floor is first
+        /// reached at n=9, which requires SequenceLength >= 10. 8 was chosen
+        /// only to fit the validator's [3,8]s duration bound at a reasonable
+        /// pace, not because it exercises the floor — see
+        /// <c>ReactWindowSeconds_DecaysLinearly_ThenFloorsExactlyAt045</c>
+        /// (which tests the pure formula directly, at longer explicit n values)
+        /// for the floor-boundary proof itself.
         /// </summary>
         public static IgualaParams GddDefaults => new IgualaParams(
             sequenceLength: 8,

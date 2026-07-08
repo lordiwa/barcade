@@ -214,34 +214,68 @@ namespace Barcade.Core.Tests
 
         // ── TASK-023 diagonal-collapse helper reuse ──────────────────────────────
 
-        [Test]
-        public void DiagonalStickInput_CollapsesViaTheExistingHelper_AndCanStillConfirm()
+        /// <summary>
+        /// rev-review LOW-3: parameterized across all 4 zones, not just
+        /// whichever zone seed 1's sequence happened to start with. This
+        /// matters because <c>CollapseDiagonal</c>'s COLD-START fallback
+        /// (no prior dominant) already prefers the horizontal component --
+        /// NE/SE both cold-start to Right, NW/SW both cold-start to Left. So
+        /// for the Right/Left zones, even a COMPLETELY BROKEN hysteresis
+        /// (one that ignored <c>previousDominant</c> entirely and always fell
+        /// back cold) would coincidentally still resolve to the correct
+        /// cardinal and pass. Only the Up/Down cases have no such coincidence
+        /// -- NE/SE/NW/SW never cold-start to Up or Down, so an Up/Down
+        /// confirm succeeding here is only explainable by the REAL hysteresis
+        /// (the warmed-up <c>previousDominant</c> actually being honored).
+        /// Running all 4 makes the "genuinely calls through the shared
+        /// TASK-023 helper" proof non-vacuous, not just true-by-coincidence
+        /// for 2 of the 4 zones.
+        /// </summary>
+        [TestCase(0)] // Up    -> Rojo
+        [TestCase(1)] // Right -> Azul
+        [TestCase(2)] // Down  -> Amarillo
+        [TestCase(3)] // Left  -> Verde
+        public void DiagonalStickInput_CollapsesViaTheExistingHelper_AndCanStillConfirm(int color)
         {
-            var mg = new V2Iguala(IgualaParams.GddDefaults);
-            mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
+            CardinalDir ownZone = V2Iguala.ZoneForColor(color);
+            PlayerSlot owner = AllSlots[color];
 
-            int expectedColor = mg.GetSequenceColor(0);
-            PlayerSlot owner = AllSlots[expectedColor];
-            CardinalDir ownZone = V2Iguala.ZoneForColor(expectedColor);
+            var mg = new V2Iguala(IgualaParams.GddDefaults);
+            int seed = FindSeedWithFirstColor(color);
+            mg.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
+            Assert.That(mg.GetSequenceColor(0), Is.EqualTo(color), "sensor setup: the sequence's first symbol must be the zone under test");
 
             var inputs = new FakeInputs();
 
             // Warm up InputInterpreter's own "most-recently-dominant" hysteresis
-            // memory (TASK-023) to the owner's zone via one pure-cardinal tick
-            // (no confirm yet -- button stays false).
+            // memory (TASK-023) to this zone via one pure-cardinal tick (no
+            // confirm yet -- button stays false).
             inputs.Set(owner, ToStick(ownZone), false);
             mg.Tick(inputs.Build(0));
 
             // Now aim via the DIAGONAL that straddles that same zone and confirm
             // -- CollapseDiagonal must resolve it back to ownZone via hysteresis
-            // (not the diagonal's OTHER component), and the mechanic must accept
+            // (not the diagonal's OTHER component, nor a coincidental cold-start
+            // fallback -- see class doc above), and the mechanic must accept
             // that resolved cardinal as a valid owner confirm.
             Direction8 diagonal = DiagonalAdjacentTo(ownZone);
             inputs.Set(owner, diagonal, true);
             mg.Tick(inputs.Build(1));
             mg.Tick(inputs.Build(2)); // confirms here
 
-            Assert.That(mg.Progress, Is.EqualTo(1), "a diagonal stick input must still collapse (via hysteresis) to the owner's own zone through the shared TASK-023 helper");
+            Assert.That(mg.Progress, Is.EqualTo(1), $"zone {ownZone}: a diagonal stick input must still collapse (via hysteresis) to the owner's own zone through the shared TASK-023 helper");
+        }
+
+        /// <summary>Deterministic search for a seed whose generated sequence starts with <paramref name="color"/> — avoids hand-picking a "lucky" seed.</summary>
+        private static int FindSeedWithFirstColor(int color)
+        {
+            for (int seed = 0; seed < 1000; seed++)
+            {
+                var probe = new V2Iguala(IgualaParams.GddDefaults);
+                probe.Initialize(new SeededRandom(seed), PlayerRoster.AllHuman, 1f);
+                if (probe.GetSequenceColor(0) == color) return seed;
+            }
+            throw new InvalidOperationException($"no seed in [0,1000) produced color {color} as the first symbol -- sequence generation may be broken");
         }
 
         // ── AC5: identical coop payout, no internal ranking (P2) ─────────────────
