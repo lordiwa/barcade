@@ -36,5 +36,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>GDD §7.1 — special cooperative phase (60-90s scenario composed from MECH_08/MECH_09). T-112.</summary>
         CoopPhase = 9,
+
+        /// <summary>GDD §7.2 — special asymmetric "Jefe" (boss) phase, same-tick role-swap Crawl mechanism. T-112.</summary>
+        JefePhase = 10,
     }
 }
