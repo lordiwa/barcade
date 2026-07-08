@@ -1,0 +1,35 @@
+{
+  "key": "TASK-070",
+  "title": "Ratify idle-seat board-income policy (§3.2 dead-seat spirit) + EnterBoardMove dead-RNG-draw cleanup",
+  "description": "Filed from the TASK-068 review (rev-t068 LOW-1 + LOW-3). LOW-1 (the substantive item, HUMAN decision): after TASK-068 wired BoardModel into the session FSM, an IDLE seat still accrues board tile income (MonedaPositiva, Propiedad rent, etc.) while it is correctly excluded from that round's MICROGAME reparto (TASK-056's idle-exclusion was scoped to microgame payouts only). rev-t068 judged this acceptable/out-of-scope for TASK-068 (no AC covered it; it does not violate coin conservation — income flows from the visible Bank) BUT flagged that passively farming board coins while idle is arguably counter to the GDD §3.2 dead-seat spirit (an abandoned/idle seat should not be rewarded). GATE: the human decides the intended GDD reading — either (a) idle seats are EXCLUDED from board tile income too (implement the exclusion in the BOARD_RESOLVE reconciliation, mirroring the microgame-reparto exclusion, with a test), or (b) board income for idle seats is INTENTIONAL (a small comeback/anti-snowball channel) and is documented as such. LOW-3 (trivial cleanup, fold in either way): EnterBoardMove derives a RngStream.Board RNG for BeginMovePhase that BoardModel deliberately ignores (accepted-but-unused per Annex D.2's signature + the no-bare-Random rule) — a harmless dead draw; optionally drop the derivation or comment it as an intentional signature-satisfying no-op. Read the TASK-068 reconciliation code (SessionStateMachine.EnterBoardMove/FinishBoardResolve/ApplyCoinFlows) + TASK-056 idle-exclusion + GDD §3.2/§5.6 before coding. Core/engine-free, fast-testable.",
+  "acceptance_criteria": [
+    "HUMAN ratifies the idle-seat board-income policy: either (a) idle seats are excluded from board tile income (exclusion implemented in BOARD_RESOLVE reconciliation + regression test), or (b) idle-seat board income is documented as intentional anti-snowball design. The GDD §3.2 dead-seat spirit is honored either way",
+    "rev-t068 LOW-3 addressed: EnterBoardMove's dead RngStream.Board draw for the ignored BeginMovePhase rng is either removed or explicitly commented as an intentional signature-satisfying no-op",
+    "Coin conservation + determinism from TASK-068 remain intact (no coins created/destroyed, no balance negative); fast suite green, no regression"
+  ],
+  "status": "todo",
+  "priority": "low",
+  "labels": [
+    "gdd-v2",
+    "hito-4",
+    "core",
+    "board",
+    "economy",
+    "follow-up",
+    "design-gate",
+    "T-113"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-068"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T00:41:05.727Z",
+  "updated_at": "2026-07-08T00:41:05.727Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}

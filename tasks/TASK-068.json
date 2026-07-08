@@ -8,7 +8,7 @@
     "Determinism preserved end-to-end: same (seed, input sequence) yields an identical session final-state hash across the board phases",
     "Tests-first for the wiring/reconciliation logic (fast-suite where engine-free; PlayMode/Unity-gate for session integration); fast suite green, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -24,11 +24,21 @@
   "depends_on": [
     "TASK-031"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "ea038a6",
+    "61064db",
+    "d863947"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T00:41:25.945Z",
+      "body": "CLOSED via rev-t068 FULL review — VERDICT CLOSE, no HIGH, no MEDIUM, 3 LOW. Review depth = FULL (rubric: modifies the session FSM = core tdd-tier logic + shared state, mandatory-FULL; +647/-73, 3 files). Suites re-run firsthand: fast 647->654 (+7 net = 8 new -1 retired stub), 0 regressions in the ~465 pre-existing SSM/FSM tests; slow 8/8. CENTRAL FSM-TEST-LAUNDERING AUDIT CLEAR: the 6 semantic edits are legitimate absolute->delta re-bases (each still pins the exact payout/exclusion math; baseline captured at MgIntro right after BOARD_RESOLVE with NO board phase between it and FinalWager, so delta = pure microgame payout; not circular, strictness preserved); the ~30 loop-bound widenings are budget-only (exit condition + post-loop assertions unchanged); the retired BoardStubs_AdvanceWithinOneTick only pinned the now-false 1-tick-stub behavior (superseded by 4 new timing tests + FullGraph). AC1 no-shape-change CONFIRMED: SessionPhase.cs doc-only (zero enum/value changes), FullGraph_WalksEveryStateInOrder assertion body unchanged (only budget widened), no new SessionPhase/edge. AC2 conservation exact-BY-CONSTRUCTION (every _balances mutation paired 1:1 with a CoinDelta; ApplyCoinFlows replays each; Bank=-1 visible pot excluded from _coins; Coins==BoardSnapshot.Balances at all 7 resolves; non-vacuous, Coins>=0 every tick). AC3 determinism sound (Derive full-avalanches per roundNumber; -1 setup sentinel outside [0,TotalRounds) so no stream-position aliasing; BeginMovePhase rng provably ignored, Resolve gets a fresh instance). §2.2 budget (8s move / 4s resolve inside the 10s ceiling), zero-alloc (new allocs are per-round-boundary only, steady-state TickMove/MgPlay still 0 bytes), engine-free, tdd ordering genuine (ea038a6 compile-RED 10x CS1061 on missing BoardSnapshot) all pass. git hygiene clean (disclosed local-only reset --soft re-split never pushed). COIN-POOL MODEL [ASSUMED, technically sound + §5.6-compliant per rev-t068 LOW-2, HUMAN RATIFICATION PENDING]: SessionStateMachine.Coins is the single source of truth; board seeds-in via SetBalances at BOARD_MOVE / applies-out CoinFlows at BOARD_RESOLVE. New public seam SessionStateMachine.BoardSnapshot. FOLLOW-UP TASK-070 filed (LOW-1 idle-seat board-income policy human-ratification + LOW-3 dead-RNG-draw cleanup). Added coin-pool + board-income + BoardConfig/RNG-derivation choices to the human [ASSUMED] ratification list. Linked ea038a6/61064db/d863947, depth FULL."
+    }
+  ],
   "created_at": "2026-07-07T22:42:11.373Z",
-  "updated_at": "2026-07-08T00:31:27.970Z",
+  "updated_at": "2026-07-08T00:41:25.945Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

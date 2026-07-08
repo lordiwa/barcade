@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T00:31:27.970Z",
+  "generated_at": "2026-07-08T00:41:25.945Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -406,7 +406,7 @@
     {
       "key": "TASK-068",
       "title": "Wire BoardModel into SessionStateMachine BOARD_MOVE/BOARD_RESOLVE + reconcile coin pools (GDD §5.6)",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {
@@ -414,6 +414,12 @@
       "title": "Wire SeatState.Bot roster occupancy for bot-filled seats + HumanIdle scenario (TASK-038 AC5 completion)",
       "status": "todo",
       "priority": "medium"
+    },
+    {
+      "key": "TASK-070",
+      "title": "Ratify idle-seat board-income policy (§3.2 dead-seat spirit) + EnterBoardMove dead-RNG-draw cleanup",
+      "status": "todo",
+      "priority": "low"
     }
   ]
 }
