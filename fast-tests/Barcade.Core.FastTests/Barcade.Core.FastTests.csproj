@@ -98,6 +98,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SoloSeatRotationTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\PersigueMicrogameV2Tests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\BombardeaMicrogameV2Tests.cs" />
+    <!-- TASK-076 (T-112, GDD MECH_08): cooperative hold-all-switches -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SujetaMicrogameV2Tests.cs" />
   </ItemGroup>
 
 </Project>
