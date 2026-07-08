@@ -10,7 +10,7 @@
     "Hito 4 gate: 1000 full bot-driven sessions (TASK-038 bots) show zero economic-invariant violations and every session inside the 2.2 time budget",
     "Tests-first; fast suite green after, no regression"
   ],
-  "status": "in_review",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -25,17 +25,25 @@
     "TASK-031",
     "TASK-037"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "ace998c",
+    "1bfc2f8"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "orchestrator",
       "at": "2026-07-07T23:47:46.558Z",
       "body": "De-facto dependency added (2026-07-07): TASK-068 (wire BoardModel into the SessionStateMachine BOARD_MOVE/BOARD_RESOLVE phases + reconcile the §5.6 coin economy) must land BEFORE this ticket. Rationale: TASK-042's AC5 gate (\"1000 full bot-driven sessions show zero economic-invariant violations, every session inside the §2.2 budget\") only exercises the board economy if the board is actually wired into the session FSM — which is still a 1-tick pass-through stub until TASK-068. Weapons/events/FINAL_WAGER here all emit CoinDeltas into the reconciled pool TASK-068 establishes. This ticket's declared depends_on [TASK-031, TASK-037] predates TASK-068 (filed at the TASK-031 close). Drive order: TASK-068 → TASK-042."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T02:11:38.731Z",
+      "body": "CLOSED via rev-t042 FULL review — VERDICT CLOSE, no HIGH (2 MEDIUM + 6 LOW follow-ups). *** HITO 4 COMPLETE. *** Review depth = FULL (rubric: modifies the session FSM + core board logic + a milestone gate = three mandatory-FULL triggers). Suites re-run firsthand: fast 654->668 (+14), slow 8->9 (+1), 0 regressions. CENTRAL CHARGE (gate vacuity) CLEARED: the payout-bypass is TRUE+verified (PayoutRules.cs:46,60 do coins[seat]+= with no CoinDelta, pre-existing TASK-051/052) but the gate is NOT substantially vacuous — negative-balance (replay-derived, an unclamped drain FAILS) + FINAL_WAGER-conservation (sum equality) assertions are genuinely failable; weapon/evento conservation faithful-by-construction; the sweep genuinely grants+fires weapons + draws eventos (BoardBotDriver 80% fire hits both fire and restriction-rejection paths). AC1 weapons: guante leader-gated (tie->lowest seat [ASSUMED]) target->Bank 50% then Bank->recipients<=2sq; iman <=4sq steal 6-clamped-or-object; colmena <=1sq -3->thrower, thrower-immune (tested); ineligible tap = no-op, weapon not consumed. AC2 inventory max1/replace/consume + two sequential resolve sub-windows (4s deposit + 4s weapon = 8s < 10s §2.2). AC3 eventos: DobleVelocidad x1.5 confirmed reaching EsquivaMicrogame effective params, Apagon sticky-hide-until-GameOver, LluviaDeMonedas +2 (reconciliation break caught by 2 pre-existing tests + FIXED via SetBalances re-sync, verified). AC4 FINAL_WAGER fully PRE-EXISTING (audited ~10 wager tests, no change). AC5 Hito4 gate: 1000 full sessions 8.8s, max 145.6s vs 289s ceiling, zero econ + zero time violations. NO new SessionPhase/edge (SessionPhase.cs untouched). NO existing-test laundering (both modified test files purely additive, zero deletions). Determinism clean (all via SeededRandom RngStream.Board/.Bots). tdd ordering genuine (ace998c compile-RED CS1061). FOLLOW-UPS: TASK-071 (M1 emit payout CoinDeltas + drive real payouts through the gate; M2 add per-seed Coins==BoardSnapshot.Balances assertion across 1000 seeds), TASK-072 (L5 MuerteSubita/ModoPinata behavioral effects, blocked on a future lives/damage mechanic). HUMAN [ASSUMED] RATIFICATION (design nods, non-blocking): L2 Guante floor-share includes the TARGET as a recipient (leader recovers ~25%, blunts the anti-leader weapon); L6 LluviaDeMonedas '+2 a todos' includes IDLE seats; plus the [ASSUMED] aggregate time ceiling formula. Linked ace998c/1bfc2f8, depth FULL."
     }
   ],
   "created_at": "2026-07-07T04:22:23.560Z",
-  "updated_at": "2026-07-08T01:59:31.345Z",
+  "updated_at": "2026-07-08T02:11:38.731Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

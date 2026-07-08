@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T01:59:31.345Z",
+  "generated_at": "2026-07-08T02:11:38.731Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -250,7 +250,7 @@
     {
       "key": "TASK-042",
       "title": "GDD T-114 — Arsenal cangrejo + eventos + FINAL_WAGER en tablero (§5.4, §5.5) [gate Hito 4]",
-      "status": "in_review",
+      "status": "done",
       "priority": "high"
     },
     {
@@ -418,6 +418,18 @@
     {
       "key": "TASK-070",
       "title": "Ratify idle-seat board-income policy (§3.2 dead-seat spirit) + EnterBoardMove dead-RNG-draw cleanup",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "key": "TASK-071",
+      "title": "Strengthen the Hito 4 economic gate: emit microgame-payout CoinDeltas + per-seed ledger-reconciliation assertion",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-072",
+      "title": "Wire MuerteSubita + ModoPinata evento behavioral effects once a lives/damage-capable mechanic exists",
       "status": "todo",
       "priority": "low"
     }

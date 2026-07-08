@@ -1,0 +1,36 @@
+{
+  "key": "TASK-071",
+  "title": "Strengthen the Hito 4 economic gate: emit microgame-payout CoinDeltas + per-seed ledger-reconciliation assertion",
+  "description": "Filed from the TASK-042 review (rev-t042 MEDIUM M1 + M2). The Hito 4 1000-session economic-invariant gate (Hito4GateTests.cs) is genuine and non-vacuous for the board/weapon/evento/wager economy, but two rigor gaps remain: M1 — the gate deliberately runs a NeverFinishingMicrogame fake to avoid the real microgame-PAYOUT path, because PayoutRules.ApplyCompetitive/ApplyCoop (PayoutRules.cs:46,60) do a direct coins[seat]+= with NO CoinDelta emitted (a pre-existing TASK-051/052 characteristic). So the sweep's 'zero economic-invariant violations' covers board/weapon/evento/wager flows but NOT microgame payouts. Payouts are income (they only ADD coins, sourced from the visible Bank), so they don't violate §5.3's hard 'coins taken must not vanish' invariant — but the missing CoinDelta is a 'flujo = espectáculo' (§5.3) presentation gap and leaves the payout economy outside the milestone gate. WORK M1: make PayoutRules emit origin(Bank)->destination(seat) CoinDeltas for every payout, then remove the NeverFinishingMicrogame workaround so the gate drives REAL payouts across all 1000 sessions and folds them into the conservation check. M2 — CheckRoundInvariant (Hito4GateTests.cs:169-177) fires at every BOARD_RESOLVE exit with fsm.BoardSnapshot available but only checks CoinDelta.Amount>0; add the strongest §5.3 check — assert Coins == BoardSnapshot.Balances at every resolve across all 1000 seeds (today that reconciliation is only in 3 pre-existing fast tests over one session). Read PayoutRules + the TASK-042 Hito4GateTests + the TASK-068 reconciliation code. Core/engine-free, fast+slow testable.",
+  "acceptance_criteria": [
+    "PayoutRules emits a visible origin(Bank)->destination(seat) CoinDelta for every competitive/coop payout, satisfying §5.3 'flujo = espectáculo'; no coins created without a delta",
+    "The Hito 4 1000-session sweep drives REAL microgame payouts (NeverFinishingMicrogame workaround removed) and folds payout flows into the zero-economic-invariant-violation check",
+    "The 1000-session sweep asserts Coins == BoardSnapshot.Balances at every BOARD_RESOLVE exit (per-seed reconciliation, not just delta positivity)",
+    "Fast + slow suites green, no regression; the strengthened gate still passes with zero violations (or surfaces a real one)"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "gdd-v2",
+    "hito-4",
+    "core",
+    "board",
+    "economy",
+    "testing",
+    "follow-up",
+    "T-114"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-042"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T02:10:58.866Z",
+  "updated_at": "2026-07-08T02:10:58.866Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
