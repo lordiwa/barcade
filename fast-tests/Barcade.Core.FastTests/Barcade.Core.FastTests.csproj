@@ -28,6 +28,15 @@
              Exclude="..\..\Barcade\Assets\Barcade\Core\Runtime\**\*.asmdef" />
   </ItemGroup>
 
+  <!-- TASK-027 (GDD T-104b): Barcade.Presentation, a UnityEngine-free stage
+       projection/camera/interpolation math module. Kept out of Core per
+       GDD §10.4 ("Barcade.Core no conoce metros ni ejes de Unity") but is
+       itself plain C#, so it's linked into the fast suite the same way. -->
+  <ItemGroup>
+    <Compile Include="..\..\Barcade\Assets\Barcade\Presentation\**\*.cs"
+             Exclude="..\..\Barcade\Assets\Barcade\Presentation\**\*.asmdef" />
+  </ItemGroup>
+
   <!-- Link pure-logic EditMode test files (no UnityEngine / [UnityTest]) -->
   <ItemGroup>
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\InputSnapshotTests.cs" />
@@ -79,6 +88,12 @@
     <!-- TASK-038 (T-110, GDD Annex D.3/§16): IBotPolicy + 3 calibrations + statistical harness -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\BotsTests.cs" />
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SessionStateMachineBotSeatFillTests.cs" />
+    <!-- TASK-027 (GDD T-104b): StagePresenter 3D pure projection/camera/interpolation math -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\StageProjectionTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RenderInterpolationTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CameraRigMathTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\SeatVisualsTests.cs" />
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\RenderStateSnapshotTests.cs" />
   </ItemGroup>
 
 </Project>
