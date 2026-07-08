@@ -1442,6 +1442,91 @@ namespace Barcade.Core.Tests
                 "the climax's payoutTable must never be applied as a regular per-round payout -- only FinalWager.Resolve may change coins here");
         }
 
+        // ── TASK-071 (rev-t042 M1): LastMicrogamePayout mirrors PayoutRules' real,
+        // visible Bank-origin CoinDelta[] for the round that just paid out ──────
+
+        [Test]
+        public void LastMicrogamePayout_CompetitiveRound_MatchesBankOriginDeltas()
+        {
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(700), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
+
+            Assert.That(fsm.LastMicrogamePayout.Length, Is.EqualTo(4), "every seat placed 1..4 gets a delta");
+            foreach (CoinDelta d in fsm.LastMicrogamePayout)
+                Assert.That(d.Origin, Is.EqualTo(CoinDelta.Bank), "payouts are Bank income, never seat-to-seat");
+            Assert.That(fsm.LastMicrogamePayout[0].Destination, Is.EqualTo(0));
+            Assert.That(fsm.LastMicrogamePayout[0].Amount, Is.EqualTo(PayoutRules.DefaultCompetitive[0]),
+                "place 1 pays the default table's first entry");
+        }
+
+        [Test]
+        public void LastMicrogamePayout_CoopRound_MatchesBankOriginDeltas()
+        {
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(701), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fsm.LastMicrogamePayout.Length, Is.EqualTo(4), "every active seat gets a delta on coop success");
+            foreach (CoinDelta d in fsm.LastMicrogamePayout)
+            {
+                Assert.That(d.Origin, Is.EqualTo(CoinDelta.Bank));
+                Assert.That(d.Amount, Is.EqualTo(PayoutRules.DefaultCoopSuccess));
+            }
+        }
+
+        [Test]
+        public void LastMicrogamePayout_ClimaxRound_IsEmpty_NeverLeaksThePreviousRound()
+        {
+            // AC3 mirror (TASK-052): the climax round is exempt from regular
+            // payout -- LastMicrogamePayout must reset to empty for it rather
+            // than keep showing round 1's stale deltas.
+            var config = FastConfig(totalRounds: 1);
+            var fsm = new SessionStateMachine(new SeededRandom(702), config);
+            var roundFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(roundFake, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.LastMicrogamePayout.Length, Is.GreaterThan(0), "test setup sanity: R1 must have produced a payout");
+
+            var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(climaxFake, "FINAL", playDurationSeconds: 0.02f);
+
+            for (int t = 1000; t < 1200 && fsm.CurrentPhase == SessionPhase.FinalWager; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, false, Direction8.N);
+                inputs.Set(PlayerSlot.Azul, false, Direction8.N);
+                inputs.Set(PlayerSlot.Amarillo, false, Direction8.N);
+                inputs.Set(PlayerSlot.Verde, false, Direction8.N);
+                fsm.Tick(inputs.Build(t));
+            }
+            for (int t = 2000; t < 2020 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver));
+
+            Assert.That(fsm.LastMicrogamePayout, Is.Empty, "climax round must not leak round 1's payout deltas");
+        }
+
         [Test]
         public void GameOver_RanksViaFinalRanking_UsingDrawnBonusStars()
         {

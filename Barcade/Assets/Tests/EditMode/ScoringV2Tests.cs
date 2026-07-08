@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Barcade.Core;
+using Barcade.Core.Board;
 using Barcade.Core.Scoring;
 
 namespace Barcade.Core.Tests
@@ -74,6 +75,49 @@ namespace Barcade.Core.Tests
 
             PayoutRules.ApplyCoop(coins, false, PayoutRules.DefaultCoopFail, 0b0111);
             Assert.That(coins, Is.EqualTo(Arr(5, 5, 5, 0)), "coop fail still pays 1 — never zero");
+        }
+
+        // ── TASK-071 (rev-t042 M1): payouts emit visible Bank->seat CoinDeltas
+        // (GDD 5.3 "flujo = espectáculo") alongside the direct coins[] mutation ──
+
+        [Test]
+        public void Payout_Competitive_EmitsBankOriginCoinDeltaPerPaidSeat()
+        {
+            int[] coins = Arr(10, 10, 10, 10);
+            CoinDelta[] deltas = PayoutRules.ApplyCompetitive(coins, Arr(1, 1, 3, 4), PayoutRules.DefaultCompetitive);
+
+            Assert.That(deltas.Length, Is.EqualTo(4), "every seat with a place > 0 gets one delta");
+            foreach (CoinDelta d in deltas)
+                Assert.That(d.Origin, Is.EqualTo(CoinDelta.Bank), "payouts are Bank income, never seat-to-seat");
+            Assert.That(deltas[0].Destination, Is.EqualTo(0));
+            Assert.That(deltas[0].Amount, Is.EqualTo(6), "place 1 (tied) pays the default table's first entry");
+            Assert.That(deltas[3].Destination, Is.EqualTo(3));
+            Assert.That(deltas[3].Amount, Is.EqualTo(1), "place 4 pays the default table's last entry");
+        }
+
+        [Test]
+        public void Payout_Competitive_AbsentSeatEmitsNoDelta()
+        {
+            int[] coins = Arr(5, 5, 5, 5);
+            CoinDelta[] deltas = PayoutRules.ApplyCompetitive(coins, Arr(1, 2, 3, 0), PayoutRules.DefaultCompetitive);
+
+            Assert.That(deltas.Length, Is.EqualTo(3), "place 0 (absent) seat gets no delta at all");
+            foreach (CoinDelta d in deltas)
+                Assert.That(d.Destination, Is.Not.EqualTo(3));
+        }
+
+        [Test]
+        public void Payout_Coop_EmitsBankOriginCoinDeltaPerActiveSeat()
+        {
+            int[] coins = new int[4];
+            CoinDelta[] deltas = PayoutRules.ApplyCoop(coins, true, PayoutRules.DefaultCoopSuccess, 0b0111);
+
+            Assert.That(deltas.Length, Is.EqualTo(3), "only active seats (mask) get a delta");
+            foreach (CoinDelta d in deltas)
+            {
+                Assert.That(d.Origin, Is.EqualTo(CoinDelta.Bank));
+                Assert.That(d.Amount, Is.EqualTo(4));
+            }
         }
 
         // ── AC2: FINAL_WAGER ─────────────────────────────────────────────────
