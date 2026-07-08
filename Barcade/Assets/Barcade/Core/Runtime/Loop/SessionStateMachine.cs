@@ -394,6 +394,11 @@ namespace Barcade.Core
         // and CaptureResult.
         private int[] _activePayoutTable;
         private V2.MicrogameResult? _lastResult;
+        // TASK-071: every CoinDelta emitted by this round's regular microgame
+        // payout (PayoutRules.ApplyCompetitive/ApplyCoop) -- empty (never null)
+        // for the climax round (payout-exempt) or a ceiling-cutoff round with no
+        // legitimate finish. See CaptureResult.
+        private CoinDelta[] _lastMicrogamePayout = Array.Empty<CoinDelta>();
 
         private SessionCounters _counters = new SessionCounters();
         private int[] _coins = new int[4];
@@ -496,6 +501,17 @@ namespace Barcade.Core
 
         /// <summary>TASK-042: every coin flow from the most recently completed BOARD_RESOLVE -- BoardModel's own tile/weapon CoinDeltas plus this step's own evento-application flows (LluviaDeMonedas), merged. Null before BOARD_RESOLVE has completed at least once this session.</summary>
         public BoardResolution? LastBoardResolution => _lastBoardResolution;
+
+        /// <summary>
+        /// TASK-071 (rev-t042 M1): every Bank-origin <see cref="CoinDelta"/> this
+        /// round's regular microgame payout emitted (<see cref="PayoutRules.ApplyCompetitive"/>
+        /// / <see cref="PayoutRules.ApplyCoop"/>) -- GDD §5.3 "flujo = espectáculo"
+        /// made externally verifiable, same seam as <see cref="LastBoardResolution"/>.
+        /// Empty (never null) for the payout-exempt climax round or a ceiling
+        /// cutoff with no legitimate finish. Updated the tick MgResult (or the
+        /// FinalMg-equivalent completion) is reached.
+        /// </summary>
+        public CoinDelta[] LastMicrogamePayout => _lastMicrogamePayout;
 
         /// <summary>Per-seat completed-microgame win counts this session (competitive place 1, or every active seat on a coop success) — the <see cref="FinalRanking"/> tiebreak source.</summary>
         public int[] MicrogameWins => _microgameWins;
@@ -878,6 +894,12 @@ namespace Barcade.Core
         /// </summary>
         private void CaptureResult(bool isClimax)
         {
+            // TASK-071: reset every call so a climax round or a ceiling-cutoff
+            // round with no legitimate finish never leaks the PREVIOUS round's
+            // payout deltas -- mirrors _lastResult's own "null unless genuinely
+            // captured this call" discipline below.
+            _lastMicrogamePayout = Array.Empty<CoinDelta>();
+
             _lastResult = _activeMicrogame != null && _activeMicrogame.IsFinished
                 ? _activeMicrogame.GetResult()
                 : (V2.MicrogameResult?)null;
@@ -935,7 +957,7 @@ namespace Barcade.Core
                     // if a non-null table isn't exactly 4 entries, so no separate
                     // length guard is needed on this branch.
                     int[] payoutTable = _activePayoutTable ?? PayoutRules.DefaultCompetitive;
-                    PayoutRules.ApplyCompetitive(_coins, places, payoutTable);
+                    _lastMicrogamePayout = PayoutRules.ApplyCompetitive(_coins, places, payoutTable);
                 }
             }
             else
@@ -969,7 +991,7 @@ namespace Barcade.Core
                     // TASK-056: pay only active, non-Idle seats — a dead seat is excluded
                     // from the coop reparto too (with no Idle seat this is identical to
                     // ActiveSeatsMask, so TASK-050/052 coop payouts are unaffected).
-                    PayoutRules.ApplyCoop(_coins, success, payout, PayoutEligibleSeatsMask());
+                    _lastMicrogamePayout = PayoutRules.ApplyCoop(_coins, success, payout, PayoutEligibleSeatsMask());
                 }
             }
         }
