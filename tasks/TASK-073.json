@@ -8,7 +8,7 @@
     "The Unity EditMode test assembly compiles clean (verified via MCP recompile / get_console_logs: zero errors)",
     "Grep confirms no other Is.AnyOf (or other known-divergent newer-NUnit constructs) remain unaddressed in Assets"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "labels": [
     "unity",
@@ -20,11 +20,24 @@
   ],
   "assignee": null,
   "depends_on": [],
-  "linked_commits": [],
+  "linked_commits": [
+    "d224876"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T02:52:21.049Z",
+      "body": "[in-review] Fix landed as d224876 (tests-after tier). Orchestrator-side verification of the Unity-gated ACs (reviewer has no Editor access; recording evidence here):\n\n- AC3 (Unity EditMode assembly compiles clean, 0 errors): VERIFIED. On bridge reconnect this session, get_console_logs(logType=error) returned [] on two separate clean reads, and the Editor successfully executed an EditMode run (assembly demonstrably compiled). The prior-session CS0117 'Is.AnyOf' error is gone.\n- AC4 (no other divergent NUnit constructs remain in Assets): VERIFIED. Grep across Barcade/Assets for Is.AnyOf|Is.SupersetOf|Is.SubsetOf|Does.Contain.Key -> no matches.\n- AC2 (headless fast suite green): 668/668 on d224876 (dev-reported, prior session).\n\nNOTE on step-5 bonus: a FULL Unity EditMode run to confirm the whole suite green could not return structured results — the 668+ test run outlasts the MCP request timeout and each run appears to trigger a domain reload that jams the bridge (known pitfall; handoff recommends disabling Reload Domain). AC3's literal criterion (get_console_logs zero errors) is met regardless; full-suite green is high-confidence by parity with the headless 668/668.\n\nReviewer scope: static review of the one-line diff d224876 vs AC1 + AC2 semantics (is Is.EqualTo(a).Or.EqualTo(b) exactly equivalent to Is.AnyOf(a,b) for the 2-element seat set?). Base for review = c0ffee not needed; single commit d224876."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T02:54:45.717Z",
+      "body": "CLOSED (tests-after). Fresh-context reviewer verdict: APPROVE, 0 findings (HIGH/MED/LOW all none). All ACs verified:\n- AC1: Is.AnyOf removed at ReaccionaMicrogameTests.cs:596 -> Is.EqualTo((int)Rojo).Or.EqualTo((int)Azul). (d224876)\n- AC2: headless fast suite 668/668 green.\n- AC3: Unity EditMode assembly compiles clean — get_console_logs(error)=[] on two clean reads this session; the prior CS0117 'Is.AnyOf' is gone and the Editor executed an EditMode run (assembly compiled).\n- AC4: grep across Barcade/Assets for Is.AnyOf|Is.SupersetOf|Is.SubsetOf|Does.Contain.Key -> no matches (reviewer independently re-confirmed no Is.AnyOf).\n\nReviewer proof of equivalence: PlayerRank.Seat is int; PlayerSlot is int-backed enum (Rojo=0, Azul=1), so both sides are int==int with identical pass/fail truth table, no coercion, no message-masking; Is.EqualTo/.Or are pre-3.6 NUnit primitives present in Unity's bundled 3.5.x — exactly the version divergence at issue. Test EmptySeats_AreExcludedFromRanking still proves 2 ranks each on an active seat.\n\nNOTE: full-suite Unity EditMode green (resume step 5) could not be captured — the 668+ run outlasts the MCP request timeout and each run triggers a domain reload that jams the bridge (known pitfall). AC3's literal criterion (0 console errors) is met; full-suite green is high-confidence by parity with headless 668/668. Filed TASK-074 to align the headless NUnit version to Unity's (or add a periodic Unity-compile gate) so this class of divergence is caught by the primary gate, per the ticket's broader note.\n\n30 Unity-generated .meta files for the new Board/+Bots/ files committed alongside this close."
+    }
+  ],
   "created_at": "2026-07-08T02:29:26.255Z",
-  "updated_at": "2026-07-08T02:29:35.096Z",
+  "updated_at": "2026-07-08T02:54:45.717Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",

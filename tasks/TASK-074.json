@@ -1,0 +1,33 @@
+{
+  "key": "TASK-074",
+  "title": "Close the headless-NUnit vs Unity-NUnit divergence gap so Unity-incompatible test constructs are caught by the primary gate",
+  "description": "Follow-up spun out of TASK-073. TASK-073 fixed a single symptom: the headless fast-tests csproj references NUnit 3.14.0 while Unity's Test Framework bundles an older NUnit (~3.5.x), so a test using Is.AnyOf (added in NUnit 3.6) compiled+passed headless but broke the ENTIRE Unity EditMode assembly (CS0117). The headless gate — our primary, fast, always-run gate — cannot catch this class of divergence, so it only surfaced during a manual Unity compile gate.\n\nGoal: make the primary gate catch Unity-incompatible NUnit usage, so we do not rediscover this ticket-by-ticket. Options to evaluate (pick one in planning):\n(A) Pin the headless test project's NUnit package version to match Unity's bundled NUnit exactly, so anything that compiles headless also compiles in Unity. Lowest ongoing cost; may lose newer NUnit conveniences.\n(B) Add a periodic/CI Unity-compile check (batchmode -runTests or -quit compile) that runs the EditMode assembly through Unity's NUnit, catching divergence automatically. Higher infra cost; catches more than just NUnit (any Unity-API divergence).\n(C) A lightweight static lint/grep denylist of known post-3.6 NUnit constructs (Is.AnyOf, etc.) in the headless gate. Cheap, but a denylist is inherently incomplete.\n\nInvestigate what NUnit version Unity's Test Framework actually bundles for this project's Unity version, decide (A/B/C or combination), and implement. Reference: the CS0117 was on Is.AnyOf; TASK-073's reviewer also noted Is.EquivalentTo at MicrogameDefinitionV2Tests.cs:262 is pre-3.6 (NUnit 2.x-era) and therefore SAFE — do not flag it as divergent.",
+  "acceptance_criteria": [
+    "The exact NUnit version bundled by Unity's Test Framework (for this project's Unity version) is documented in the ticket or a repo note",
+    "A mechanism exists that would FAIL the primary (headless or CI) gate if a test uses an NUnit construct unavailable in Unity's bundled NUnit — via version-pinning (A), a Unity-compile CI step (B), a static denylist (C), or a combination",
+    "The chosen mechanism is demonstrated to catch the original failure: a test reintroducing Is.AnyOf is shown to be flagged/failed by the new gate (not silently passing headless)",
+    "The headless fast suite and the Unity EditMode assembly both remain green after the change",
+    "No false positives on existing safe pre-3.6 constructs (e.g. Is.EquivalentTo at MicrogameDefinitionV2Tests.cs:262 must NOT be flagged)"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "testing",
+    "nunit",
+    "compile-gate",
+    "ci",
+    "hygiene",
+    "follow-up"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T02:55:10.760Z",
+  "updated_at": "2026-07-08T02:55:10.760Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
