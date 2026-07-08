@@ -34,10 +34,15 @@
       "author": "orchestrator",
       "at": "2026-07-08T02:54:45.717Z",
       "body": "CLOSED (tests-after). Fresh-context reviewer verdict: APPROVE, 0 findings (HIGH/MED/LOW all none). All ACs verified:\n- AC1: Is.AnyOf removed at ReaccionaMicrogameTests.cs:596 -> Is.EqualTo((int)Rojo).Or.EqualTo((int)Azul). (d224876)\n- AC2: headless fast suite 668/668 green.\n- AC3: Unity EditMode assembly compiles clean — get_console_logs(error)=[] on two clean reads this session; the prior CS0117 'Is.AnyOf' is gone and the Editor executed an EditMode run (assembly compiled).\n- AC4: grep across Barcade/Assets for Is.AnyOf|Is.SupersetOf|Is.SubsetOf|Does.Contain.Key -> no matches (reviewer independently re-confirmed no Is.AnyOf).\n\nReviewer proof of equivalence: PlayerRank.Seat is int; PlayerSlot is int-backed enum (Rojo=0, Azul=1), so both sides are int==int with identical pass/fail truth table, no coercion, no message-masking; Is.EqualTo/.Or are pre-3.6 NUnit primitives present in Unity's bundled 3.5.x — exactly the version divergence at issue. Test EmptySeats_AreExcludedFromRanking still proves 2 ranks each on an active seat.\n\nNOTE: full-suite Unity EditMode green (resume step 5) could not be captured — the 668+ run outlasts the MCP request timeout and each run triggers a domain reload that jams the bridge (known pitfall). AC3's literal criterion (0 console errors) is met; full-suite green is high-confidence by parity with headless 668/668. Filed TASK-074 to align the headless NUnit version to Unity's (or add a periodic Unity-compile gate) so this class of divergence is caught by the primary gate, per the ticket's broader note.\n\n30 Unity-generated .meta files for the new Board/+Bots/ files committed alongside this close."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T03:28:20.868Z",
+      "body": "POST-CLOSE CONFIRMATION (step-5 bonus now satisfied directly): human ran the FULL Unity EditMode suite via the Test Runner UI 2026-07-08 03:23-03:25Z. ReaccionaMicrogameTests fixture = 25/25 PASSED, including EmptySeats_AreExcludedFromRanking (test id 1483) — the exact test whose Is.AnyOf line was fixed in d224876. This is the direct proof that the fix compiles AND passes under Unity's bundled NUnit 3.5.0.0 (engine-version confirmed in the run header). Overall run 663/669 (6 failures are UNRELATED Unity-Test-Runner environment issues — CWD-relative path walks + a GC allocation sensor — filed as TASK-075; none touch Reacciona or product logic)."
     }
   ],
   "created_at": "2026-07-08T02:29:26.255Z",
-  "updated_at": "2026-07-08T02:54:45.717Z",
+  "updated_at": "2026-07-08T03:28:20.868Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",

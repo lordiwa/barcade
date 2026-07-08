@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T03:05:00.448Z",
+  "generated_at": "2026-07-08T03:28:43.151Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -160,7 +160,7 @@
     {
       "key": "TASK-027",
       "title": "GDD T-104b — StagePresenter 3D: logical→world projection, StageProfiles (4 camera rigs), base prefab set (§10.4)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
@@ -442,6 +442,12 @@
     {
       "key": "TASK-074",
       "title": "Close the headless-NUnit vs Unity-NUnit divergence gap so Unity-incompatible test constructs are caught by the primary gate",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "key": "TASK-075",
+      "title": "Fix 6 EditMode tests that fail under the Unity Test Runner (CWD-relative path walks + GC allocation sensor) though green headless",
       "status": "todo",
       "priority": "medium"
     }

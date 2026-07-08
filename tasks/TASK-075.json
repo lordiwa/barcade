@@ -1,0 +1,32 @@
+{
+  "key": "TASK-075",
+  "title": "Fix 6 EditMode tests that fail under the Unity Test Runner (CWD-relative path walks + GC allocation sensor) though green headless",
+  "description": "Found 2026-07-08 when the human ran the FULL Unity EditMode suite via the Test Runner UI: 663/669 passed, 6 failed. All 6 are Unity-Test-Runner ENVIRONMENT issues, NOT product-logic bugs (the same tests are green in the headless fast suite, 668/668). They surface because the headless gate runs with CWD = repo root while the Unity Editor runs tests with CWD = the Unity install dir (C:\\\\Program Files\\\\Unity\\\\Hub\\\\Editor\\\\6000.0.38f1\\\\Editor). This is the same 'green-headless / red-Unity' divergence family as TASK-074 (NUnit version) but via different mechanisms (filesystem CWD assumption + GC sensor behavior).\n\nTHE 6 FAILURES:\n(1-3) MicrogameContentGeneratorSpecsTests.{EverySpec_DurationIsWithinGdd11_1Bound, EverySpec_MigratesToAValidV2Definition, ExactlyThreeSpecsExist} — System.IO.FileNotFoundException 'Could not locate Barcade/Assets/Barcade/Editor/MicrogameContentGenerator.cs by walking up from <Unity install dir>'. Root: FindGeneratorSource() at MicrogameContentGeneratorSpecsTests.cs:57 walks up from Directory.GetCurrentDirectory().\n(4-5) MicrogameDefinitionMigratorTests.{EveryDefinition_MigratesToAValidV2Definition_WithNoFieldLoss, ExactlyTwelveDefinitionAssetsExist} — System.IO.DirectoryNotFoundException 'Could not locate Barcade/Assets/Barcade/Content/Microgames by walking up from <Unity install dir>'. Root: FindMicrogamesFolder() at MicrogameDefinitionMigratorTests.cs:47, same CWD walk-up pattern.\n(6) BoardModelTests.AllocationSensor_CanActuallyDetectAnAllocation (BoardModelTests.cs:334) — 'GC.GetAllocatedBytesForCurrentThread must observe a deliberate allocation; Expected greater than 0; But was 0'. Under Unity's editor runtime the sensor read a 0-byte delta for a deliberate allocation. SUBTLE VALIDITY CONCERN: if that sensor always reads 0 under Unity, then the SteadyStateTick_AllocatesNoManagedMemory-style no-alloc assertions (which DID pass under Unity) may be passing VACUOUSLY under the Unity runner while remaining meaningful headless. Investigate whether the no-alloc guarantees are actually being exercised under Unity.\n\nFIX DIRECTION (evaluate in planning): for (1-5), anchor path resolution on a Unity-aware root instead of Directory.GetCurrentDirectory() — e.g. try UnityEngine.Application.dataPath (== <project>/Assets in the Editor) first, fall back to the CWD walk-up for the headless dotnet run so BOTH environments resolve. For (6), determine why GC.GetAllocatedBytesForCurrentThread returns 0 under Unity's Mono editor runtime and either make the sensor Unity-robust or platform-guard the sanity assertion, ensuring the no-alloc tests are not vacuous under Unity.\n\nGOAL: Unity Test Runner EditMode suite reaches 669/669 (or the sanity-guard is correctly platform-scoped), headless fast suite stays 668/668, and the no-alloc assertions remain non-vacuous in both environments.",
+  "acceptance_criteria": [
+    "The Unity EditMode Test Runner run shows 0 failures for MicrogameContentGeneratorSpecsTests (3 tests) and MicrogameDefinitionMigratorTests (2 tests) — path resolution works whether CWD is the repo root (headless) or the Unity install dir (Editor)",
+    "BoardModelTests.AllocationSensor_CanActuallyDetectAnAllocation either passes under Unity or is correctly platform-scoped, AND it is verified that the no-alloc assertions (e.g. SteadyStateTick_AllocatesNoManagedMemory) are NOT vacuous under the Unity runner",
+    "The headless fast suite remains green (668/668) after the changes",
+    "No new CWD-relative Directory.GetCurrentDirectory() walk-ups are introduced; the chosen anchor strategy is documented so future EditMode tests follow it"
+  ],
+  "status": "todo",
+  "priority": "medium",
+  "labels": [
+    "testing",
+    "unity",
+    "compile-gate",
+    "test-infra",
+    "follow-up",
+    "hygiene"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T03:28:43.151Z",
+  "updated_at": "2026-07-08T03:28:43.151Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
