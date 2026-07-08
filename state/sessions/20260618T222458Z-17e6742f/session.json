@@ -2,7 +2,7 @@
   "schema_version": 2,
   "session_id": "20260618T222458Z-17e6742f",
   "lifecycle_state": "active",
-  "updated_at": "2026-07-08T20:08:06.000Z",
+  "updated_at": "2026-07-08T20:08:43.442Z",
   "active_task": null,
   "workflow_step": "idle",
   "next_action": "AWAITING HUMAN on ONE blocking decision + a ratification batch. (1) BLOCKER — TASK-078 HIGH-1: coop phase §7.1 built strictly-sequential; passes literal ACs but hollows out 2 of 4 GDD ergonomic elements (interseccionForzada crossed-routes, sueloDinamico renegotiate-assignments) that presuppose SIMULTANEOUS distributed play (P2). FORK (A) accept sequential + follow-up + fix the 2 MEDIUMs + close, or (B) rebuild simultaneous multi-station. This unblocks TASK-078 AND TASK-041 (epic: sequencer-quota AC6 + Hito-3 gate AC7). (2) RATIFICATION LIST (non-blocking): MECH_07 single-hit win; Jefe AoE-stun + hitbox-1.5x; always-bot-fill vs §3.2 configurable (TASK-080); MECH_06/07/08/09 engineering defaults; coop MEDIUM-1 half-inert sueloDinamico. On human input: resume, apply the HIGH-1 path to TASK-078, then drive TASK-041 epic to close Hito 3. Full detail in artifacts/loop-stop-reason.txt + each ticket comment. Unity-gated batch (TASK-028/055/036/075) + design-gates (066/067/070) still await a human+Editor window.",
@@ -175,7 +175,7 @@
     "auto_version_bump_on_milestone": false,
     "auto_consolidate": true
   },
-  "mode": "loop",
+  "mode": "harness",
   "loop_state": {
     "current_ticket": null,
     "phase": "idle",
