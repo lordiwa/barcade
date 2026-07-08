@@ -113,21 +113,40 @@ namespace Barcade.SlowTests
             var failures = new List<string>();
             var stopwatch = Stopwatch.StartNew();
             double maxObservedSeconds = 0;
+            int payoutObservedCount = 0;
+            int reconciliationRunCount = 0;
 
             for (int seed = 0; seed < SessionCount; seed++)
-                RunOneSession(seed, config, ceilingSeconds, failures, ref maxObservedSeconds);
+                RunOneSession(seed, config, ceilingSeconds, failures, ref maxObservedSeconds, ref payoutObservedCount, ref reconciliationRunCount);
 
             stopwatch.Stop();
             TestContext.Progress.WriteLine(
                 $"[SLOW-SWEEP] Hito4 gate: {SessionCount} full bot-driven sessions in {stopwatch.Elapsed} " +
-                $"(max observed session length {maxObservedSeconds:F1}s, budget ceiling {ceilingSeconds:F1}s)");
+                $"(max observed session length {maxObservedSeconds:F1}s, budget ceiling {ceilingSeconds:F1}s, " +
+                $"payouts observed {payoutObservedCount}, reconciliations run {reconciliationRunCount})");
 
             Assert.That(failures, Is.Empty,
                 $"AC5 Hito4 gate violations ({failures.Count}/{SessionCount} seeds):\n" + string.Join("\n", failures.GetRange(0, Math.Min(30, failures.Count))));
+
+            // rev-t042 review fix round (M1/L1): a gate that could pass with zero
+            // payouts/zero reconciliations OBSERVED would be vacuously green --
+            // exactly the failure mode this ticket exists to close. Every regular
+            // (non-climax) round produces exactly one BOARD_RESOLVE and one
+            // MgResult entry (the climax round has no board sub-loop and never
+            // reaches SessionPhase.MgResult -- see TickFinalMg), so both counts
+            // have a precise expected value, not just ">0".
+            int expectedRegularRounds = SessionCount * config.TotalRounds;
+            Assert.That(payoutObservedCount, Is.EqualTo(expectedRegularRounds),
+                "every regular round across all 1000 seeds must produce a real, observed microgame payout " +
+                "(AC2) -- a shortfall means some rounds silently produced none (the vacuity this ticket closes)");
+            Assert.That(reconciliationRunCount, Is.EqualTo(expectedRegularRounds),
+                "every regular round's BOARD_RESOLVE must have populated LastBoardResolution and been " +
+                "reconciled (AC3) -- a shortfall means CheckRoundInvariant silently skipped some rounds");
         }
 
         private static void RunOneSession(
-            int seed, SessionStateMachineConfig config, float ceilingSeconds, List<string> failures, ref double maxObservedSeconds)
+            int seed, SessionStateMachineConfig config, float ceilingSeconds, List<string> failures,
+            ref double maxObservedSeconds, ref int payoutObservedCount, ref int reconciliationRunCount)
         {
             var fsm = new SessionStateMachine(new SeededRandom(seed), config);
             var driver = new BoardBotDriver(SeededRandom.Derive(seed, roundNumber: 0, RngStream.Bots));
@@ -149,7 +168,7 @@ namespace Barcade.SlowTests
                 fsm.Tick(driver.Decide(fsm, t));
 
                 if (beforeTick == SessionPhase.BoardResolve && fsm.CurrentPhase != SessionPhase.BoardResolve)
-                    CheckRoundInvariant(seed, fsm, failures);
+                    CheckRoundInvariant(seed, fsm, failures, ref reconciliationRunCount);
 
                 // TASK-071 M1: fold the round's REAL microgame payout (now that
                 // NeverFinishingMicrogame is gone) into the same zero-violation
@@ -157,7 +176,7 @@ namespace Barcade.SlowTests
                 // entry) -- same "just arrived" edge-detection idiom as the
                 // FinalWager baseline capture just below.
                 if (beforeTick != SessionPhase.MgResult && fsm.CurrentPhase == SessionPhase.MgResult)
-                    CheckMicrogamePayoutInvariant(seed, fsm, failures);
+                    CheckMicrogamePayoutInvariant(seed, fsm, failures, ref payoutObservedCount);
 
                 if (beforeTick != SessionPhase.FinalWager && fsm.CurrentPhase == SessionPhase.FinalWager)
                     coinsBeforeWager = (int[])fsm.Coins.Clone();
@@ -186,10 +205,12 @@ namespace Barcade.SlowTests
                 failures.Add($"seed {seed}: session length {sessionSeconds:F1}s exceeds the §2.2-derived budget ({ceilingSeconds:F1}s)");
         }
 
-        private static void CheckRoundInvariant(int seed, SessionStateMachine fsm, List<string> failures)
+        private static void CheckRoundInvariant(int seed, SessionStateMachine fsm, List<string> failures, ref int reconciliationRunCount)
         {
             BoardResolution? resolution = fsm.LastBoardResolution;
-            if (!resolution.HasValue) return;
+            if (!resolution.HasValue) return; // rev-t042 L1: never observed in practice at this edge -- see class doc "Real microgame content"; NOT counted below, so a future regression that stops populating LastBoardResolution surfaces as a reconciliationRunCount shortfall.
+
+            reconciliationRunCount++; // rev-t042 L1: proves the Coins==Balances reconciliation below actually ran, not just that no bad delta was seen among zero checks.
 
             foreach (CoinDelta flow in resolution.Value.CoinFlows)
                 if (flow.Amount <= 0)
@@ -215,8 +236,13 @@ namespace Barcade.SlowTests
         /// runs for board/weapon/evento flows -- every amount strictly positive,
         /// every origin the Bank (payouts are income, never seat-to-seat).
         /// </summary>
-        private static void CheckMicrogamePayoutInvariant(int seed, SessionStateMachine fsm, List<string> failures)
+        private static void CheckMicrogamePayoutInvariant(int seed, SessionStateMachine fsm, List<string> failures, ref int payoutObservedCount)
         {
+            // rev-t042 M1: a non-empty payout is the positive proof AC2 asks for --
+            // an empty LastMicrogamePayout here would silently contribute zero
+            // violations below, so count observations separately from violations.
+            if (fsm.LastMicrogamePayout.Length > 0) payoutObservedCount++;
+
             foreach (CoinDelta flow in fsm.LastMicrogamePayout)
             {
                 if (flow.Amount <= 0)
