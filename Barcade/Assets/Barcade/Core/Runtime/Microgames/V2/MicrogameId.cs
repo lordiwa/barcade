@@ -30,5 +30,8 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_08 — ¡SUJETA!/¡SINCRONIZA! (GDD §4, cooperative hold-all-switches). T-112.</summary>
         Sujeta = 7,
+
+        /// <summary>MECH_09 — ¡IGUALA! (GDD §4, cooperative color-relay, `colorRelay` mode). T-112.</summary>
+        Iguala = 8,
     }
 }

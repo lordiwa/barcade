@@ -189,6 +189,26 @@ namespace Barcade.Core.Content
             },
             reservedParamNames: new[] { "mode" });
 
+        /// <summary>
+        /// GDD §4 MECH_09 (T-112). <c>reactWindow0</c>/<c>windowDecay</c> are
+        /// bracketed around the GDD literals (0.9/0.05); the 0.45s floor itself
+        /// is NOT a range here -- it is a fixed constant
+        /// (<see cref="Microgames.V2.IgualaParams.ReactWindowFloorSeconds"/>),
+        /// not a per-definition value. <c>sequenceLength</c>'s bracket allows a
+        /// short 3-symbol round up to a long 12-symbol one. <c>mode</c> is
+        /// reserved (enum-string-valued; Core implements colorRelay only today
+        /// -- see <see cref="Microgames.V2.IgualaMicrogame"/>'s own doc).
+        /// </summary>
+        public static readonly MechanicParamSchema Mech09Iguala = new MechanicParamSchema(
+            "MECH_09",
+            ranges: new[]
+            {
+                new ParamRange("sequenceLength", 3.0, 12.0),
+                new ParamRange("reactWindow0", 0.5, 1.5),
+                new ParamRange("windowDecay", 0.0, 0.2),
+            },
+            reservedParamNames: new[] { "mode" });
+
         private static readonly Dictionary<string, MechanicParamSchema> ByMechanicId =
             new Dictionary<string, MechanicParamSchema>(StringComparer.Ordinal)
             {
@@ -200,6 +220,7 @@ namespace Barcade.Core.Content
                 { Mech06Persigue.MechanicId, Mech06Persigue },
                 { Mech07Bombardea.MechanicId, Mech07Bombardea },
                 { Mech08Sujeta.MechanicId, Mech08Sujeta },
+                { Mech09Iguala.MechanicId, Mech09Iguala },
             };
 
         public static bool TryGet(string mechanicId, out MechanicParamSchema schema) =>
