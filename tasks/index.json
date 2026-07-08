@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T02:11:38.731Z",
+  "generated_at": "2026-07-08T02:29:35.096Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -432,6 +432,12 @@
       "title": "Wire MuerteSubita + ModoPinata evento behavioral effects once a lives/damage-capable mechanic exists",
       "status": "todo",
       "priority": "low"
+    },
+    {
+      "key": "TASK-073",
+      "title": "Fix Unity-NUnit compile blocker: Is.AnyOf in ReaccionaMicrogameTests (headless NUnit 3.14 vs Unity's bundled NUnit divergence)",
+      "status": "in_progress",
+      "priority": "high"
     }
   ]
 }

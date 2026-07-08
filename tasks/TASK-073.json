@@ -1,0 +1,32 @@
+{
+  "key": "TASK-073",
+  "title": "Fix Unity-NUnit compile blocker: Is.AnyOf in ReaccionaMicrogameTests (headless NUnit 3.14 vs Unity's bundled NUnit divergence)",
+  "description": "Found during the Hito-4 Unity compile gate (2026-07-08). The Unity EditMode test assembly FAILS TO COMPILE due to a single pre-existing error: ReaccionaMicrogameTests.cs:596 `Assert.That(r.Seat, Is.AnyOf((int)PlayerSlot.Rojo, (int)PlayerSlot.Azul));`. `Is.AnyOf` was added in NUnit 3.6; the headless fast-tests project references NUnit 3.14.0 (so the headless suite compiles+passes), but Unity's Test Framework bundles an OLDER NUnit that lacks `Is.AnyOf` → CS0117 'Is' does not contain a definition for 'AnyOf', which blocks the ENTIRE Unity EditMode assembly (one error fails all EditMode tests in Unity). Pre-existing (Reacciona/TASK-051-052 era), not from the Hito-4 run — the new Board/ and Bots/ Core code compiles clean in Unity. IMMEDIATE FIX: replace the one line with a construct valid in BOTH NUnit versions, e.g. `Assert.That(r.Seat, Is.EqualTo((int)PlayerSlot.Rojo).Or.EqualTo((int)PlayerSlot.Azul));` (semantically identical). Must keep the headless fast suite green AND make the Unity EditMode assembly compile. BROADER NOTE (for a possible separate follow-up): the headless csproj (NUnit 3.14) and Unity's bundled NUnit can diverge silently — the headless gate won't catch Unity-incompatible NUnit constructs. Consider aligning the headless NUnit version to Unity's, or adding a periodic Unity-compile check, so this class of divergence is caught by the primary gate. Grep confirmed Is.AnyOf is the ONLY occurrence in Assets today.",
+  "acceptance_criteria": [
+    "ReaccionaMicrogameTests.cs:596 no longer uses Is.AnyOf; replaced with an equivalent (Is.EqualTo(a).Or.EqualTo(b) or similar) valid in both NUnit 3.14 (headless) and Unity's bundled NUnit",
+    "The headless fast suite stays green (the test still passes, same assertion semantics)",
+    "The Unity EditMode test assembly compiles clean (verified via MCP recompile / get_console_logs: zero errors)",
+    "Grep confirms no other Is.AnyOf (or other known-divergent newer-NUnit constructs) remain unaddressed in Assets"
+  ],
+  "status": "in_progress",
+  "priority": "high",
+  "labels": [
+    "unity",
+    "testing",
+    "compile-gate",
+    "nunit",
+    "follow-up",
+    "hygiene"
+  ],
+  "assignee": null,
+  "depends_on": [],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T02:29:26.255Z",
+  "updated_at": "2026-07-08T02:29:35.096Z",
+  "jira_key": null,
+  "verification_tier": "tests-after",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T2"
+}
