@@ -10,7 +10,7 @@
     "Projection math (logical x,y,height -> world position per profile) is covered by fast or EditMode tests as regression locks",
     "Headless-safe primitive fallback when a prefab is missing, mirroring the DodgeGameBootstrap pattern; compile gate clean in the Unity Editor"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -27,7 +27,13 @@
   "linked_commits": [
     "8a71309",
     "6467d13",
-    "8f6a8d1"
+    "8f6a8d1",
+    "8a71309",
+    "6467d13",
+    "8f6a8d1",
+    "51563e1",
+    "afb1703",
+    "bfb5c6b"
   ],
   "linked_prs": [],
   "comments": [
@@ -45,10 +51,15 @@
       "author": "orchestrator",
       "at": "2026-07-08T04:32:46.000Z",
       "body": "GREEN HEADLESS REVIEW. dev-t027 delivered (8a71309 schema / 6467d13 Barcade.Presentation math / 8f6a8d1 Framework StagePresenter); fast suite 725/725; new UnityEngine-free Barcade.Presentation asmdef (Core-only) carries the projection/interp/rig math wired into the fast suite. rev-t027 (fresh context) = APPROVE-WITH-NITS, NO HIGH / NO MEDIUM, all 6 ACs met: AC5 tests independently confirmed non-vacuous (reviewer hand-derived sign-flip/axis-swap/dropped-origin/transposed-size cases); AC2 zero-alloc steady-state statically audited on Present() path (no new/LINQ/boxing; material caches once); AC4 seat->shape canonical (P1 Circle..P4 Rhombus) + GDD hex, no off-by-one (keyed on PlayerSlot enum); carry-in RenderEntity.cs:30 nit FIXED (->§11.1); ShapeFactory additive (Esquiva unaffected); planeMapping backward-compat locked. 4 LOW nits (non-blocking, deferred): (1) StagePrimitiveFactory.cs:24,53 comment overstates BoardPawn retint (only PlayerAvatar retinted — correct/AC4 is PlayerAvatar-only) — CHEAPEST, comment-only; (2) StagePresenter markers destroyed+recreated per Bind not reused (self-heals, per-round); (3) slot-index identity change => 1-frame lerp pop (inherent to slot pooling); (4) shake can chain across consecutive High ticks (>3/min cap is a test-level audit per §8.2, not StagePresenter's job). STATUS STAYS in_progress: DoD still needs AC6 Unity COMPILE GATE (orchestrator, get_console_logs(error) — first-ever compile of the Framework layer) + human SCENE UAT. PUSH HELD (feat commits local-only) until compile gate clean."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T15:29:24.919Z",
+      "body": "CLOSED — tests-after, depth FULL. All 6 ACs met and every gate green.\n\nGATES:\n- Fast suite 725/725 throughout (new UnityEngine-free Barcade.Presentation asmdef carries AC5 projection/interp/rig regression locks, reviewer-verified non-vacuous: sign-flip/axis-swap/dropped-origin/transposed-size cases).\n- Fresh-context review rev-t027 = APPROVE-WITH-NITS, NO HIGH / NO MEDIUM (comment 2026-07-08T04:32).\n- AC6 Unity COMPILE GATE PASSED: first real Framework compile surfaced CS0104 IMicrogame v1/v2 ambiguity -> fix round 51563e1 (`using IMicrogame = Barcade.Core.Microgames.V2.IMicrogame` alias + full v1/v2 collision sweep) -> re-gated in-Editor, NO CS errors (only pre-existing unrelated CS0618 FindObjectsOfType warning in HudAndSessionSmokeTests.cs:298 -> follow-up).\n- HUMAN VISUAL SCENE UAT PASSED (2026-07-08): human built the throwaway harness (menu Barcade > UAT > Build StagePresenter UAT) and ran Play — confirmed 4 avatars orbiting+hopping with correct seat colors (#E5484D/#3B82F6/#FACC15/#22C55E) + shapes (circle/square/triangle/rhombus), marker pulse, 5 other EntityKinds as primitive fallback, and auto camera-shake. Passive render-only harness (no input by design; interactivity lands in TASK-028). [ASSUMED] tuning knobs (camera FOV/height/pitch, plane size, marker size, runnerLateral/boardOverview framing) ACCEPTED AS-SHIPPED — human requested no changes.\n\nLINKED: 8a71309 (Core StageProfile.planeMapping schema, GDD §11.1) / 6467d13 (Barcade.Presentation pure math) / 8f6a8d1 (Framework StagePresenter) / 51563e1 (IMicrogame ambiguity fix) / afb1703 + bfb5c6b (throwaway visual UAT harness, dev-only, #if UNITY_EDITOR menu + runtime asmdef).\n\nDEFERRED (non-blocking, tracked): 4 LOW review nits — (1) StagePrimitiveFactory.cs:24,53 comment overstates BoardPawn retint [comment-only, NOT swept]; (2) markers recreated per Bind; (3) slot-index 1-frame lerp pop; (4) shake chaining across High ticks (§8.2 test-level audit, not presenter's job). FOLLOW-UP: file CS0618 FindObjectsOfType cleanup (HudAndSessionSmokeTests.cs:298, pre-existing/unrelated).\n\nNEXT (Unity batch): TASK-055 (fixed-60Hz driver) -> TASK-028 (Hito-1 integration, where real visual integration + input lives)."
     }
   ],
   "created_at": "2026-07-07T03:26:33.247Z",
-  "updated_at": "2026-07-08T04:32:46.000Z",
+  "updated_at": "2026-07-08T15:29:24.919Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
