@@ -1,0 +1,38 @@
+{
+  "key": "TASK-077",
+  "title": "GDD T-112b — MECH_09 ¡IGUALA! cooperative color-relay (§4) [split from TASK-041]",
+  "description": "Split slice 2 of TASK-041. Implement MECH_09 ¡IGUALA! on the canonical v2 IMicrogame contract (engine-free Core, injected SeededRandom, zero-alloc Tick, difficultyScaling, MechanicParamSchema entry, TASK-030 validator entry, mutation-proven zero-alloc sensor) — mirror the shipped MECH_01/02/03/06/07 quality bar exactly.\n\nMechanic (GDD §4 MECH_09): colorRelay COOP — colored symbols appear in a sequence; ONLY the owner of that color may confirm it, within reactWindow(n) = max(0.45, 0.9 − 0.05·n) seconds (window tightens as the relay progresses, floored at exactly 0.45 s). A wrong-owner confirm costs −1 common progress WITH correct attribution of who erred (surfaced in result/event data). Generated sequences NEVER repeat the same color 3× consecutively. Diagonal inputs collapse to cardinal via the existing TASK-023 diagonal helper. simonSolo is the competitive variant. Coop payout identical for all (P2). Read GDD §4 MECH_09 + §7 + the TASK-023 diagonal helper before coding.\n\nBalance knobs (base reactWindow, decay rate, floor, sequence length, difficultyScaling) are definition data passing the validator. Tests-first (tdd). Fast-suite testable (engine-free); no Unity gate.",
+  "acceptance_criteria": [
+    "MECH_09 implements the v2 contract engine-free, seeded, zero-alloc steady Tick with a mutation-proven zero-alloc sensor; determinism lock (same seed => byte-identical)",
+    "Generated sequences never repeat a color 3x consecutively (property test over many seeds)",
+    "reactWindow(n) = max(0.45, 0.9 − 0.05n) decays to a floor of EXACTLY 0.45 s (boundary test at the flooring n)",
+    "A wrong-color/wrong-owner confirm subtracts exactly 1 common progress and attributes the erring author correctly in the result/event data (tested)",
+    "Diagonal inputs collapse via the TASK-023 helper; only the color's owner can advance the relay (non-owner confirm does not advance); identical coop payout to all (P2)",
+    "Balance knobs are definition data passing the TASK-030 validator; difficultyScaling applied; tests-first; full fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "microgame",
+    "MECH_09",
+    "coop",
+    "T-112",
+    "split-from-TASK-041"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-038"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T16:36:06.092Z",
+  "updated_at": "2026-07-08T16:36:06.092Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

@@ -1,0 +1,37 @@
+{
+  "key": "TASK-078",
+  "title": "GDD T-112c — Special COOP phase §7.1 (ronda 3-4 coop scenario) [split from TASK-041]",
+  "description": "Split slice 3 of TASK-041. Build the special COOPERATIVE phase per GDD §7.1 — a 60-90 s scenario composed from the MECH_08/MECH_09 mechanics (TASK-076/TASK-077). Engine-free Core, seeded, zero-alloc, tests-first (tdd).\n\nGDD §7.1 rules: ALL avatars have UNIFORM movement stats — difficulty comes 100% from level ARCHITECTURE, never from per-player stat differences (structural guarantee). The four ergonomic-violation elements are composable LEVEL DATA: distanciasEstiradas (stretched distances), interseccionForzada (forced intersection — the ONLY place inter-player collision is ON), cuelloBotella (bottleneck), sueloDinamico (dynamic floor activating at t=30 s). Positive scoring only, with bronze/plata/oro thresholds paying 2/4/6 coins to ALL players equally (coop, no internal ranking — P2). Read GDD §7.1 + the MECH_08/09 implementations before coding.\n\nIntegrates with the Sequencer quota (exactly 1 coop special per session) — that wiring is the parent TASK-041's AC6, not this ticket; this ticket delivers the phase itself + its level-data model + scoring. Fast-suite testable; no Unity gate.",
+  "acceptance_criteria": [
+    "The coop phase composes MECH_08/MECH_09 into a 60-90 s scenario; engine-free, seeded, zero-alloc steady tick, determinism lock",
+    "All 4 avatars share IDENTICAL movement params (structural assert — no per-player stat branch); difficulty is expressed only through level data",
+    "The 4 ergonomic-violation elements (distanciasEstiradas, interseccionForzada, cuelloBotella, sueloDinamico@t=30s) exist as composable level data; inter-player collision is active ONLY in this phase (specifically interseccionForzada), verified off elsewhere",
+    "bronze/plata/oro score thresholds pay exactly 2/4/6 coins to ALL players equally (coop payout, no internal ranking, P2)",
+    "Tests-first; full fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "fase-especial",
+    "coop",
+    "T-112",
+    "split-from-TASK-041"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-076",
+    "TASK-077"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T16:36:28.515Z",
+  "updated_at": "2026-07-08T16:36:28.515Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

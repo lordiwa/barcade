@@ -1,0 +1,38 @@
+{
+  "key": "TASK-076",
+  "title": "GDD T-112a — MECH_08 ¡SUJETA! cooperative hold-all-switches (§4) [split from TASK-041]",
+  "description": "Split slice 1 of TASK-041 (the ticket itself named 08/09/coop/Jefe as split candidates). Implement MECH_08 ¡SUJETA! on the canonical v2 IMicrogame contract (engine-free Core, injected SeededRandom, zero-alloc Tick, difficultyScaling, MechanicParamSchema entry, TASK-030 validator entry, mutation-proven zero-alloc sensor) — mirror the shipped MECH_01/02/03/06/07 quality bar exactly.\n\nMechanic (GDD §4 MECH_08): 4 color switches; the TEAM wins by holding all required switches SIMULTANEOUSLY for holdWindow (default 1.5 s) within duration. Early release RESETS the hold window but NEVER fails the round (retryable until time runs out). Coop payout is IDENTICAL for all players — internal ranking within a coop mechanic is BANNED (GDD P2). infoAsym variant: only ONE rotating player sees the countdown; this information asymmetry must live in RenderState / BotView so views and bots respect it (the bot only knows what its seat can see). Read GDD §4 MECH_08 + §7 (coop framing) + P2 before coding.\n\nCoop-abandonment rule (critical, AC1): an Idle/Empty seat automatically converts the requirement 4/4 -> 3/3 (and so on) so the coop objective can NEVER become impossible by a seat being abandoned. Verify at tick level.\n\nBalance knobs (holdWindow, required-switch count, difficultyScaling mapping) are definition data passing the validator. Competitive/coop payout shape follows the existing coop payout system. Tests-first (tdd). Fast-suite testable (engine-free); no Unity gate. Coordinate the coop SPECIAL PHASE (§7.1) and Sequencer quota wiring in the sibling tickets / parent TASK-041.",
+  "acceptance_criteria": [
+    "MECH_08 implements the v2 contract engine-free, seeded, zero-alloc steady Tick with a mutation-proven zero-alloc sensor; determinism lock (same seed => byte-identical)",
+    "The hold window validates ONLY when all required holds are overlapped at tick resolution; early release resets the window without failing the round (tick-timeline test)",
+    "An Idle/Empty seat converts the requirement 4/4 -> 3/3 automatically so the coop objective is never impossible by abandonment (tested); identical coop payout to all players verified (no internal ranking, GDD P2)",
+    "infoAsym variant: countdown visibility is per-seat in RenderState AND BotView so only the rotating seat can act on the timing (verified a non-viewing seat/bot cannot see it)",
+    "Balance knobs are definition data passing the TASK-030 validator; difficultyScaling mapping applied",
+    "Tests-first; full fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "microgame",
+    "MECH_08",
+    "coop",
+    "T-112",
+    "split-from-TASK-041"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-038"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T16:35:55.672Z",
+  "updated_at": "2026-07-08T16:35:55.672Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}

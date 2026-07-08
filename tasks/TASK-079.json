@@ -1,0 +1,36 @@
+{
+  "key": "TASK-079",
+  "title": "GDD T-112d — Special JEFE/Boss phase §7.2 (ronda 5-6, same-tick role swap) [split from TASK-041]",
+  "description": "Split slice 4 of TASK-041. Build the special BOSS (Jefe) phase per GDD §7.2. Engine-free Core, seeded, zero-alloc, tests-first (tdd).\n\nGDD §7.2 rules: the current SCORE LEADER starts as the Jefe (bigger hitbox, takes 3 hits, has an AREA attack with a 0.6 s telegraph — NEVER damage without the telegraph, P4). The 'golpe final' (final/killing hit) swaps the Jefe role IN THE SAME TICK as the hit lands — with NO ambiguous invulnerability frame and no gap tick (the tick-exactness is the crux; a role-swap that leaves a 1-tick invuln window or double-Jefe/no-Jefe frame is a defect). The NEW Jefe then takes 2 hits. Duration 75 s. If a Jefe is still standing at timeout, the Jefe wins 6 coins and the attackers get 2 (asym1v3 payout shape [6,2,2,2] per the TASK-050 carry-in). Read GDD §7.2 + the asym1v3 payout note (see TASK-040/TASK-050) before coding.\n\nSequencer wiring (Jefe phase targets the score leader; exactly-1-per-session quota) is the parent TASK-041's AC6, not this ticket. This ticket delivers the phase mechanic + the same-tick role-swap + telegraph guarantee + payout. Fast-suite testable; no Unity gate.",
+  "acceptance_criteria": [
+    "The Jefe phase is engine-free, seeded, zero-alloc steady tick, determinism lock; the score leader is assigned Jefe at phase start (bigger hitbox, 3 hits)",
+    "The role swap resolves in the SAME tick as the final hit lands — no invulnerability-gap frame, no double-Jefe/no-Jefe tick (tick-timeline test proving exactness); the new Jefe takes 2 hits",
+    "The Jefe area attack ALWAYS emits a 0.6 s telegraph in RenderState before damage applies (timeline test; P4 no-damage-without-warning)",
+    "Duration 75 s; a Jefe standing at timeout wins; payout is asym1v3 shape [6,2,2,2] (Jefe/leader 6, attackers 2 each) passing the validator",
+    "Tests-first; full fast suite green after, no regression"
+  ],
+  "status": "todo",
+  "priority": "high",
+  "labels": [
+    "gdd-v2",
+    "hito-3",
+    "core",
+    "fase-especial",
+    "jefe",
+    "T-112",
+    "split-from-TASK-041"
+  ],
+  "assignee": null,
+  "depends_on": [
+    "TASK-038"
+  ],
+  "linked_commits": [],
+  "linked_prs": [],
+  "comments": [],
+  "created_at": "2026-07-08T16:36:40.627Z",
+  "updated_at": "2026-07-08T16:36:40.627Z",
+  "jira_key": null,
+  "verification_tier": "tdd",
+  "marker": "[EXPLICIT]",
+  "source_tier": "T1"
+}
