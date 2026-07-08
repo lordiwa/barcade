@@ -21,10 +21,10 @@ namespace Barcade.Core
         /// <summary>Color-claim: each seat presses once to join. GDD §2.1: &gt;=2 ready or 30s timeout, whichever first.</summary>
         Join,
 
-        /// <summary>Board movement. Pass-through stub until BoardModel (Hito 4) is wired — GDD Annex D.1.</summary>
+        /// <summary>Board movement — GDD §5.2's medidor de parada. TASK-068 wires the real BoardModel here (up to the §2.2 8s timeout); see SessionStateMachine's class doc.</summary>
         BoardMove,
 
-        /// <summary>Board tile resolution. Pass-through stub until BoardModel (Hito 4) is wired.</summary>
+        /// <summary>Board tile resolution, including the &lt;=4s Inversión deposit-choice window (GDD §5.3). TASK-068 wires the real BoardModel here; see SessionStateMachine's class doc.</summary>
         BoardResolve,
 
         /// <summary>The giant imperative verb. GDD §2.2: 0.8s fixed.</summary>

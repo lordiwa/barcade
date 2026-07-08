@@ -1,4 +1,5 @@
 using System;
+using Barcade.Core.Board;
 using Barcade.Core.Scoring;
 using V2 = Barcade.Core.Microgames.V2;
 
@@ -128,20 +129,75 @@ namespace Barcade.Core
     /// "elimination," "weapon," "investment," or "robbed" concept of its own.
     /// <see cref="StarKind.Kamikaze"/> (eliminations) and <see cref="StarKind.Cangreja"/>/
     /// <see cref="StarKind.Inversora"/>/<see cref="StarKind.Fantasma"/> (arsenal/
-    /// investment/robbery, GDD §5.3/§5.4) are BOARD-tile-driven — BoardModel is
-    /// still a pass-through stub (Hito 4, T-113/TASK-042 territory) — so those
-    /// three <see cref="SessionCounters"/> methods are never called here; they
-    /// stay correctly at their zero/tied default until a future ticket wires real
-    /// board events. <see cref="StarKind.Zen"/> stays unfed too, pending the human
+    /// investment/robbery, GDD §5.3/§5.4) are BOARD-tile-driven. TASK-068 wires
+    /// <see cref="BoardModel"/>'s BOARD_MOVE/BOARD_RESOLVE timing and its
+    /// <see cref="BoardResolution.CoinFlows"/> into <see cref="Coins"/> (see
+    /// "[ASSUMED] coin-pool reconciliation" below) but deliberately does NOT wire
+    /// <see cref="BoardResolution.Stars"/> or <see cref="BoardResolution.Modifier"/>
+    /// into <see cref="SessionCounters"/> or round difficulty — that is a separate,
+    /// still-open follow-up (TASK-042 territory). So these three
+    /// <see cref="SessionCounters"/> methods are still never called here; they
+    /// stay correctly at their zero/tied default until that follow-up lands.
+    /// <see cref="StarKind.Zen"/> stays unfed too, pending the human
     /// GDD fix for its truncated table row (see <c>SessionCounters.RecordZenMetric</c>'s
     /// own doc). Bonus-star baseStars (the per-seat count BEFORE the Game Over
     /// reveal) are likewise always 0 here for the same reason: GDD §5.3's only
     /// described pre-bonus star sources (Inversión tile ownership payouts,
-    /// buying the Estrella tile) are both board-tile events. None of this weakens
+    /// buying the Estrella tile) are both board-tile events not yet wired to
+    /// <see cref="SessionCounters"/>. None of this weakens
     /// <see cref="BonusStarDraw"/>'s own exclusion-rule correctness (already
     /// covered by TASK-037's tests against varied baseStars) — it just means every
-    /// session plays out with an honest, currently-true zero baseline until Hito
-    /// 4 wires the board.
+    /// session plays out with an honest, currently-true zero baseline until that
+    /// follow-up wires <see cref="BoardResolution.Stars"/> through.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>[ASSUMED] Board instantiation (TASK-068).</b> A single <see cref="BoardModel"/>
+    /// is constructed once per session, in <see cref="CompleteJoin"/> (the natural
+    /// "session's board arc begins here" point — mirrors how <see cref="_roster"/>
+    /// itself is only built there), using <see cref="BoardConfig.DefaultRingSize"/>
+    /// (GDD §5.1's own default, N=20 — no config field threads a different ring
+    /// size in today, so there is nothing else to choose from) at the session's own
+    /// <see cref="SessionStateMachineConfig.TicksPerSecond"/> (a hard correctness
+    /// tie, not a guess — <see cref="BoardModel"/>'s internal 8s/4s timeouts are
+    /// tick counts derived from this rate, and <see cref="Tick"/> drives it exactly
+    /// once per session tick, so the two rates must agree for "8 real seconds" to
+    /// mean the same thing in both places). Its setup RNG derives from the session
+    /// seed via <see cref="RngStream.Board"/> at round number -1
+    /// (<see cref="BoardSetupRoundNumber"/>) — distinct from any real round's own
+    /// 0-based <see cref="_roundIndex"/>, so the ring shuffle never shares a stream
+    /// position with round 0's own move/resolve RNG. The instance is discarded (set
+    /// to null) in <see cref="ResetToAttract"/> so a fresh session never reads back
+    /// the previous one's ring/ownership/inventory state — mirrors the existing
+    /// roster-clear precedent (LOW-2, TASK-024 review fix round).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>[ASSUMED] Coin-pool reconciliation — single source of truth (TASK-068,
+    /// GDD §5.6).</b> <see cref="Coins"/> is THE session's coin ledger; a coin is
+    /// never live in two places at once. <see cref="BoardModel"/> owns its own
+    /// per-seat balances internally (needed for its own tile-effect math — clamped
+    /// non-negative purchases/transfers, Inversión deposits, etc.) but those
+    /// balances are treated as a scratch working copy of <see cref="Coins"/> for
+    /// exactly the span of one round's BOARD_MOVE/BOARD_RESOLVE: seeded FROM
+    /// <see cref="Coins"/> via <c>BoardModel.SetBalances</c> the instant BOARD_MOVE
+    /// begins (<see cref="EnterBoardMove"/>, which also picks up whatever the
+    /// PRIOR round's microgame payout already added), then every
+    /// <see cref="BoardResolution.CoinFlows"/> delta the round's <c>Resolve</c>
+    /// call produced is replayed back onto <see cref="Coins"/> the instant
+    /// BOARD_RESOLVE exits (<see cref="FinishBoardResolve"/> → <see cref="ApplyCoinFlows"/>).
+    /// Between those two points only <see cref="BoardModel"/>'s own balances move;
+    /// <see cref="Coins"/> is frozen at its pre-round value until the CoinFlows
+    /// replay reconciles it in one shot — GDD §5.3's own "todo efecto que quita
+    /// monedas... nunca desaparecen 'al banco' sin representación visual" invariant
+    /// (<see cref="CoinDelta.Bank"/> is that visible pot) is exactly what makes the
+    /// replay lossless: every delta names both an origin and a destination, so
+    /// replaying the full set changes <see cref="Coins"/> by precisely what
+    /// <see cref="BoardModel"/>'s own balances changed by. This was the DEFAULT
+    /// reading flagged by both dev-t031 and the TASK-031 reviewer as needing human
+    /// ratification (GDD §5.6: "~60% microgames / ~40% casillas" implies one shared
+    /// pool); implemented here as the default per orchestrator instruction, pending
+    /// that ratification.
     /// </para>
     ///
     /// <para>
@@ -249,6 +305,15 @@ namespace Barcade.Core
         /// </summary>
         private const int CoopPayoutTableLength = 2;
 
+        /// <summary>
+        /// TASK-068 [ASSUMED]: the round-number key used to derive the board's
+        /// one-time ring-setup RNG (see class doc "[ASSUMED] Board instantiation").
+        /// Deliberately outside the real, 0-based <see cref="_roundIndex"/> range so
+        /// the setup shuffle never shares a <see cref="RngStream.Board"/> stream
+        /// position with round 0's own per-round move/resolve RNG.
+        /// </summary>
+        private const int BoardSetupRoundNumber = -1;
+
         private readonly SessionStateMachineConfig _config;
         private readonly SeededRandom _rng;
         private readonly int _scoringSeed;
@@ -267,6 +332,11 @@ namespace Barcade.Core
         private readonly bool[] _ready = new bool[4];
         private int _readyCount;
         private V2.PlayerRoster _roster;
+
+        // TASK-068: the session's board meta-game (GDD T-113, §5). Constructed once
+        // per session in CompleteJoin, discarded in ResetToAttract -- see class doc
+        // "[ASSUMED] Board instantiation" and "[ASSUMED] Coin-pool reconciliation".
+        private BoardModel _board;
 
         // TASK-056 (GDD §3.2, line 224): dead-seat ("puesto muerto") detection. Per
         // claimed-human seat, ticks since its last input edge ("flanco") while in a
@@ -365,6 +435,20 @@ namespace Barcade.Core
 
         /// <summary>Per-seat coins: payout accumulation through the round loop, then post-wager totals from FinalMg onward. See the class doc's "Regular-round payout application" note (per-definition payoutTable when set, else the GDD §6.1 fallback).</summary>
         public int[] Coins => _coins;
+
+        /// <summary>
+        /// TASK-068: read-only view of the board's own state (ring, positions,
+        /// balances, ownership, weapons — see <see cref="BoardSnapshot"/>) once
+        /// BOARD_MOVE has begun at least once this session; null before then
+        /// (Attract/Join). Exposed for the same reason <see cref="Roster"/>/
+        /// <see cref="Counters"/> are — HUD rendering (BOARD_MOVE's live stop-meter,
+        /// GDD §8) and test/determinism verification. <see cref="Coins"/> remains
+        /// the single source of truth for the coin economy (see class doc
+        /// "[ASSUMED] Coin-pool reconciliation") — this snapshot's own
+        /// <c>Balances</c> field mirrors <see cref="Coins"/> exactly the instant
+        /// every BOARD_RESOLVE completes, by construction, never diverges.
+        /// </summary>
+        public BoardSnapshot BoardSnapshot => _board?.GetSnapshot();
 
         /// <summary>Per-seat completed-microgame win counts this session (competitive place 1, or every active seat on a coop success) — the <see cref="FinalRanking"/> tiebreak source.</summary>
         public int[] MicrogameWins => _microgameWins;
@@ -473,13 +557,11 @@ namespace Barcade.Core
                     break;
 
                 case SessionPhase.BoardMove:
-                    _phaseElapsed += dt;
-                    if (_phaseElapsed >= dt) EnterSimplePhase(SessionPhase.BoardResolve); // stub: exactly 1 tick
+                    TickBoardMove(input, dt);
                     break;
 
                 case SessionPhase.BoardResolve:
-                    _phaseElapsed += dt;
-                    if (_phaseElapsed >= dt) BeginRound(); // stub: exactly 1 tick, then the real round starts
+                    TickBoardResolve(input, dt);
                     break;
 
                 case SessionPhase.MgIntro:
@@ -494,7 +576,7 @@ namespace Barcade.Core
                     {
                         _roundIndex++;
                         if (_roundIndex < _config.TotalRounds)
-                            EnterSimplePhase(SessionPhase.BoardMove);
+                            EnterBoardMove();
                         else
                             BeginFinalWager();
                     }
@@ -563,7 +645,80 @@ namespace Barcade.Core
             for (int i = 0; i < 4; i++) { _ticksSinceActivity[i] = 0; _prevRawDir[i] = Direction8.None; }
 
             _roundIndex = 0;
+            // TASK-068: a fresh BoardModel per session -- see class doc "[ASSUMED]
+            // Board instantiation" for the ring-size/tick-rate/RNG-derivation choices.
+            _board = new BoardModel(
+                new BoardConfig(BoardConfig.DefaultRingSize, _config.TicksPerSecond),
+                SeededRandom.Derive(_scoringSeed, BoardSetupRoundNumber, RngStream.Board));
+            EnterBoardMove();
+        }
+
+        /// <summary>
+        /// TASK-068: BOARD_MOVE entry -- the "seed FROM Coins" half of the coin-pool
+        /// reconciliation contract (class doc), plus starting the board's own
+        /// stop-meter phase. Called from both <see cref="CompleteJoin"/> (round 1)
+        /// and the Intermission handler's loop-back (every subsequent round).
+        /// </summary>
+        private void EnterBoardMove()
+        {
             EnterSimplePhase(SessionPhase.BoardMove);
+            _board.SetBalances(_coins);
+            // BeginMovePhase's rng is accepted but never consumed by BoardModel (see
+            // its own class doc) -- still derived via RngStream.Board/_roundIndex,
+            // never a bare `new Random()`, per the GDD §13 RNG-only-through-injection
+            // rule the fast suite's analyzer test already enforces everywhere else.
+            _board.BeginMovePhase(SeededRandom.Derive(_scoringSeed, _roundIndex, RngStream.Board));
+        }
+
+        private void TickBoardMove(in V2.InputSnapshot input, float dt)
+        {
+            _phaseElapsed += dt;
+            _board.TickMove(input);
+            if (_board.MoveFinished) EnterBoardResolve();
+        }
+
+        private void EnterBoardResolve()
+        {
+            EnterSimplePhase(SessionPhase.BoardResolve);
+            _board.BeginResolvePhase();
+        }
+
+        private void TickBoardResolve(in V2.InputSnapshot input, float dt)
+        {
+            _phaseElapsed += dt;
+            _board.TickResolve(input);
+            if (_board.ResolveFinished) FinishBoardResolve();
+        }
+
+        /// <summary>
+        /// TASK-068: BOARD_RESOLVE exit -- resolves this round's landed-square
+        /// effects, replays the resulting <see cref="BoardResolution.CoinFlows"/>
+        /// back onto <see cref="Coins"/> (the "apply BACK" half of the
+        /// reconciliation contract, class doc), then starts the round proper.
+        /// <see cref="BoardResolution.Stars"/>/<see cref="BoardResolution.Modifier"/>
+        /// are deliberately not consumed here — see class doc.
+        /// </summary>
+        private void FinishBoardResolve()
+        {
+            BoardResolution resolution = _board.Resolve(SeededRandom.Derive(_scoringSeed, _roundIndex, RngStream.Board));
+            ApplyCoinFlows(resolution.CoinFlows);
+            BeginRound();
+        }
+
+        /// <summary>
+        /// GDD §5.3's economic invariant ("todo efecto que quita monedas... nunca
+        /// desaparecen 'al banco' sin representación visual") is exactly what makes
+        /// this replay lossless onto <see cref="Coins"/> — <see cref="CoinDelta.Bank"/>
+        /// is the visible pot, never a seat, so only seat-indexed origins/destinations
+        /// touch <see cref="_coins"/> here.
+        /// </summary>
+        private void ApplyCoinFlows(CoinDelta[] flows)
+        {
+            foreach (CoinDelta flow in flows)
+            {
+                if (flow.Origin != CoinDelta.Bank) _coins[flow.Origin] -= flow.Amount;
+                if (flow.Destination != CoinDelta.Bank) _coins[flow.Destination] += flow.Amount;
+            }
         }
 
         private void BeginRound()
@@ -928,6 +1083,11 @@ namespace Barcade.Core
             // during the fresh Attract cycle, before Join runs again. SeatState.Empty
             // == 0, so a freshly allocated array is already all-Empty.
             _roster = new V2.PlayerRoster(new V2.SeatState[4]);
+
+            // TASK-068: discard the previous session's board too -- its ring/
+            // ownership/inventory state must not leak into a fresh session (same
+            // rationale as the roster clear above); CompleteJoin builds a new one.
+            _board = null;
 
             // TASK-051: clear every scoring/wager artifact too, or a fresh
             // session's Attract/Join cycle would still read back the PREVIOUS
