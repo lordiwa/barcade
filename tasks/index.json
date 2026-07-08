@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T15:29:24.919Z",
+  "generated_at": "2026-07-08T15:38:31.996Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -238,7 +238,7 @@
     {
       "key": "TASK-040",
       "title": "GDD T-111 — MECH_06 ¡PERSIGUE!/¡ESCAPA! + MECH_07 ¡BOMBARDEA! (asimétricas 1v3, §4)",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
