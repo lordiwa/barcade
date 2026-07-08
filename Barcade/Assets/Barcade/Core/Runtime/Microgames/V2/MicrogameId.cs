@@ -21,5 +21,11 @@ namespace Barcade.Core.Microgames.V2
 
         /// <summary>MECH_03 — ¡CORRE! (GDD §4, endless run). T-107 slice 2.</summary>
         Corre = 4,
+
+        /// <summary>MECH_06 — ¡PERSIGUE!/¡ESCAPA! (GDD §4, asymmetric 1v3 chase). T-111.</summary>
+        Persigue = 5,
+
+        /// <summary>MECH_07 — ¡BOMBARDEA! (GDD §4, asymmetric 1v3 inverted-power telegraph). T-111.</summary>
+        Bombardea = 6,
     }
 }

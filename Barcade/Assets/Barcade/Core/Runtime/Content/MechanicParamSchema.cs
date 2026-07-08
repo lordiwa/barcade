@@ -137,6 +137,42 @@ namespace Barcade.Core.Content
             },
             reservedParamNames: new[] { "raceToFinish" });
 
+        /// <summary>
+        /// GDD §4 MECH_06 (T-111). Numeric bounds are engineering defaults (GDD
+        /// names the param list but not formal min/max, same pattern as every
+        /// other schema here) except <c>dashCooldown</c>, whose floor/ceiling
+        /// bracket the GDD-literal 1.5s so a recalibration can adjust it without
+        /// drifting far from the named value. <c>arenaLayout</c> and <c>mode</c>
+        /// are reserved (enum-string-valued, not range-checked) so a definition
+        /// that sets them validates.
+        /// </summary>
+        public static readonly MechanicParamSchema Mech06Persigue = new MechanicParamSchema(
+            "MECH_06",
+            ranges: new[]
+            {
+                new ParamRange("soloSpeedBonus", 0.0, 1.0),
+                new ParamRange("dashCooldown", 0.5, 3.0),
+                new ParamRange("dashDistance", 0.02, 0.5),
+            },
+            reservedParamNames: new[] { "arenaLayout", "mode" });
+
+        /// <summary>
+        /// GDD §4 MECH_07 (T-111). <c>telegraphSec</c>'s floor matches the P4
+        /// guarantee already hard-enforced by <see cref="Microgames.V2.BombardeaParams"/>'s
+        /// own constructor (0.5s) — declared here too so a definition with an
+        /// out-of-range value is rejected at the data layer, before it ever
+        /// reaches the mechanic's constructor.
+        /// </summary>
+        public static readonly MechanicParamSchema Mech07Bombardea = new MechanicParamSchema(
+            "MECH_07",
+            ranges: new[]
+            {
+                new ParamRange("fireCooldown", 0.2, 3.0),
+                new ParamRange("telegraphSec", 0.5, 2.0),
+                new ParamRange("blastRadius", 0.02, 0.5),
+                new ParamRange("soloScorePerHit", 1.0, 10.0),
+            });
+
         private static readonly Dictionary<string, MechanicParamSchema> ByMechanicId =
             new Dictionary<string, MechanicParamSchema>(StringComparer.Ordinal)
             {
@@ -145,6 +181,8 @@ namespace Barcade.Core.Content
                 { Mech02Esquiva.MechanicId, Mech02Esquiva },
                 { Mech01Manten.MechanicId, Mech01Manten },
                 { Mech03Corre.MechanicId, Mech03Corre },
+                { Mech06Persigue.MechanicId, Mech06Persigue },
+                { Mech07Bombardea.MechanicId, Mech07Bombardea },
             };
 
         public static bool TryGet(string mechanicId, out MechanicParamSchema schema) =>
