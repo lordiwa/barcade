@@ -10,7 +10,7 @@
     "Balance knobs are definition data passing the TASK-030 validator; difficultyScaling mapping applied",
     "Tests-first; full fast suite green after, no regression"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -26,11 +26,21 @@
   "depends_on": [
     "TASK-038"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "4f71e38",
+    "f6ee125",
+    "d8e13bd"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T16:58:33.830Z",
+      "body": "CLOSED (loop iter 2, TASK-041 slice 1/4) — tdd, depth FULL. All 6 ACs met; fresh-context review rev-t076 APPROVE (no HIGH / no MEDIUM); orchestrator fast-suite gate independently 779/0.\n\nDELIVERY: MECH_08 ¡SUJETA! coop hold-all-switches on the v2 contract (engine-free, injected SeededRandom [pure input fn, RNG never consumed], zero-alloc Tick). Commits: 4f71e38 (fast tests, genuine compile-red verified) / f6ee125 (feat: SujetaMicrogame/Params/Mode + SujetaBotPolicy + MicrogameId.Sujeta/EntityKind.Switch additive + schema) / d8e13bd (Editor-generated .meta sidecars). Fast 763->779 (+16, 0 regressions).\n\nREVIEW (all non-vacuity verified firsthand): AC2 ALL-not-ANY (3-of-4 held forever => 0 windows) + early-release reset AND retry-to-real-completion; AC3 abandonment proven (idle seat's button NEVER pressed, a silent 4/4 would hang => pass proves the 4/4->3/3 conversion is real); AC4 infoAsym non-viewer meter=0 asserted AT a tick where the viewer's meter is provably >0 (structural withholding), with a real BotView wrap leg; zero-alloc sensor mutation-proven with windowsToWin=1000 exercising the complete+reset branch ~11x inside the measured window; P2 no-ranking structural (Ranks.Length==0) + ApplyCoop identical-to-all + never-zero (§6.1); anti-cheat clean (bot reads only BotView).\n\nKEY DESIGN CALL — reviewer-blessed, NOT a defect: MECH_08 introduces a new `IsEngaged` predicate (Human-or-Bot only) that EXCLUDES HumanIdle from the coop requirement, distinct from PlayerRoster.IsActive (which counts HumanIdle as active for rendering). rev-t076 confirmed this is (a) explicitly mandated by AC3 + GDD §3.2 dead-seat spirit, (b) internally consistent (render still uses IsActive to draw the idle seat's switch, tagged VariantExcluded), (c) NO divergence with TASK-069 (SeatState.Bot correctly = engaged) or TASK-070 (idle board income orthogonal). Correct call, correctly scoped.\n\nCARRY-FORWARD to TASK-078 (coop phase) / TASK-041 (sequencer wiring): rev-t076 LOW-3 — the infoAsym ViewerSeat rotation MUST rotate over ENGAGED seats only; if the sequencer ever hands ViewerSeat an Idle/Empty seat, the countdown is visible only to someone not required to act. The mechanic trusts the rotation caller. Wire ViewerSeat over engaged seats when integrating.\n\nDEFERRED LOW nits: LOW-1 determinism test asserts Kind/CoopScore/Ranks not a byte-identical dump (acceptable: mechanic consumes zero RNG, determinism is structural); LOW-2 _engaged snapshot-at-Initialize vs live IsActive render read (fine under the roster-immutable-per-round contract; latent only if a future path mutates the roster mid-round).\n\n[ASSUMED] for the ratification list (engineering defaults, GDD-silent): windowsToWin default=1 (logic general for N>1); switch layout fixed 2x2 grid @0.3/0.7; platformSync mode declared-not-implemented (falls back to HoldTogether, same treatment as EsquivaParams.JumpEnabled); difficultyScaling maps to hold-window LENGTH; ViewerSeat reuses SoloSeatRotation from TASK-040 (round-robin over active seats)."
+    }
+  ],
   "created_at": "2026-07-08T16:35:55.672Z",
-  "updated_at": "2026-07-08T16:37:51.389Z",
+  "updated_at": "2026-07-08T16:58:33.830Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T16:37:51.389Z",
+  "generated_at": "2026-07-08T16:58:33.830Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -454,7 +454,7 @@
     {
       "key": "TASK-076",
       "title": "GDD T-112a — MECH_08 ¡SUJETA! cooperative hold-all-switches (§4) [split from TASK-041]",
-      "status": "in_progress",
+      "status": "done",
       "priority": "high"
     },
     {
