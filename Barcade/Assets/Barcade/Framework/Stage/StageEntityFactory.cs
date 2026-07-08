@@ -12,20 +12,24 @@ namespace Barcade.Framework.Stage
     /// </summary>
     public sealed class StageEntityView
     {
-        public readonly GameObject GameObject;
-        public readonly Transform Transform;
+        // Deliberately NOT named "GameObject"/"Transform" (a field whose name
+        // matches its own type parses fine in isolation, but it's the same
+        // class of ambiguity that broke the first compile gate on IMicrogame --
+        // avoided defensively here). Exposed as Instance + an expression-bodied
+        // Transform property instead.
+        public readonly GameObject Instance;
+        public Transform Transform => Instance.transform;
         public readonly EntityKind Kind;
         public readonly byte Variant;
 
         private readonly Renderer[] _renderers;
 
-        public StageEntityView(GameObject gameObject, EntityKind kind, byte variant)
+        public StageEntityView(GameObject instance, EntityKind kind, byte variant)
         {
-            GameObject = gameObject;
-            Transform = gameObject.transform;
+            Instance = instance;
             Kind = kind;
             Variant = variant;
-            _renderers = gameObject.GetComponentsInChildren<Renderer>();
+            _renderers = instance.GetComponentsInChildren<Renderer>();
         }
 
         /// <summary>
@@ -85,7 +89,7 @@ namespace Barcade.Framework.Stage
             if (_pools.TryGetValue(key, out Stack<StageEntityView> pool) && pool.Count > 0)
             {
                 StageEntityView reused = pool.Pop();
-                reused.GameObject.SetActive(true);
+                reused.Instance.SetActive(true);
                 return reused;
             }
 
@@ -96,7 +100,7 @@ namespace Barcade.Framework.Stage
         {
             if (view == null) return;
 
-            view.GameObject.SetActive(false);
+            view.Instance.SetActive(false);
             var key = (view.Kind, view.Variant);
             if (!_pools.TryGetValue(key, out Stack<StageEntityView> pool))
             {

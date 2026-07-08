@@ -4,6 +4,10 @@ using Barcade.Core;
 using Barcade.Core.Content;
 using Barcade.Core.Microgames.V2;
 using Barcade.Presentation;
+// Barcade.Core (v1) and Barcade.Core.Microgames.V2 (v2) each declare their own
+// IMicrogame; this presenter consumes the v2 render contract (RenderState,
+// GetRenderState()) exclusively, so the plain name is pinned to that one.
+using IMicrogame = Barcade.Core.Microgames.V2.IMicrogame;
 
 namespace Barcade.Framework.Stage
 {
@@ -132,7 +136,7 @@ namespace Barcade.Framework.Stage
             for (int i = 0; i < _activeViews.Count; i++)
             {
                 if (_activeViews[i] == null) continue;
-                Destroy(_activeViews[i].GameObject);
+                Destroy(_activeViews[i].Instance);
                 _activeViews[i] = null;
             }
 
