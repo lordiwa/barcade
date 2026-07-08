@@ -593,7 +593,7 @@ namespace Barcade.Core.Tests
             V2Result result = mg.GetResult();
             Assert.That(result.Ranks.Length, Is.EqualTo(2));
             foreach (PlayerRank r in result.Ranks)
-                Assert.That(r.Seat, Is.AnyOf((int)PlayerSlot.Rojo, (int)PlayerSlot.Azul));
+                Assert.That(r.Seat, Is.EqualTo((int)PlayerSlot.Rojo).Or.EqualTo((int)PlayerSlot.Azul));
         }
 
         [Test]
