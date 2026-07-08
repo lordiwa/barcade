@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T01:14:24.099Z",
+  "generated_at": "2026-07-08T01:59:31.345Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -250,7 +250,7 @@
     {
       "key": "TASK-042",
       "title": "GDD T-114 — Arsenal cangrejo + eventos + FINAL_WAGER en tablero (§5.4, §5.5) [gate Hito 4]",
-      "status": "in_progress",
+      "status": "in_review",
       "priority": "high"
     },
     {
