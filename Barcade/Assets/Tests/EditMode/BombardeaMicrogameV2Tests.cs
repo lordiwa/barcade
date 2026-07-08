@@ -127,6 +127,78 @@ namespace Barcade.Core.Tests
             Assert.That(stillY, Is.EqualTo(firstY));
         }
 
+        /// <summary>
+        /// rev-<review>: MEDIUM-1 fix. The test above fires its retry attempt
+        /// while BOTH gates would block it under GDD defaults
+        /// (fireCooldown 0.9s=54t &gt; telegraph 0.7s=42t, so the cooldown alone
+        /// is still unexpired at the retry tick) -- it never independently
+        /// exercises the <c>!_shotActive</c> pending guard the class doc names
+        /// as the AC4 mechanism ("the guard does not rely on that" ordering).
+        /// This test configures <c>fireCooldownSeconds &lt; telegraphSeconds</c>
+        /// specifically to isolate it: the cooldown gate opens (tick 7, 6
+        /// ticks after firing) well BEFORE the first shot resolves (tick 43,
+        /// 42 ticks after firing), so a retry attempted in that window can only
+        /// be blocked by the pending-shot guard -- the cooldown gate itself
+        /// would allow it. A companion positive assertion (fire succeeds once
+        /// the shot has actually resolved) proves the retry attempt's shape was
+        /// otherwise valid, so the earlier block is attributable to the pending
+        /// guard specifically, not some other unrelated rejection.
+        /// </summary>
+        [Test]
+        public void Solo_PendingShotGuardBlocksRefire_IndependentlyOfCooldownAlreadyElapsed()
+        {
+            var p = new BombardeaParams(
+                soloSeat: 0, fireCooldownSeconds: 0.1f, telegraphSeconds: 0.7f, blastRadius: 0.12f,
+                soloScorePerHit: 1, trioAvatarSpeed: 0.4f, reticleSpeed: 0.6f, avatarRadius: 0.03f, durationSeconds: 6f);
+            var mg = new V2Bombardea(p);
+            mg.SetForcedAvatarPositions(new (float, float)[] { (0.2f, 0.2f), (0.9f, 0.9f), (0.9f, 0.85f), (0.85f, 0.9f) });
+            mg.Initialize(new SeededRandom(1), PlayerRoster.AllHuman, 1f);
+
+            int fireCooldownTicks = (int)MathF.Round(p.FireCooldownSeconds * 60f);
+            int telegraphTicks = (int)MathF.Round(p.TelegraphSeconds * 60f);
+            Assert.That(fireCooldownTicks, Is.LessThan(telegraphTicks), "sensor sanity: this test's whole point is a cooldown shorter than the telegraph");
+
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, Direction8.None, true);
+            mg.Tick(inputs.Build(0));
+            mg.Tick(inputs.Build(1)); // first press confirms -> shot fired
+
+            Assert.That(mg.IsShotActive, Is.True);
+            int firstFireTick = mg.ShotFireTick;
+
+            inputs.Set(PlayerSlot.Rojo, Direction8.None, false);
+            mg.Tick(inputs.Build(2));
+            mg.Tick(inputs.Build(3)); // release confirmed
+
+            // Advance well past the (short) cooldown window but still short of
+            // the (longer) telegraph resolution -- the cooldown gate is open
+            // here; only the pending-shot guard can still be blocking a retry.
+            int retryAttemptTick = firstFireTick + fireCooldownTicks + 4;
+            Assert.That(retryAttemptTick, Is.LessThan(firstFireTick + telegraphTicks), "sensor sanity: retry must land before the first shot resolves");
+
+            int t = 4;
+            while (t < retryAttemptTick - 2) { mg.Tick(inputs.Build(t)); t++; }
+
+            inputs.Set(PlayerSlot.Rojo, Direction8.E, true);
+            mg.Tick(inputs.Build(t)); t++;
+            mg.Tick(inputs.Build(t)); t++; // fresh press edge confirms here, cooldown already elapsed
+
+            Assert.That(mg.IsShotActive, Is.True, "pending guard: the original shot must still be the only pending one");
+            Assert.That(mg.ShotFireTick, Is.EqualTo(firstFireTick), "pending guard: cooldown had already elapsed -- only !_shotActive can explain the block");
+
+            // Companion positive check: once the pending shot actually
+            // resolves, a fresh fire attempt must succeed.
+            inputs.Set(PlayerSlot.Rojo, Direction8.None, false);
+            while (mg.IsShotActive) { t++; mg.Tick(inputs.Build(t)); }
+
+            inputs.Set(PlayerSlot.Rojo, Direction8.None, true);
+            mg.Tick(inputs.Build(t + 1)); t++;
+            mg.Tick(inputs.Build(t + 1)); t++;
+
+            Assert.That(mg.IsShotActive, Is.True, "once resolved and cooldown is (still) elapsed, a fresh fire must succeed");
+            Assert.That(mg.ShotFireTick, Is.Not.EqualTo(firstFireTick), "the new shot must be a genuinely new one, not the stale first fire tick");
+        }
+
         // ── Fire cadence (cooldown) ───────────────────────────────────────────────
 
         [Test]
