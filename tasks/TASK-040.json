@@ -11,7 +11,7 @@
     "Solo balance is mobility-only: identical rule set both sides asserted structurally (shared verb/collision logic, no role-specific rule branches beyond speed/dash params)",
     "Tests-first; fast suite green after, no regression"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -26,17 +26,27 @@
   "depends_on": [
     "TASK-038"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "8ceac00",
+    "244d8a1",
+    "3e68960",
+    "b747e9d"
+  ],
   "linked_prs": [],
   "comments": [
     {
       "author": "orchestrator",
       "at": "2026-07-07T13:17:57.702Z",
       "body": "Carry-in from the TASK-050 close (rev-t050 LOW-1, 2026-07-07), relevant when authoring the MECH_06/MECH_07 asym definitions: the v2 validator requires asym1v3 payoutTable length 4 (same ranked shape as competitive; RoundRecord.Places is length-4 ranked for every dynamics). GDD 7.2's asym payout values ('gana quien es Jefe al agotarse el tiempo — recompensa 6 monedas; atacantes 2') author in that shape as [6,2,2,2] (attackers tie via shared places; ApplyCompetitive supports tie-sharing). Also amend the overstated comment in MicrogameDefinitionValidatorTests.cs:163-171/:194-197 ('GDD gives asym no separate payout description' -> 'no separate SHAPE; 7.2 gives values 6/2, expressible as [6,2,2,2]') on the first touch of that file."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T16:33:23.693Z",
+      "body": "CLOSED (loop iteration 1) — tdd, depth FULL. All 7 ACs met; fresh-context review APPROVE-WITH-NITS (no HIGH); orchestrator fast-suite gate independently 763/0.\n\nDELIVERY: MECH_06 ¡PERSIGUE!/¡ESCAPA! + MECH_07 ¡BOMBARDEA! on the v2 IMicrogame contract (engine-free Core, injected SeededRandom, zero-alloc Tick). Commits: 8ceac00 (fast tests, genuine compile-red verified) / 244d8a1 (feat: both mechanics + SoloSeatRotation + 2 bot policies + MicrogameId/EntityKind/MechanicParamSchema additive) / 3e68960 (slow 1000-seed sweeps) / b747e9d (MEDIUM-1 fix-round test).\n\nGATES: fast 727->763 (+36, 0 regressions); slow sweeps — MECH_06 corral (soloFlees, 3xBot.Medio vs Bot.Optimo, 1000 seeds) 60.5% caught (≥40% req); MECH_07 winrate (4xBot.Medio, 1000 seeds) 44.5% (in [40,60] band); both in-band at GddDefaults with zero tuning.\n\nREVIEW (rev-t040, all verified firsthand): AC6 mobility-only structurally proven (SoloSeat consulted only in EffectiveSpeed/EffectiveDashDistance; byte-identical bystander-trio trajectories across divergent-solo runs); zero-alloc sensors mutation-proven non-vacuous on both mechanics; AC4 telegraph ≥0.5s enforced by BombardeaParams ctor hard-floor + timeline test; bot anti-cheat clean (policies read only published RenderState/HudState, VisualVariant bit0 / Hud.ActiveVerb, no hidden-state leak); determinism locked; no existing test weakened (only additive enum/schema/csproj + comment-only validator amendment). TASK-050 carry-in applied: asym1v3 payoutTable [6,2,2,2] validator-passing; MicrogameDefinitionValidatorTests comment amended.\n\nMEDIUM-1 (fixed b747e9d): the original queue-of-1 test was confounded by the cooldown gate (would pass even with the !_shotActive pending-guard deleted). New test Solo_PendingShotGuardBlocksRefire_IndependentlyOfCooldownAlreadyElapsed isolates the pending guard (cooldown 6t ≪ telegraph 42t; retry after cooldown but before resolution). Dev mutation-verified: removing !_shotActive keeps the old test green but fails the new one (Expected 1 / was 10); clean restore diffed byte-identical. AC4 pending-shot guarantee now non-vacuously proven.\n\nDEFERRED nits (non-blocking): LOW-1 schema range-*rejection* untested for the two new mechanics (happy-path only; AC5 met); LOW-3 AC6 structural test proves bystander-trio invariance, solo-side identity closed by code inspection (single MoveAndResolve path); LOW-4 SoloSeatRotation no-consecutive-repeat assumes stable roster (mid-session join/leave out of AC scope).\n\n[ASSUMED] FOR HUMAN RATIFICATION (LOW-2, most substantive): MECH_07 win condition = trio survives iff ZERO hits taken (any single landed hit => solo win), hardcoded at BombardeaMicrogame.cs:250 (soloWon = _soloHitsLanded >= 1). GDD §4 gives no explicit hit threshold; single-hit-decides is a defensible literal reading, lands winrate 44.5% in-band, but re-ruling to a survival-fraction threshold is a one-line CODE change + new param (not pure remote-data recalibration). Plus dev [ASSUMED]s: SoloSeat decided outside the mechanic via SoloSeatRotation.NextSoloSeat(roundIndex, roster) pure round-robin (sequencer must call once/round); MECH_06 binary group-split ranking (winning side Place 1, losing side share Place 2); arena obstacle geometry/radii; dash distances + base speeds (dash cooldown 1.5s + speed bonus +15% are GDD-literal); MECH_07 engineering defaults (blastRadius/dodge/reticle speeds); round-robin start seat = Rojo. Added to the session ratification list."
     }
   ],
   "created_at": "2026-07-07T04:21:52.034Z",
-  "updated_at": "2026-07-08T15:38:31.996Z",
+  "updated_at": "2026-07-08T16:33:23.693Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
