@@ -10,7 +10,7 @@
     "Diagonal inputs collapse via the TASK-023 helper; only the color's owner can advance the relay (non-owner confirm does not advance); identical coop payout to all (P2)",
     "Balance knobs are definition data passing the TASK-030 validator; difficultyScaling applied; tests-first; full fast suite green after, no regression"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -26,11 +26,22 @@
   "depends_on": [
     "TASK-038"
   ],
-  "linked_commits": [],
+  "linked_commits": [
+    "6e701bd",
+    "a19f1f1",
+    "2b07d14",
+    "7934712"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T17:33:08.979Z",
+      "body": "CLOSED (loop iter 3, TASK-041 slice 2/4) — tdd, depth FULL. All 6 ACs met; fresh-context review rev-t077 APPROVE-WITH-NITS (no HIGH / no MEDIUM); orchestrator fast-suite gate independently 799/0.\n\nDELIVERY: MECH_09 ¡IGUALA! coop color-relay on the v2 contract (engine-free, injected SeededRandom, zero-alloc Tick). Commits: 6e701bd (fast tests, genuine compile-red) / a19f1f1 (feat: IgualaMicrogame/Params + IgualaBotPolicy + MicrogameId.Iguala + schema) / 2b07d14 (Editor .meta sidecars) / 7934712 (fix-round: LOW-1+LOW-3). Fast 779->799 (+20 across delivery+fix, 0 regressions).\n\nREVIEW (all verified firsthand, non-vacuous): AC2 no-3x-consecutive enforced by construction (one RNG draw/symbol via PickExcluding), property-swept 500 seeds + idle-color-never-generated (draws only from _engagedColors); AC3 reactWindow floor EXACTLY 0.45 at n=9 boundary (n=8->0.5, n>=10 stays 0.45, never negative); AC4 wrong-owner -1 proven after driving progress to a real 2, specific named errer attributed 3 ways (LastErringSeat + GetErrorCount + CueWrongOwner FeedbackEvent), floors at 0; AC5 non-owner doesn't advance + REAL TASK-023 CollapseDiagonal call-through + P2 identical payout (Ranks.Length==0 structural, ApplyCoop identical + never-zero on success AND timeout); zero-alloc sensor mutation-proven (seqLen=100 keeps timeout-retry branch running the whole window); anti-cheat clean (bot reads only BotView); no existing test weakened (additive MicrogameId.Iguala=8/schema/csproj only).\n\nFIX ROUND (7934712, comment+test only — verified zero production-logic change): LOW-1 corrected a factually-wrong IgualaParams docstring (default seqLen=8 reaches reactWindow(7)=0.55s, NOT the 0.45 floor which needs n>=9/seqLen>=10). LOW-3 parameterized the diagonal call-through test across ALL 4 zones; dev mutation-verified by bypassing InputInterpreter.CollapseDiagonal hysteresis — Up/Down cases correctly FAILED, Right/Left coincidentally PASSED (exactly the cold-start-fallback coincidence rev-t077 identified), so AC5's diagonal-via-TASK-023 proof is now non-vacuous for every zone.\n\nDEFERRED LOW nits: LOW-2 same-tick same-zone seat-order bias (lower-seat non-owner processed before true owner on an exact-tick collision — the documented [ASSUMED#7] one-confirm-per-tick simplification, rare at 60Hz+debounce); LOW-4 determinism test is result-only not byte-identical dump (acceptable: minimal deterministic RNG).\n\n[ASSUMED] for ratification list (GDD-silent, all reviewer-judged defensible): pure timeout costs nothing (only an active wrong confirm fouls — GDD names exactly one foul; round still capped by DurationSeconds->CoopFail); N/E/S/O->color mapping arbitrary (Up=Rojo/Right=Azul/Down=Amarillo/Left=Verde; Core has no cabinet geometry) with owner=own seat index; simonSolo competitive variant OMITTED (schema reserves a 'mode' param; no AC names it); inactive-zone press is a no-op not a foul (GDD wording admits a stricter reading — worth a one-line human confirm); difficulty divides the effective base window; sequenceLength default=8. Coop-abandonment reuses the MECH_08 IsEngaged predicate (idle/empty colors never generate)."
+    }
+  ],
   "created_at": "2026-07-08T16:36:06.092Z",
-  "updated_at": "2026-07-08T16:59:08.177Z",
+  "updated_at": "2026-07-08T17:33:08.979Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
