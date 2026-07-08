@@ -106,6 +106,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CoopPhaseMicrogameV2Tests.cs" />
     <!-- TASK-079 (T-112, GDD §7.2): special asymmetric Jefe/boss phase -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\JefeMicrogameV2Tests.cs" />
+    <!-- TASK-074: headless-NUnit vs Unity-NUnit divergence gate -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\NUnitUnityCompatibilityTests.cs" />
   </ItemGroup>
 
 </Project>
