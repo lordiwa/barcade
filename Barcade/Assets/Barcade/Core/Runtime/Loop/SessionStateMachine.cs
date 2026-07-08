@@ -245,17 +245,26 @@ namespace Barcade.Core
     /// </para>
     ///
     /// <para>
-    /// <b>[ASSUMED] design gap: Join with zero ready players (AC2).</b> GDD §2.1
-    /// states Join completes early once "&gt;=2 jugadores listos," with a 30s
-    /// timeout, but doesn't say what happens if the timeout expires with FEWER than
-    /// 2 ready (real bot-fill, GDD §1.3/D.3, is T-110 — out of scope). This machine
-    /// advances to BoardMove on EITHER condition (ready count OR timeout), with
-    /// however many seats actually claimed (down to zero) — never routing back to
-    /// Attract. This is required for AC2's "a session driven with zero input still
-    /// reaches GameOver" to be achievable at all: routing an under-joined session
-    /// back to Attract would loop Attract/Join forever and never reach GameOver.
-    /// Flagged for reviewer confirmation; pinned by
-    /// <c>ZeroInputSession_StillReachesGameOver</c>.
+    /// <b>Join with zero ready players (AC2) + bot-fill (TASK-069, GDD
+    /// §1.3/D.3).</b> GDD §2.1 states Join completes early once "&gt;=2
+    /// jugadores listos," with a 30s timeout, but doesn't say what happens if
+    /// the timeout expires with FEWER than 2 ready. This machine advances to
+    /// BoardMove on EITHER condition (ready count OR timeout), with however
+    /// many seats actually claimed (down to zero) — never routing back to
+    /// Attract; required for AC2's "a session driven with zero input still
+    /// reaches GameOver" to be achievable at all (routing an under-joined
+    /// session back to Attract would loop Attract/Join forever). Every seat
+    /// NOT claimed by then (down to all four) is assigned
+    /// <see cref="V2.SeatState.Bot"/> in <see cref="CompleteJoin"/> — GDD
+    /// Annex D.3's "rellena puestos vacíos en partida real" — so the roster
+    /// leaving Join is always fully occupied (some Human, the rest Bot),
+    /// never partially Empty. This machine does not itself source a bot seat's
+    /// actual <c>PlayerInput</c> stream (no production Framework/Unity driver
+    /// exists yet for this class at all) — that remains the caller's job, the
+    /// identical arrangement every claimed Human seat's input already has (see
+    /// <c>SessionStateMachineBotSeatFillTests</c>, which drives real
+    /// <see cref="Bots.Bot.Novato"/> decisions for exactly this purpose). Pinned
+    /// by <c>ZeroInputSession_StillReachesGameOver</c>.
     /// </para>
     ///
     /// <para>
@@ -671,9 +680,19 @@ namespace Barcade.Core
 
         private void CompleteJoin()
         {
+            // TASK-069 (GDD Annex D.3: "rellena puestos vacíos en partida real"):
+            // an unclaimed seat is genuinely Bot-occupied, not left Empty -- every
+            // roster-gated mechanic (Sujeta/Iguala/Jefe/CoopPhase) already treats
+            // Bot exactly like Human for engagement, and PlayerRoster.IsActive
+            // (true for Bot) is what every mechanic's own entity-publish loop
+            // gates on, so this alone is what makes a bot-filled seat show a real
+            // avatar and count toward engagement/payout eligibility -- sourcing
+            // that seat's actual PlayerInput stream (a Bot.Novato policy's
+            // decisions) remains the caller's job, same as every claimed Human
+            // seat's input already is (see SessionStateMachineBotSeatFillTests).
             var seats = new V2.SeatState[4];
             for (int i = 0; i < 4; i++)
-                seats[i] = _ready[i] ? V2.SeatState.Human : V2.SeatState.Empty;
+                seats[i] = _ready[i] ? V2.SeatState.Human : V2.SeatState.Bot;
             _roster = new V2.PlayerRoster(seats);
 
             // TASK-056: dead-seat tracking begins with the roster. Zero every seat's

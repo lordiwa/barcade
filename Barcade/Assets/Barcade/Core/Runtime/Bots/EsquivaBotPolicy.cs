@@ -26,9 +26,12 @@ namespace Barcade.Core.Bots
     /// Otherwise, picks whichever of the 8 <see cref="Direction8"/> values (or
     /// <see cref="Direction8.None"/>) MAXIMIZES the resulting minimum distance
     /// to any alive hazard, one probe-step ahead — a real reactive one-ply
-    /// lookahead, not a hardcoded path. See the ORIGINAL solver's own extended
-    /// class doc (still present verbatim on <c>Barcade.SlowTests.Oracles.EsquivaEscapeBot</c>)
-    /// for the full per-seed diagnosis history behind these exact constants.
+    /// lookahead, not a hardcoded path. The full per-seed diagnosis history
+    /// behind these exact constants originally lived on the ORIGINAL solver's
+    /// own extended class doc, <c>Barcade.SlowTests.Oracles.EsquivaEscapeBot</c>
+    /// — that file was DELETED once this class became the one canonical home
+    /// (see this class's own opening paragraph); its content was reconciled
+    /// and summarized into this doc rather than left to rot in a deleted file.
     /// </para>
     ///
     /// <para>
