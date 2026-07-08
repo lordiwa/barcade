@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T19:46:57.995Z",
+  "generated_at": "2026-07-08T19:47:34.986Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -442,7 +442,7 @@
     {
       "key": "TASK-074",
       "title": "Close the headless-NUnit vs Unity-NUnit divergence gap so Unity-incompatible test constructs are caught by the primary gate",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "medium"
     },
     {
