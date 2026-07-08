@@ -31,10 +31,15 @@
       "author": "orchestrator",
       "at": "2026-07-07T12:19:56.817Z",
       "body": "Render-contract dependency SETTLED (TASK-048 closed 2026-07-07): RenderEntity.VisualVariant is now documented as the GDD 10.4 discrete prefab/skin selector (EntityKind+VisualVariant -> prefab, small cardinality, no scalar packing); continuous per-entity presentation values ride the new additive RenderEntity.Progress01 (float [0,1], mechanic-defined, presentation-only, defaults 0). Apunta publishes aim-interp progress there; HudState.Meters carries the per-seat charge meter. The presenter must consume BOTH channels. CARRY-IN NIT from rev-t048 (LOW, one word): RenderEntity.cs:30's doc comment cites 'Annex D.1's worked example' for stageProfile.entityPrefabSet — the worked example actually lives in GDD 11.1 (Annex D.1 only references StageProfile generally). Fix the citation on the first touch of RenderEntity.cs during this ticket."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T03:43:16.000Z",
+      "body": "DESIGN CONTRACT RATIFIED by human (AskUserQuestion 2026-07-08) — resolves the 6 GDD gaps the research pass surfaced. Build to THIS: (1) CAMERA PROJECTION per rig: topDownOrtho=orthographic cenital (spec 10.4, ESQUIVA/PERSIGUE); frontFixed=LOW PERSPECTIVE, narrow FOV (RULED — APUNTA/REACCIONA; NOT ortho, honors 1.3 'escena 3D real'); runnerLateral=perspective baja (spec 10.4, CORRE); boardOverview=angled perspective framing all 20 ring cells [ASSUMED]. All 4 placed at MG_INTRO, fixed during MG_PLAY except shake<=300ms (runnerLateral travelling is the sole exception). (2) PLANE MAPPING = new explicit stageProfile.planeMapping object { worldSize:[w,d] world units, worldOrigin:[x,y,z] = plane center }; axis convention FIXED IN CODE: logicalX->worldX, logicalY->worldZ, Height->worldY(up) — mirrors DodgeGameBootstrap centered-XZ. This EXTENDS the 11.1 schema (which named the mapping in prose but omitted the field) + MicrogameDefinitionV2/Json/Migrator StageProfile. (3) SHAPE<->SEAT = canonical seat-order, fixed everywhere: P1=circulo, P2=cuadrado, P3=triangulo, P4=rombo (mirrors color<->seat P1 Rojo#E5484D / P2 Azul#3B82F6 / P3 Amarillo#FACC15 / P4 Verde#22C55E; 8.1). Avatars carry BOTH channels. (4) EntityKind = closed 6-member enum (PlayerAvatar/Hazard/Projectile/Target/BoardPawn/Pickup) — the D.2 '...' is illustrative; prefab-set maps exactly those 6. (5) runnerLateral + boardOverview built to documented [ASSUMED] defaults (no Hito-1 microgame validates them; revisit Hito 2 / Hito 4). Presenter consumes VisualVariant (discrete selector) AND Progress01 (float) AND HudState.Meters per the TASK-048 note above. Maximize headless-testable PURE projection math for AC5 regression locks (fast/EditMode). Research workflow wf_7ecc837f-256 FAILED (StructuredOutput retry-cap); design grounded by direct GDD read instead."
     }
   ],
   "created_at": "2026-07-07T03:26:33.247Z",
-  "updated_at": "2026-07-08T03:08:41.353Z",
+  "updated_at": "2026-07-08T03:43:16.000Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
