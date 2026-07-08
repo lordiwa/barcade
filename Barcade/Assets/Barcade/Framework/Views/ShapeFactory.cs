@@ -172,6 +172,98 @@ namespace Barcade.Framework
         }
 
         /// <summary>
+        /// Creates a rhombus (a square quad rotated 45° around its facing axis)
+        /// tinted to the player colour. Added TASK-027 (GDD §8.1's 4-shape seat
+        /// channel — P4's shape — this factory previously only had 2 of the 4).
+        /// </summary>
+        public static GameObject MakeRhombus(
+            PlayerSlot slot,
+            Vector3 position,
+            float size,
+            Transform parent = null)
+        {
+            return MakeRhombus(PlayerColor(slot), position, size, parent);
+        }
+
+        /// <summary>Creates a rhombus using a specific colour.</summary>
+        public static GameObject MakeRhombus(
+            Color color,
+            Vector3 position,
+            float size,
+            Transform parent = null)
+        {
+            GameObject go = MakeQuad(color, position, new Vector2(size, size), parent);
+            go.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            return go;
+        }
+
+        /// <summary>
+        /// Creates an apex-up triangle (custom 2-triangle-free single-tri mesh)
+        /// tinted to the player colour. Added TASK-027 (GDD §8.1's 4-shape seat
+        /// channel — P3's shape — this factory previously only had 2 of the 4).
+        /// </summary>
+        public static GameObject MakeTriangle(
+            PlayerSlot slot,
+            Vector3 position,
+            float size,
+            Transform parent = null)
+        {
+            return MakeTriangle(PlayerColor(slot), position, size, parent);
+        }
+
+        /// <summary>Creates a triangle using a specific colour.</summary>
+        public static GameObject MakeTriangle(
+            Color color,
+            Vector3 position,
+            float size,
+            Transform parent = null)
+        {
+            var go = new GameObject("Triangle");
+            go.transform.position = position;
+            // Unit mesh + localScale, same convention as MakeQuad/MakeSpriteShape,
+            // so every shape this factory returns responds uniformly to a caller
+            // scaling transform.localScale after the fact (e.g. AvatarMarkerFactory's
+            // HudState.Meters pulse) rather than baking size into mesh vertices.
+            go.transform.localScale = new Vector3(size, size, 1f);
+            if (parent != null) go.transform.SetParent(parent, worldPositionStays: true);
+
+            var mf = go.AddComponent<MeshFilter>();
+            mf.mesh = UnitTriangleMesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.material = CreateUnlitMaterial(color);
+            return go;
+        }
+
+        private static Mesh _unitTriangleMesh;
+
+        private static Mesh UnitTriangleMesh
+        {
+            get
+            {
+                if (_unitTriangleMesh == null) _unitTriangleMesh = BuildUnitTriangleMesh();
+                return _unitTriangleMesh;
+            }
+        }
+
+        private static Mesh BuildUnitTriangleMesh()
+        {
+            const float h = 0.5f;
+            var mesh = new Mesh
+            {
+                vertices = new[]
+                {
+                    new Vector3(0f, h, 0f),
+                    new Vector3(-h, -h, 0f),
+                    new Vector3(h, -h, 0f),
+                },
+                triangles = new[] { 0, 1, 2 },
+            };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
         /// Creates a thin line using a SpriteRenderer stretched in one axis.
         /// <paramref name="thickness"/> controls the narrow dimension (world units).
         /// </summary>

@@ -3,6 +3,7 @@
   "rootNamespace": "Barcade.Framework",
   "references": [
     "Barcade.Core",
+    "Barcade.Presentation",
     "Unity.InputSystem",
     "Unity.Addressables",
     "Unity.ResourceManager"

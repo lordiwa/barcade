@@ -1,0 +1,15 @@
+{
+  "name": "Barcade.Framework.EditModeTests",
+  "rootNamespace": "Barcade.Framework.Tests.EditMode",
+  "references": [
+    "Barcade.Core",
+    "Barcade.Presentation",
+    "Barcade.Framework"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false
+}
