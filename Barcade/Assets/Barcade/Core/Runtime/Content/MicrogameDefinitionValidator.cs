@@ -74,7 +74,27 @@ namespace Barcade.Core.Content
             ValidationResult payoutResult = ValidatePayoutTable(def.Dynamics, def.PayoutTable);
             if (!payoutResult.IsValid) return payoutResult;
 
+            ValidationResult planeMappingResult = ValidatePlaneMapping(def.StageProfile?.PlaneMapping);
+            if (!planeMappingResult.IsValid) return planeMappingResult;
+
             return ValidateParams(def.Mechanic, def.Params);
+        }
+
+        /// <summary>TASK-027 (DESIGN CONTRACT RATIFIED 2026-07-08): a degenerate plane has no meaningful logical-&gt;world projection.</summary>
+        private static ValidationResult ValidatePlaneMapping(PlaneMapping mapping)
+        {
+            if (mapping == null)
+                return ValidationResult.Fail("stageProfile.planeMapping", "planeMapping must not be null");
+
+            // Negated inclusion (as with duration above) so NaN is rejected too.
+            if (!(mapping.WorldSizeX > 0f) || !(mapping.WorldSizeZ > 0f))
+            {
+                return ValidationResult.Fail(
+                    "stageProfile.planeMapping.worldSize",
+                    $"worldSize [{mapping.WorldSizeX}, {mapping.WorldSizeZ}] must have strictly positive components");
+            }
+
+            return ValidationResult.Ok();
         }
 
         /// <summary>GDD §6.1: coop's payoutTable is [success, fail] -- 2 entries, not one per place.</summary>

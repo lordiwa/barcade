@@ -27,7 +27,7 @@ namespace Barcade.Core.Microgames.V2
         /// ¡APUNTA!'s Target entities). GDD §10.4 defines this field's role
         /// literally: it is one half of the <c>EntityKind+VisualVariant -> prefab</c>
         /// key the Framework's <c>StagePresenter</c> uses to pick a 3D prefab/skin
-        /// per entity (see <c>stageProfile.entityPrefabSet</c> in Annex D.1's
+        /// per entity (see <c>stageProfile.entityPrefabSet</c> in GDD §11.1's
         /// worked example). Treat it as a prefab/skin selector only — a handful of
         /// named states a presenter can map 1:1 onto distinct prefabs or materials.
         ///

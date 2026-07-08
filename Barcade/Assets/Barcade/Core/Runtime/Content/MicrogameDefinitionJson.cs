@@ -22,11 +22,24 @@ namespace Barcade.Core.Content
             foreach (KeyValuePair<string, string> kv in def.Assets ?? new Dictionary<string, string>())
                 assetsObj[kv.Key] = kv.Value;
 
+            PlaneMapping planeMapping = def.StageProfile?.PlaneMapping ?? new PlaneMapping();
             var stageProfileObj = new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 ["camera"] = def.StageProfile?.Camera ?? string.Empty,
                 ["environment"] = def.StageProfile?.Environment ?? string.Empty,
                 ["entityPrefabSet"] = def.StageProfile?.EntityPrefabSet ?? string.Empty,
+                // TASK-027 (DESIGN CONTRACT RATIFIED 2026-07-08): stageProfile.planeMapping,
+                // additive to the GDD §11.1 wire shape.
+                ["planeMapping"] = new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    ["worldSize"] = new List<object> { (double)planeMapping.WorldSizeX, (double)planeMapping.WorldSizeZ },
+                    ["worldOrigin"] = new List<object>
+                    {
+                        (double)planeMapping.WorldOriginX,
+                        (double)planeMapping.WorldOriginY,
+                        (double)planeMapping.WorldOriginZ,
+                    },
+                },
             };
 
             var root = new Dictionary<string, object>(StringComparer.Ordinal)
@@ -186,9 +199,41 @@ namespace Barcade.Core.Content
                 return new StageProfile(
                     camera: GetString(nested, "camera"),
                     environment: GetString(nested, "environment"),
-                    entityPrefabSet: GetString(nested, "entityPrefabSet"));
+                    entityPrefabSet: GetString(nested, "entityPrefabSet"))
+                {
+                    // Additive (TASK-027): absent on JSON written before this ticket --
+                    // GetPlaneMapping defaults it, so old payloads still deserialize.
+                    PlaneMapping = GetPlaneMapping(nested),
+                };
             }
             return new StageProfile(string.Empty, string.Empty, string.Empty);
+        }
+
+        private static PlaneMapping GetPlaneMapping(Dictionary<string, object> stageProfileObj)
+        {
+            if (!stageProfileObj.TryGetValue("planeMapping", out object v) || !(v is Dictionary<string, object> nested))
+                return new PlaneMapping();
+
+            float[] worldSize = GetFloatArray(nested, "worldSize");
+            float[] worldOrigin = GetFloatArray(nested, "worldOrigin");
+
+            return new PlaneMapping(
+                worldSizeX: worldSize.Length > 0 ? worldSize[0] : PlaneMapping.DefaultWorldSize,
+                worldSizeZ: worldSize.Length > 1 ? worldSize[1] : PlaneMapping.DefaultWorldSize,
+                worldOriginX: worldOrigin.Length > 0 ? worldOrigin[0] : 0f,
+                worldOriginY: worldOrigin.Length > 1 ? worldOrigin[1] : 0f,
+                worldOriginZ: worldOrigin.Length > 2 ? worldOrigin[2] : 0f);
+        }
+
+        private static float[] GetFloatArray(Dictionary<string, object> obj, string key)
+        {
+            if (!obj.TryGetValue(key, out object v) || !(v is List<object> list))
+                return Array.Empty<float>();
+
+            var result = new float[list.Count];
+            for (int i = 0; i < list.Count; i++)
+                result[i] = (float)Convert.ToDouble(list[i], CultureInfo.InvariantCulture);
+            return result;
         }
     }
 }

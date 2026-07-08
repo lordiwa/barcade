@@ -12,6 +12,47 @@ namespace Barcade.Core.Content
     }
 
     /// <summary>
+    /// Logical-plane-to-world-plane mapping for a <see cref="StageProfile"/> (GDD
+    /// §10.4/§11.1, DESIGN CONTRACT RATIFIED 2026-07-08, TASK-027): §11.1's prose
+    /// named this mapping ("mapeo de plano lógico a plano del mundo") but omitted
+    /// a schema field for it -- this is that field, added additively.
+    ///
+    /// The axis convention is FIXED IN CODE, not data: logical X -> world X,
+    /// logical Y -> world Z, <see cref="RenderEntity.Height"/> -> world Y (up) --
+    /// mirroring the existing Esquiva-3D demo's centered-XZ convention
+    /// (<c>Barcade.Framework.DodgeGameBootstrap</c>). The actual projection math
+    /// lives in the engine-free <c>Barcade.Presentation</c> module, never here --
+    /// Core "no conoce metros ni ejes de Unity" (§10.4).
+    /// </summary>
+    public sealed class PlaneMapping
+    {
+        /// <summary>[ASSUMED] No GDD number is given for plane size; the ratified contract suggests "e.g. 10x10" world units.</summary>
+        public const float DefaultWorldSize = 10f;
+
+        /// <summary>World-unit size of the logical [0,1]^2 plane along world X (logical X).</summary>
+        public float WorldSizeX = DefaultWorldSize;
+
+        /// <summary>World-unit size of the logical [0,1]^2 plane along world Z (logical Y).</summary>
+        public float WorldSizeZ = DefaultWorldSize;
+
+        /// <summary>World-space position of the plane's centre (logical 0.5, 0.5, Height 0).</summary>
+        public float WorldOriginX;
+        public float WorldOriginY;
+        public float WorldOriginZ;
+
+        public PlaneMapping() { }
+
+        public PlaneMapping(float worldSizeX, float worldSizeZ, float worldOriginX, float worldOriginY, float worldOriginZ)
+        {
+            WorldSizeX = worldSizeX;
+            WorldSizeZ = worldSizeZ;
+            WorldOriginX = worldOriginX;
+            WorldOriginY = worldOriginY;
+            WorldOriginZ = worldOriginZ;
+        }
+    }
+
+    /// <summary>
     /// Presentation projection declared by a definition (GDD §10.4 / §11.1) --
     /// consumed by the Framework's StagePresenter, ignored by Core.
     /// </summary>
@@ -20,6 +61,9 @@ namespace Barcade.Core.Content
         public string Camera;
         public string Environment;
         public string EntityPrefabSet;
+
+        /// <summary>Added TASK-027 (DESIGN CONTRACT RATIFIED 2026-07-08) -- see <see cref="PlaneMapping"/>.</summary>
+        public PlaneMapping PlaneMapping = new PlaneMapping();
 
         public StageProfile() { }
 

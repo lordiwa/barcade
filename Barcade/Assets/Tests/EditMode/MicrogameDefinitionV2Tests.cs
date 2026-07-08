@@ -223,6 +223,60 @@ namespace Barcade.Core.Tests
             Assert.Throws<FormatException>(() => MicrogameDefinitionJson.Deserialize("garbage"));
         }
 
+        // ── stageProfile.planeMapping (TASK-027, DESIGN CONTRACT RATIFIED 2026-07-08) ──
+
+        [Test]
+        public void StageProfile_DefaultPlaneMapping_Is10x10AtOrigin()
+        {
+            // [ASSUMED] default world size per the ratified contract ("e.g. 10x10").
+            var profile = new StageProfile();
+
+            Assert.That(profile.PlaneMapping.WorldSizeX, Is.EqualTo(10f));
+            Assert.That(profile.PlaneMapping.WorldSizeZ, Is.EqualTo(10f));
+            Assert.That(profile.PlaneMapping.WorldOriginX, Is.EqualTo(0f));
+            Assert.That(profile.PlaneMapping.WorldOriginY, Is.EqualTo(0f));
+            Assert.That(profile.PlaneMapping.WorldOriginZ, Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void PlaneMapping_RoundTrips_ThroughJson()
+        {
+            MicrogameDefinitionV2 original = BuildGddExample();
+            original.StageProfile.PlaneMapping = new PlaneMapping(
+                worldSizeX: 12.5f, worldSizeZ: 7f,
+                worldOriginX: 1f, worldOriginY: -0.5f, worldOriginZ: 2f);
+
+            MicrogameDefinitionV2 roundTripped =
+                MicrogameDefinitionJson.Deserialize(MicrogameDefinitionJson.Serialize(original));
+
+            PlaneMapping expected = original.StageProfile.PlaneMapping;
+            PlaneMapping actual = roundTripped.StageProfile.PlaneMapping;
+            Assert.That(actual.WorldSizeX, Is.EqualTo(expected.WorldSizeX));
+            Assert.That(actual.WorldSizeZ, Is.EqualTo(expected.WorldSizeZ));
+            Assert.That(actual.WorldOriginX, Is.EqualTo(expected.WorldOriginX));
+            Assert.That(actual.WorldOriginY, Is.EqualTo(expected.WorldOriginY));
+            Assert.That(actual.WorldOriginZ, Is.EqualTo(expected.WorldOriginZ));
+        }
+
+        [Test]
+        public void Deserialize_JsonWithoutPlaneMapping_DefaultsIt()
+        {
+            // Backward compatibility: JSON written before TASK-027 has no
+            // planeMapping key under stageProfile at all.
+            const string gddJson = @"{
+                ""schemaVersion"": 2, ""id"": ""mg_x"", ""mechanic"": ""MECH_04"",
+                ""displayVerb"": ""¡APUNTA!"", ""dynamics"": ""competitive"", ""duration"": 5.0,
+                ""difficultyScaling"": [], ""params"": {}, ""payoutTable"": [6,4,2,1],
+                ""assets"": {}, ""stageProfile"": { ""camera"": ""frontFixed"", ""environment"": """", ""entityPrefabSet"": """" },
+                ""minPlayers"": 2, ""tags"": []
+            }";
+
+            MicrogameDefinitionV2 def = MicrogameDefinitionJson.Deserialize(gddJson);
+
+            Assert.That(def.StageProfile.PlaneMapping.WorldSizeX, Is.EqualTo(10f));
+            Assert.That(def.StageProfile.PlaneMapping.WorldSizeZ, Is.EqualTo(10f));
+        }
+
         [Test]
         public void Deserialize_TrailingGarbageAfterDocument_ThrowsFormatException()
         {

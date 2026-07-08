@@ -263,6 +263,35 @@ namespace Barcade.Core.Tests
             return table;
         }
 
+        // ── stageProfile.planeMapping (TASK-027, DESIGN CONTRACT RATIFIED 2026-07-08) ──
+
+        [TestCase(0f, 10f)]
+        [TestCase(-1f, 10f)]
+        [TestCase(10f, 0f)]
+        [TestCase(10f, -1f)]
+        [TestCase(float.NaN, 10f)]
+        public void PlaneMapping_NonPositiveWorldSize_Rejected(float worldSizeX, float worldSizeZ)
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.StageProfile.PlaneMapping = new PlaneMapping(worldSizeX, worldSizeZ, 0f, 0f, 0f);
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.OffendingField, Is.EqualTo("stageProfile.planeMapping.worldSize"));
+        }
+
+        [Test]
+        public void PlaneMapping_PositiveWorldSize_Accepted()
+        {
+            MicrogameDefinitionV2 def = ValidApuntaDefinition();
+            def.StageProfile.PlaneMapping = new PlaneMapping(12f, 8f, 1f, 0f, -1f);
+
+            ValidationResult result = MicrogameDefinitionValidator.Validate(def);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+
         // ── params outside the range declared by the mechanic (GDD §11.1) ───────
 
         [Test]
