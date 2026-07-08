@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T16:58:33.830Z",
+  "generated_at": "2026-07-08T16:59:08.177Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -460,7 +460,7 @@
     {
       "key": "TASK-077",
       "title": "GDD T-112b — MECH_09 ¡IGUALA! cooperative color-relay (§4) [split from TASK-041]",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     },
     {
