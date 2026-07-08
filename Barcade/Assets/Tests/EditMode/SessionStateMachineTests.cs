@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Barcade.Core;
+using Barcade.Core.Board;
 using Barcade.Core.Microgames.V2;
 using Barcade.Core.Scoring;
 // Same collision as ReaccionaMicrogameTests/ApuntaMicrogameV2Tests: this file's
@@ -133,6 +134,25 @@ namespace Barcade.Core.Tests
             return inputs;
         }
 
+        // TASK-068 note (applies to every widened tick-loop bound below): BOARD_MOVE/
+        // BOARD_RESOLVE now tick a REAL BoardModel instead of an exactly-1-tick
+        // pass-through stub. With JoinReadyInputs (button held from tick 0),
+        // BOARD_MOVE still resolves in exactly 1 tick -- the stop-meter freezes the
+        // instant it goes live, since the button is already down (see
+        // BoardModel.TickMove: level-triggered, not edge-triggered). BOARD_RESOLVE is
+        // the real variable: its <=4s Inversión deposit-choice window (240 ticks @
+        // 60Hz) genuinely elapses whenever a seat's board position lands on an
+        // Inversión square that round -- which depends on the session-seeded ring
+        // layout, not something a probe budget can pin or avoid per test. Rather than
+        // hand-verify which of this file's ~40 seeds happen to dodge Inversión
+        // (fragile against any future ring/seed/shuffle change), every probe loop
+        // that must survive at least one full BOARD_MOVE+BOARD_RESOLVE pass gets a
+        // flat, generous margin added to its pre-existing bound below -- a probe-
+        // budget widening only, never a loosened assertion: every widened loop still
+        // exits the moment its target phase is actually reached, and still fails if
+        // that phase is never reached. See the TASK-068 hand-off for the itemized
+        // list of which loops were widened and why.
+
         // ── AC1: full graph shape ────────────────────────────────────────────────
 
         [Test]
@@ -253,7 +273,7 @@ namespace Barcade.Core.Tests
 
             bool sawGameOver = false;
             bool loopedToAttract = false;
-            for (int t = 0; t < 8000 && !loopedToAttract; t++)
+            for (int t = 0; t < 20000 && !loopedToAttract; t++)
             {
                 fsm.Tick(inputs.Build(t));
                 if (fsm.CurrentPhase == SessionPhase.GameOver) sawGameOver = true;
@@ -367,24 +387,293 @@ namespace Barcade.Core.Tests
             Assert.That(fake.TickCount, Is.EqualTo(0), "no gameplay input may reach the microgame before MgPlay, even with buttons already held from Join");
         }
 
-        // ── AC4: board pass-through stubs ────────────────────────────────────────
+        // ── AC1/AC4 (TASK-068): BOARD_MOVE/BOARD_RESOLVE now drive a real
+        //    BoardModel instead of an exactly-1-tick pass-through stub. No new
+        //    SessionPhase and no transition-graph change (verified indirectly:
+        //    FullGraph_WalksEveryStateInOrder above still asserts the exact same
+        //    ordered list of DISTINCT phases -- if a phase had been added/removed
+        //    or an edge changed, that sequence assertion would fail). ─────────────
+
+        /// <summary>
+        /// Drives a fresh session to BOARD_MOVE (buttons already held from Join,
+        /// so the stop-meter is still frozen-eligible at tick 0) and searches a
+        /// small, deterministic range of construction seeds for one whose ring
+        /// reaches a square of the requested <see cref="BoardTileType"/> within a
+        /// single tap (offsets 1..6 -- GDD §5.2's own medidor range, reachable from
+        /// every seat's shared starting position 0). This sidesteps hand-computing
+        /// the seeded ring shuffle while keeping every test fully deterministic
+        /// (same seed each run -> same ring -> same outcome).
+        /// </summary>
+        private static (SessionStateMachine fsm, FakeInputs inputs, int tapOffset) DriveToBoardMove_RingReaches(BoardTileType wanted)
+        {
+            for (int seed = 1; seed < 300; seed++)
+            {
+                var fsm = new SessionStateMachine(new SeededRandom(seed), FastConfig(totalRounds: 1));
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+                for (int t = 0; t < 40 && fsm.CurrentPhase != SessionPhase.BoardMove; t++)
+                    fsm.Tick(inputs.Build(t));
+                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove), "test setup sanity");
+
+                BoardTileType[] ring = fsm.BoardSnapshot.Ring;
+                for (int offset = 1; offset <= 6; offset++)
+                    if (ring[offset] == wanted)
+                        return (fsm, inputs, offset);
+            }
+            Assert.Fail($"no seed in [1,300) reaches a {wanted} square within one tap of BOARD_MOVE -- widen the search range");
+            throw new InvalidOperationException("unreachable");
+        }
 
         [Test]
-        public void BoardStubs_AdvanceWithinOneTick()
+        public void BoardMove_StaysLive_UntilTapOrTimeout_NotOneTickStub()
         {
-            var fsm = new SessionStateMachine(new SeededRandom(7), FastConfig(totalRounds: 1));
+            // AC1: BOARD_MOVE now ticks the REAL BoardModel (TASK-031) -- a seat's
+            // move distance depends on WHEN it taps (GDD §5.2's medidor de parada),
+            // not a hardcoded <=1-tick advance.
+            var fsm = new SessionStateMachine(new SeededRandom(700), FastConfig(totalRounds: 1));
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 40 && fsm.CurrentPhase != SessionPhase.BoardMove; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove), "test setup sanity");
+            Assert.That(fsm.BoardSnapshot, Is.Not.Null, "a real BoardModel must exist once BOARD_MOVE has begun");
+
+            // Release every button so the stop-meter genuinely stays live/cycling --
+            // meaningless under the old 1-tick stub; load-bearing now.
+            inputs.Set(PlayerSlot.Rojo, false);
+            inputs.Set(PlayerSlot.Azul, false);
+            inputs.Set(PlayerSlot.Amarillo, false);
+            inputs.Set(PlayerSlot.Verde, false);
+            for (int t = 100; t < 130; t++) fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove),
+                "with nobody tapping, BOARD_MOVE must stay live well past 1 tick -- the old 1-tick stub is gone");
+
+            // Everyone taps -- the meter freezes and BOARD_MOVE must exit promptly.
+            inputs.Set(PlayerSlot.Rojo, true);
+            inputs.Set(PlayerSlot.Azul, true);
+            inputs.Set(PlayerSlot.Amarillo, true);
+            inputs.Set(PlayerSlot.Verde, true);
+            fsm.Tick(inputs.Build(200));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardResolve),
+                "a tap freezes the stop-meter and BOARD_MOVE must exit into BOARD_RESOLVE");
+        }
+
+        [Test]
+        public void BoardMove_Timeout_ForcesStopAtEightSeconds()
+        {
+            // AC1/§2.2/§5.2: nobody taps at all -- BOARD_MOVE's own 8s (480-tick @
+            // 60Hz) auto-stop timeout must still force it to exit ("Sin tap antes
+            // del timeout (8 s) -> se detiene solo en el valor del tick de timeout").
+            var fsm = new SessionStateMachine(new SeededRandom(701), FastConfig(totalRounds: 1));
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 40 && fsm.CurrentPhase != SessionPhase.BoardMove; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove), "test setup sanity");
+
+            inputs.Set(PlayerSlot.Rojo, false);
+            inputs.Set(PlayerSlot.Azul, false);
+            inputs.Set(PlayerSlot.Amarillo, false);
+            inputs.Set(PlayerSlot.Verde, false);
+
+            int t2 = 100;
+            for (int i = 0; i < 480; i++) fsm.Tick(inputs.Build(t2++));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove), "must not time out before the 8s (480-tick) timeout elapses");
+
+            fsm.Tick(inputs.Build(t2));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardResolve), "must force-stop once the 8s (480-tick) timeout elapses");
+        }
+
+        [Test]
+        public void BoardResolve_ResolvesWithinOneTick_WhenNoSeatNeedsAnInversionChoice()
+        {
+            // AC1: the "cero tiempo muerto" fast path -- when nobody landed on
+            // Inversión this round, BOARD_RESOLVE must not wait out any window.
+            (SessionStateMachine fsm, FakeInputs inputs, int tapOffset) = DriveToBoardMove_RingReaches(BoardTileType.MonedaPositiva);
+
+            int t = 100;
+            for (int i = 0; i < 15 * (tapOffset - 1); i++) fsm.Tick(inputs.Build(t++)); // stay neutral through the target bracket
+            inputs.Set(PlayerSlot.Rojo, true);
+            inputs.Set(PlayerSlot.Azul, true);
+            inputs.Set(PlayerSlot.Amarillo, true);
+            inputs.Set(PlayerSlot.Verde, true);
+            fsm.Tick(inputs.Build(t++)); // the tap tick -- freezes all 4 at meterValue==tapOffset
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardResolve), "test setup sanity");
+            Assert.That(fsm.BoardSnapshot.Ring[tapOffset], Is.EqualTo(BoardTileType.MonedaPositiva), "test setup sanity");
+
+            fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro),
+                "no seat landed on Inversión -- BOARD_RESOLVE must resolve within 1 tick, not wait out any window");
+        }
+
+        [Test]
+        public void BoardResolve_WaitsUpToFourSeconds_WhenSeatLandsOnInversion()
+        {
+            // AC1: GDD §5.3's Inversión deposit choice is a real-time, <=4s window
+            // (240 ticks @ 60Hz) -- BOARD_RESOLVE must genuinely wait it out
+            // (mirrors BoardModel's own already-approved TickResolve/ResolveFinished
+            // contract; nothing here shortens it even though every seat's stick
+            // stays neutral the whole window).
+            (SessionStateMachine fsm, FakeInputs inputs, int tapOffset) = DriveToBoardMove_RingReaches(BoardTileType.Inversion);
+
+            int t = 100;
+            for (int i = 0; i < 15 * (tapOffset - 1); i++) fsm.Tick(inputs.Build(t++));
+            inputs.Set(PlayerSlot.Rojo, true);
+            inputs.Set(PlayerSlot.Azul, true);
+            inputs.Set(PlayerSlot.Amarillo, true);
+            inputs.Set(PlayerSlot.Verde, true);
+            fsm.Tick(inputs.Build(t++));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardResolve), "test setup sanity");
+            Assert.That(fsm.BoardSnapshot.Ring[tapOffset], Is.EqualTo(BoardTileType.Inversion), "test setup sanity");
+            Assert.That(fsm.BoardSnapshot.Positions[0], Is.EqualTo(tapOffset), "test setup sanity");
+
+            for (int i = 0; i < 239; i++) fsm.Tick(inputs.Build(t++));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardResolve), "must not resolve before the 4s (240-tick) Inversión window elapses");
+
+            fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "must resolve once the 4s (240-tick) Inversión window elapses");
+        }
+
+        // ── AC2 (TASK-068): coin-pool reconciliation, single source of truth ─────
+
+        [Test]
+        public void BoardResolve_ReconcilesCoinFlowsIntoSessionCoins_SingleSourceOfTruth()
+        {
+            // AC2 [ASSUMED default]: SessionStateMachine.Coins is the single
+            // source of truth (GDD §5.6: microgames ~60% / casillas ~40% feed the
+            // SAME pool). BoardModel's own internal balances are seeded FROM Coins
+            // at BOARD_MOVE entry (SetBalances) and every BoardResolution.CoinFlows
+            // delta this round produced is replayed back onto Coins at
+            // BOARD_RESOLVE exit -- the two ledgers must therefore match EXACTLY
+            // the instant BOARD_RESOLVE completes, for any random session (no
+            // seed/tile engineering needed for this particular check).
+            var fsm = new SessionStateMachine(new SeededRandom(710), FastConfig(totalRounds: 1));
+            var inputs = JoinReadyInputs(); // button held -- BOARD_MOVE resolves in 1 tick
+            fsm.InsertCredit();
+
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+                fsm.Tick(inputs.Build(t));
+
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "test setup sanity: must have completed BOARD_RESOLVE");
+            Assert.That(fsm.BoardSnapshot, Is.Not.Null);
+            Assert.That(fsm.Coins, Is.EqualTo(fsm.BoardSnapshot.Balances),
+                "Coins and BoardModel's own balances must be exactly reconciled the instant BOARD_RESOLVE completes");
+        }
+
+        [Test]
+        public void BoardMove_SeedsBoardBalancesFromSessionCoins_IncludingPriorMicrogamePayout()
+        {
+            // AC2: the OTHER half of the reconciliation contract -- BOARD_MOVE
+            // entry must seed BoardModel's balances FROM the session's current
+            // Coins (SetBalances), including whatever the PRIOR round's
+            // microgame+board resolution already paid out. Verified across round
+            // 1's exit into round 2's own BOARD_MOVE entry.
+            var config = FastConfig(totalRounds: 2);
+            var fsm = new SessionStateMachine(new SeededRandom(711), config);
+            var round1 = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(round1, "R1", playDurationSeconds: 0.02f);
+
+            var inputs = JoinReadyInputs();
+            fsm.InsertCredit();
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.Intermission; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission), "test setup sanity");
+            int[] coinsAfterRound1 = (int[])fsm.Coins.Clone();
+
+            for (int t = 1000; t < 1500 && fsm.CurrentPhase != SessionPhase.BoardMove; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove), "test setup sanity: round 2's BOARD_MOVE has begun");
+
+            Assert.That(fsm.BoardSnapshot.Balances, Is.EqualTo(coinsAfterRound1),
+                "round 2's BOARD_MOVE must have re-seeded the board from the session's post-round-1 Coins");
+        }
+
+        [Test]
+        public void FullSession_CoinConservation_NoBalanceEverNegative_AndLedgersStaySynced()
+        {
+            // AC2: "no coin created or destroyed across the microgame<->board
+            // boundary" over a full simulated session, with a REAL BoardModel (not
+            // a hand-picked ring) driving every one of 7 rounds. Checked two ways
+            // continuously: (1) no seat's Coins ever goes negative; (2) Coins and
+            // BoardModel's own balances are reconciled (equal) the instant every
+            // single BOARD_RESOLVE in the session completes -- proving no round
+            // silently drops or double-counts a CoinDelta.
+            var config = new SessionStateMachineConfig(
+                joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0.02f, mgResultSeconds: 0.02f,
+                intermissionSeconds: 0.02f, finalWagerSeconds: 0.1f, gameOverSeconds: 0.02f,
+                totalRounds: 7, ticksPerSecond: 60);
+            var fsm = new SessionStateMachine(new SeededRandom(712), config);
+            var fake = new FakeMicrogame(finishAfterTicks: 1,
+                result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+            fsm.SetActiveMicrogame(fake, "R", playDurationSeconds: 0.02f);
+
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.BoardMove; t++)
+            int reconciliationChecks = 0;
+            for (int t = 0; t < 20000 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+            {
+                SessionPhase before = fsm.CurrentPhase;
                 fsm.Tick(inputs.Build(t));
-            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardMove));
 
-            fsm.Tick(inputs.Build(9000));
-            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.BoardResolve), "BoardMove must advance in <=1 tick with no board model wired");
+                foreach (int c in fsm.Coins)
+                    Assert.That(c, Is.GreaterThanOrEqualTo(0), $"tick {t}: no Coins balance may ever go negative");
 
-            fsm.Tick(inputs.Build(9001));
-            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro), "BoardResolve must advance in <=1 tick with no board model wired");
+                if (before == SessionPhase.BoardResolve && fsm.CurrentPhase != SessionPhase.BoardResolve)
+                {
+                    reconciliationChecks++;
+                    Assert.That(fsm.Coins, Is.EqualTo(fsm.BoardSnapshot.Balances),
+                        $"tick {t}: Coins and BoardModel balances must reconcile exactly the instant BOARD_RESOLVE completes");
+                }
+            }
+
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity: the probe must complete all 7 rounds");
+            Assert.That(reconciliationChecks, Is.EqualTo(7), "every one of the 7 rounds' BOARD_RESOLVE completions must have been observed and reconciled");
+        }
+
+        // ── AC3 (TASK-068): determinism through the wired board phases ───────────
+
+        [Test]
+        public void FullSession_WithBoardPhases_Deterministic_IdenticalFinalCoinAndBoardState()
+        {
+            // AC3: same (seed, input sequence) -> identical session final-state
+            // hash across the board phases. "Hash" here is exact field-by-field
+            // equality of every piece of state a replay could diverge on (Coins
+            // plus every BoardSnapshot field) -- the same convention this file's
+            // existing Determinism_SameSeedAndInputs_ProducesIdenticalTrace test
+            // already uses, extended to cover the newly-wired board ledger too.
+            (int[] coins, BoardSnapshot board) RunOnce()
+            {
+                var config = new SessionStateMachineConfig(
+                    joinTimeoutSeconds: 30f, joinMinReady: 2, mgIntroSeconds: 0.02f, mgResultSeconds: 0.02f,
+                    intermissionSeconds: 0.02f, finalWagerSeconds: 0.1f, gameOverSeconds: 0.02f,
+                    totalRounds: 7, ticksPerSecond: 60);
+                var fsm = new SessionStateMachine(new SeededRandom(713), config);
+                var fake = new FakeMicrogame(finishAfterTicks: 1,
+                    result: Ranked((0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0)));
+                fsm.SetActiveMicrogame(fake, "R", playDurationSeconds: 0.02f);
+
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+                for (int t = 0; t < 20000 && fsm.CurrentPhase != SessionPhase.GameOver; t++)
+                    fsm.Tick(inputs.Build(t));
+
+                Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup sanity");
+                return ((int[])fsm.Coins.Clone(), fsm.BoardSnapshot);
+            }
+
+            (int[] coins, BoardSnapshot board) a = RunOnce();
+            (int[] coins, BoardSnapshot board) b = RunOnce();
+
+            Assert.That(b.coins, Is.EqualTo(a.coins));
+            Assert.That(b.board.Ring, Is.EqualTo(a.board.Ring));
+            Assert.That(b.board.Positions, Is.EqualTo(a.board.Positions));
+            Assert.That(b.board.Balances, Is.EqualTo(a.board.Balances));
+            Assert.That(b.board.PropertyOwner, Is.EqualTo(a.board.PropertyOwner));
+            Assert.That(b.board.InversionOwner, Is.EqualTo(a.board.InversionOwner));
+            Assert.That(b.board.Weapons, Is.EqualTo(a.board.Weapons));
+            Assert.That(b.board.StarSquareIndex, Is.EqualTo(a.board.StarSquareIndex));
         }
 
         // ── AC5: determinism / replay ─────────────────────────────────────────────
@@ -452,7 +741,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.Intermission; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.Intermission; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission));
 
@@ -485,7 +774,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+            for (int t = 0; t < 400 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgIntro));
 
@@ -516,7 +805,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+            for (int t = 0; t < 400 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
 
@@ -553,7 +842,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 100 && !fake.InitializeCalled; t++)
+            for (int t = 0; t < 400 && !fake.InitializeCalled; t++)
                 fsm.Tick(inputs.Build(t));
 
             Assert.That(fake.InitializeCalled, Is.True);
@@ -570,7 +859,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 100 && !fake.InitializeCalled; t++)
+            for (int t = 0; t < 400 && !fake.InitializeCalled; t++)
                 fsm.Tick(inputs.Build(t));
 
             Assert.That(fake.InitializeCalled, Is.True);
@@ -589,7 +878,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
                 fsm.Tick(inputs.Build(t));
 
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
@@ -607,7 +896,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
                 fsm.Tick(inputs.Build(t)); // would throw if SessionStateMachine ever called GetResult() early
 
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
@@ -621,7 +910,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgIntro; t++)
                 fsm.Tick(inputs.Build(t));
 
             bool sawMgPlay = false;
@@ -658,7 +947,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 20 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+            for (int t = 0; t < 400 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
                 fsm.Tick(inputs.Build(t));
 
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult), "test setup sanity: the 0-duration flush must cascade directly to MgResult");
@@ -681,7 +970,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
@@ -740,7 +1029,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgPlay; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgPlay; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgPlay), "test setup sanity: must reach MgPlay before measuring");
 
@@ -798,7 +1087,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
@@ -849,7 +1138,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
 
             int[] preWagerCoins = (int[])fsm.Coins.Clone();
@@ -902,7 +1191,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgResult));
 
@@ -924,7 +1213,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.MgResult; t++)
                 fsm.Tick(inputs.Build(t));
 
             Assert.That(fsm.Counters.WinnerOf(StarKind.Gatillo, 0b1111), Is.EqualTo(-1),
@@ -942,7 +1231,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.Intermission; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.Intermission; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Intermission));
             Assert.That(fsm.MicrogameWins, Is.EqualTo(new[] { 0, 1, 0, 0 }), "seat 1 won round 1 (place 1)");
@@ -951,7 +1240,7 @@ namespace Barcade.Core.Tests
                 result: new V2Result(ResultKind.CoopSuccess, Array.Empty<PlayerRank>(), 0));
             fsm.SetActiveMicrogame(round2, "R2", playDurationSeconds: 0.02f);
 
-            for (int t = 1000; t < 1200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 1000; t < 1500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
             Assert.That(fsm.MicrogameWins, Is.EqualTo(new[] { 1, 2, 1, 1 }), "a coop success credits every active seat with a win");
@@ -973,7 +1262,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
@@ -994,7 +1283,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
@@ -1014,7 +1303,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager));
 
@@ -1041,7 +1330,7 @@ namespace Barcade.Core.Tests
 
             Assert.Throws<ArgumentException>(() =>
             {
-                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                     fsm.Tick(inputs.Build(t));
             });
         }
@@ -1065,7 +1354,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
 
             int[] preWagerCoins = (int[])fsm.Coins.Clone();
@@ -1110,7 +1399,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
 
             var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
@@ -1148,7 +1437,7 @@ namespace Barcade.Core.Tests
 
                 var inputs = JoinReadyInputs();
                 fsm.InsertCredit();
-                for (int t = 0; t < 300 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                for (int t = 0; t < 600 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                     fsm.Tick(inputs.Build(t));
 
                 var climax = new FakeMicrogame(finishAfterTicks: 2,
@@ -1204,7 +1493,7 @@ namespace Barcade.Core.Tests
 
                 var inputs = JoinReadyInputs();
                 fsm.InsertCredit();
-                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                     fsm.Tick(inputs.Build(t));
 
                 var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
@@ -1245,7 +1534,7 @@ namespace Barcade.Core.Tests
 
                 var inputs = JoinReadyInputs();
                 fsm.InsertCredit();
-                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                     fsm.Tick(inputs.Build(t));
 
                 var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
@@ -1290,7 +1579,7 @@ namespace Barcade.Core.Tests
 
                 var inputs = JoinReadyInputs();
                 fsm.InsertCredit();
-                for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+                for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                     fsm.Tick(inputs.Build(t));
 
                 var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
@@ -1335,7 +1624,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.FinalWager), "test setup sanity");
 
@@ -1453,7 +1742,7 @@ namespace Barcade.Core.Tests
 
             bool sawIntermission = false;
             int t = 0;
-            for (; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
             {
                 if (fsm.CurrentPhase == SessionPhase.Intermission)
                 {
@@ -1499,7 +1788,7 @@ namespace Barcade.Core.Tests
 
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
-            for (int t = 0; t < 200 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
+            for (int t = 0; t < 500 && fsm.CurrentPhase != SessionPhase.FinalWager; t++)
                 fsm.Tick(inputs.Build(t));
 
             var climaxFake = new FakeMicrogame(finishAfterTicks: 1,
@@ -1574,7 +1863,7 @@ namespace Barcade.Core.Tests
             var inputs = JoinReadyInputs();
             fsm.InsertCredit();
 
-            for (int t = 0; t < 60 && fsm.CurrentPhase != SessionPhase.MgPlay; t++)
+            for (int t = 0; t < 400 && fsm.CurrentPhase != SessionPhase.MgPlay; t++)
                 fsm.Tick(inputs.Build(t));
             Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.MgPlay), "test setup: must reach a persistent MgPlay");
             Assert.That(fsm.Roster.Seats[(int)PlayerSlot.Rojo], Is.EqualTo(SeatState.Human), "test setup: Rojo starts Human");
