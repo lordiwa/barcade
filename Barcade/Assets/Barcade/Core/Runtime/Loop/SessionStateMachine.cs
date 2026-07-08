@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Barcade.Core.Board;
 using Barcade.Core.Scoring;
 using V2 = Barcade.Core.Microgames.V2;
@@ -305,6 +306,12 @@ namespace Barcade.Core
         /// </summary>
         private const int CoopPayoutTableLength = 2;
 
+        /// <summary>GDD §5.5: DobleVelocidad -> siguiente microjuego a 1.5x.</summary>
+        private const float DobleVelocidadSpeedMult = 1.5f;
+
+        /// <summary>GDD §5.5: LluviaDeMonedas -> +2 a todos (no "next microgame" qualifier -- applied immediately, see TASK-042 hand-off).</summary>
+        private const int LluviaDeMonedasAmount = 2;
+
         /// <summary>
         /// TASK-068 [ASSUMED]: the round-number key used to derive the board's
         /// one-time ring-setup RNG (see class doc "[ASSUMED] Board instantiation").
@@ -337,6 +344,25 @@ namespace Barcade.Core
         // per session in CompleteJoin, discarded in ResetToAttract -- see class doc
         // "[ASSUMED] Board instantiation" and "[ASSUMED] Coin-pool reconciliation".
         private BoardModel _board;
+
+        // TASK-042 (T-114): evento application (GDD §5.5) -- see FinishBoardResolve.
+        // _lastRoundModifier is the modifier drawn on the round that just resolved
+        // (None if no seat landed on Evento); BeginRound consumes it once for
+        // DobleVelocidad's difficultyMult multiplier, but the field itself is left
+        // for inspection (telemetry/tests/future HUD) rather than cleared right
+        // after -- the NEXT FinishBoardResolve naturally overwrites it.
+        private RoundModifier _lastRoundModifier;
+        // Apagon (GDD §5.5): "el HUD de puntuaciones se oculta hasta el final" --
+        // sticky for the whole rest of the session once drawn (unlike
+        // _lastRoundModifier's one-round scope), since Core has no rendering of
+        // its own this is exposed as a flag for a future HUD presenter to read.
+        private bool _apagonActive;
+        // The most recently completed BOARD_RESOLVE's full coin-flow picture --
+        // BoardModel's own tile/weapon CoinDeltas plus this evento-application
+        // step's own LluviaDeMonedas Bank flow, merged (see FinishBoardResolve).
+        // Exposed the same way LastMicrogameResult/LastWagerResult/
+        // LastBonusStarResult already are: "most recently completed X".
+        private BoardResolution? _lastBoardResolution;
 
         // TASK-056 (GDD §3.2, line 224): dead-seat ("puesto muerto") detection. Per
         // claimed-human seat, ticks since its last input edge ("flanco") while in a
@@ -449,6 +475,18 @@ namespace Barcade.Core
         /// every BOARD_RESOLVE completes, by construction, never diverges.
         /// </summary>
         public BoardSnapshot BoardSnapshot => _board?.GetSnapshot();
+
+        /// <summary>TASK-042: pass-through of the board's own weapon-window state (see <see cref="BoardModel.WeaponWindowActive"/>) -- for a HUD/bot to know which BOARD_RESOLVE stick semantics currently apply. False before BOARD_MOVE has begun.</summary>
+        public bool BoardWeaponWindowActive => _board?.WeaponWindowActive ?? false;
+
+        /// <summary>TASK-042 (GDD §5.5): the evento modifier drawn on the round that just resolved BOARD_RESOLVE (<see cref="RoundModifier.None"/> if nobody landed on an Evento square). Applies to that SAME round's own microgame (see <see cref="BeginRound"/>), not the following round's.</summary>
+        public RoundModifier LastRoundModifier => _lastRoundModifier;
+
+        /// <summary>TASK-042 (GDD §5.5): true from the round Apagon is drawn until GameOver ("hasta el final"); false before then and after a session reset. A future HUD presenter reads this to suppress score display -- Core does no rendering itself.</summary>
+        public bool ApagonActive => _apagonActive;
+
+        /// <summary>TASK-042: every coin flow from the most recently completed BOARD_RESOLVE -- BoardModel's own tile/weapon CoinDeltas plus this step's own evento-application flows (LluviaDeMonedas), merged. Null before BOARD_RESOLVE has completed at least once this session.</summary>
+        public BoardResolution? LastBoardResolution => _lastBoardResolution;
 
         /// <summary>Per-seat completed-microgame win counts this session (competitive place 1, or every active seat on a coop success) — the <see cref="FinalRanking"/> tiebreak source.</summary>
         public int[] MicrogameWins => _microgameWins;
@@ -691,17 +729,69 @@ namespace Barcade.Core
         }
 
         /// <summary>
-        /// TASK-068: BOARD_RESOLVE exit -- resolves this round's landed-square
-        /// effects, replays the resulting <see cref="BoardResolution.CoinFlows"/>
+        /// TASK-068/042: BOARD_RESOLVE exit -- resolves this round's landed-square
+        /// and weapon effects, replays the resulting <see cref="BoardResolution.CoinFlows"/>
         /// back onto <see cref="Coins"/> (the "apply BACK" half of the
-        /// reconciliation contract, class doc), then starts the round proper.
-        /// <see cref="BoardResolution.Stars"/>/<see cref="BoardResolution.Modifier"/>
-        /// are deliberately not consumed here — see class doc.
+        /// reconciliation contract, class doc), applies the drawn evento (GDD
+        /// §5.5 -- see "evento application" below), then starts the round proper.
+        /// <see cref="BoardResolution.Stars"/> is deliberately not consumed here —
+        /// see class doc.
+        ///
+        /// <para>
+        /// <b>Evento application (TASK-042, GDD §5.5).</b> <see cref="_lastRoundModifier"/>
+        /// captures the draw for <see cref="BeginRound"/> to consume (DobleVelocidad's
+        /// difficultyMult multiplier). LluviaDeMonedas is applied HERE, immediately
+        /// (GDD names no "next microgame" qualifier for it, unlike the other four)
+        /// as a Bank-sourced <see cref="CoinDelta"/> to every seat
+        /// <see cref="ActiveSeatsMask"/> covers — [ASSUMED] "a todos" reads as every
+        /// player still in the session, including a currently-Idle one (this is an
+        /// ambient/luck event, not a skill-based round reparto, so TASK-056's idle
+        /// exclusion does not apply here). Apagon sets the sticky
+        /// <see cref="_apagonActive"/> flag. MuerteSubita/ModoPinata reach
+        /// <see cref="_lastRoundModifier"/> too but have no mechanic today with a
+        /// "lives"/"damage-spills-coins" concept to hook a behavioral effect onto
+        /// (Esquiva is already unconditionally one-hit) -- an honest, flagged gap,
+        /// not a faked one (see hand-off).
+        /// </para>
         /// </summary>
         private void FinishBoardResolve()
         {
             BoardResolution resolution = _board.Resolve(SeededRandom.Derive(_scoringSeed, _roundIndex, RngStream.Board));
             ApplyCoinFlows(resolution.CoinFlows);
+
+            _lastRoundModifier = resolution.Modifier;
+            CoinDelta[] combinedFlows = resolution.CoinFlows;
+
+            if (resolution.Modifier == RoundModifier.LluviaDeMonedas)
+            {
+                var eventoFlows = new List<CoinDelta>();
+                int mask = ActiveSeatsMask();
+                for (int i = 0; i < AllSlots.Length; i++)
+                {
+                    if ((mask & (1 << i)) == 0) continue;
+                    eventoFlows.Add(new CoinDelta(CoinDelta.Bank, i, LluviaDeMonedasAmount));
+                }
+                ApplyCoinFlows(eventoFlows.ToArray());
+                // Re-sync BoardModel's own balances to match -- LluviaDeMonedas
+                // only touched _coins above, and the class doc's own reconciliation
+                // invariant ("this snapshot's Balances mirrors Coins exactly the
+                // instant every BOARD_RESOLVE completes") must still hold once this
+                // method returns. Reuses the same SetBalances seam EnterBoardMove
+                // already uses to seed FROM Coins.
+                _board.SetBalances(_coins);
+
+                var merged = new CoinDelta[resolution.CoinFlows.Length + eventoFlows.Count];
+                Array.Copy(resolution.CoinFlows, merged, resolution.CoinFlows.Length);
+                eventoFlows.CopyTo(merged, resolution.CoinFlows.Length);
+                combinedFlows = merged;
+            }
+            else if (resolution.Modifier == RoundModifier.Apagon)
+            {
+                _apagonActive = true;
+            }
+
+            _lastBoardResolution = new BoardResolution(combinedFlows, resolution.Stars, resolution.Modifier);
+
             BeginRound();
         }
 
@@ -724,7 +814,16 @@ namespace Barcade.Core
         private void BeginRound()
         {
             _interpreter.Reset();
-            _activeMicrogame?.Initialize(_rng, _roster, _activeDifficultyMult);
+            // TASK-042 (GDD §5.5): DobleVelocidad multiplies the difficultyMult
+            // this round's microgame is Initialize'd with -- the exact channel
+            // SetActiveMicrogame's own doc already earmarked for a future D_final-
+            // style multiplier (GDD §9.1). Applies to the round that just resolved
+            // BOARD_RESOLVE (_lastRoundModifier), never the climax's own
+            // BeginFinalMg (see class doc "evento application" for why: no fresh
+            // BOARD_RESOLVE immediately precedes FinalMg).
+            float effectiveDifficultyMult = _activeDifficultyMult
+                * (_lastRoundModifier == RoundModifier.DobleVelocidad ? DobleVelocidadSpeedMult : 1f);
+            _activeMicrogame?.Initialize(_rng, _roster, effectiveDifficultyMult);
 
             float effectivePlayDuration = _activeMicrogame != null ? _activePlayDurationSeconds : 0f;
             _roundMachine.StartRound(_activeVerb ?? string.Empty, effectivePlayDuration);
@@ -1088,6 +1187,12 @@ namespace Barcade.Core
             // ownership/inventory state must not leak into a fresh session (same
             // rationale as the roster clear above); CompleteJoin builds a new one.
             _board = null;
+
+            // TASK-042: a fresh session must not read back the previous one's
+            // evento state either (same rationale as every other clear here).
+            _lastRoundModifier = RoundModifier.None;
+            _apagonActive = false;
+            _lastBoardResolution = null;
 
             // TASK-051: clear every scoring/wager artifact too, or a fresh
             // session's Attract/Join cycle would still read back the PREVIOUS

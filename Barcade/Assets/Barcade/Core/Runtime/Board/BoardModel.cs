@@ -152,6 +152,13 @@ namespace Barcade.Core.Board
         private const int EstrellaPrice = 15;
         private const int InversionStarPayoutInterval = 3; // GDD §5.3: "cada vez que el marcador... avanza 3"
 
+        // GDD §5.4 weapon rules -- see class doc "Weapon USE" for the full design.
+        private const int GuanteFloorShareRangeSquares = 2; // "reparten entre quienes estan a <=2 casillas"
+        private const int ImanRangeSquares = 4; // "Alcance <=4 casillas"
+        private const int ImanCoinSteal = 6; // "roba... 6 monedas"
+        private const int ColmenaAreaSquares = 1; // target square + adjacent
+        private const int ColmenaDamage = 3; // "pierden 3 monedas hacia el lanzador"
+
         private readonly BoardConfig _config;
         private readonly BoardTileType[] _ring;
         private int _starSquareIndex;
@@ -167,13 +174,20 @@ namespace Barcade.Core.Board
         private readonly int _meterTicksPerStep;
         private readonly int _timeoutTicks;
 
-        // ── Resolve-phase state (Inversión's <=4s deposit-choice window) ────────
+        // ── Resolve-phase state (Inversión's <=4s deposit-choice window, then the
+        //    weapon aim+confirm window -- see "Weapon USE" in the class doc) ─────
         private readonly bool[] _landedOnInversionThisRound = new bool[4];
         private readonly int?[] _pendingInversionTierPercent = new int?[4];
         private bool _resolveNeedsInput;
         private bool _resolveFinished;
         private int _resolveTick;
         private readonly int _resolveWindowTicks;
+
+        private enum ResolveSubPhase { Deposit, Weapon, Done }
+        private ResolveSubPhase _resolveSubPhase;
+        private bool _weaponWindowNeededThisRound;
+        private readonly int?[] _pendingWeaponTarget = new int?[4]; // sticky aim, per seat; reset every BeginResolvePhase
+        private readonly bool[] _weaponFireArmed = new bool[4]; // latched true on the first tap-while-aimed tick
 
         // ── Persistent square/seat state ─────────────────────────────────────────
         private readonly int[] _propertyOwner; // per ring index; -1 = unowned/not Propiedad
@@ -265,6 +279,14 @@ namespace Barcade.Core.Board
             for (int i = 0; i < 4; i++) _balances[i] = balances[i];
         }
 
+        /// <summary>Overrides every seat's held weapon directly (default null -- max 1 in hand, GDD §5.4). Test/framework seam, same convention as <see cref="SetBalances"/>/<see cref="SetForcedPositions"/>.</summary>
+        public void SetInventory(WeaponKind?[] weapons)
+        {
+            if (weapons == null) throw new ArgumentNullException(nameof(weapons));
+            if (weapons.Length != 4) throw new ArgumentException("weapons must have length 4", nameof(weapons));
+            for (int i = 0; i < 4; i++) _inventory[i] = weapons[i];
+        }
+
         // ── IBoardModel: Move phase (GDD §5.2) ───────────────────────────────────
 
         /// <inheritdoc/>
@@ -318,40 +340,95 @@ namespace Barcade.Core.Board
 
         // ── Additive resolve-phase seam (see class doc) ──────────────────────────
 
-        /// <summary>Starts BOARD_RESOLVE: determines which seats landed on an Inversión square this round and opens their deposit-choice window (immediately closed if nobody needs one).</summary>
+        /// <summary>
+        /// Starts BOARD_RESOLVE: determines which seats landed on an Inversión
+        /// square this round (opens the deposit-choice sub-window first) and
+        /// which seats hold a weapon (opens the aim+confirm sub-window second,
+        /// see class doc "Weapon USE") -- either sub-window is skipped entirely
+        /// if nothing needs it (GDD "cero tiempo muerto"), and the whole phase
+        /// closes immediately if NEITHER is needed.
+        /// </summary>
         public void BeginResolvePhase()
         {
             _resolveTick = 0;
-            _resolveNeedsInput = false;
+            bool depositNeeded = false;
             for (int i = 0; i < 4; i++)
             {
                 bool onInversion = _ring[_positions[i]] == BoardTileType.Inversion;
                 _landedOnInversionThisRound[i] = onInversion;
                 _pendingInversionTierPercent[i] = onInversion ? (int?)DefaultInversionTierPercent : null;
-                if (onInversion) _resolveNeedsInput = true;
+                if (onInversion) depositNeeded = true;
+
+                // Weapon state is reset here (BeginResolvePhase), before this
+                // round's own Cangrejo grants can happen (those run inside
+                // Resolve(), which is called only once ResolveFinished is true) --
+                // _inventory below is guaranteed to reflect what was held BEFORE
+                // this round, never a same-round pickup.
+                _pendingWeaponTarget[i] = null;
+                _weaponFireArmed[i] = false;
             }
-            _resolveFinished = !_resolveNeedsInput;
+
+            bool weaponNeeded = false;
+            for (int i = 0; i < 4; i++) if (_inventory[i].HasValue) { weaponNeeded = true; break; }
+            _weaponWindowNeededThisRound = weaponNeeded;
+
+            _resolveSubPhase = depositNeeded ? ResolveSubPhase.Deposit
+                : weaponNeeded ? ResolveSubPhase.Weapon
+                : ResolveSubPhase.Done;
+            _resolveNeedsInput = depositNeeded || weaponNeeded;
+            _resolveFinished = _resolveSubPhase == ResolveSubPhase.Done;
         }
 
-        /// <summary>Advances the deposit-choice window by one simulation tick.</summary>
+        /// <summary>Advances the currently-open sub-window (deposit, then weapon) by one simulation tick.</summary>
         public void TickResolve(in V2Snapshot input)
         {
             if (input.Players == null) throw new ArgumentException("InputSnapshot.Players must not be null.", nameof(input));
             if (_resolveFinished) return;
 
-            for (int i = 0; i < 4; i++)
+            if (_resolveSubPhase == ResolveSubPhase.Deposit)
             {
-                if (!_landedOnInversionThisRound[i]) continue;
-                int? tier = MapStickToTierPercent(input.Players[i].Stick);
-                if (tier.HasValue) _pendingInversionTierPercent[i] = tier;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (!_landedOnInversionThisRound[i]) continue;
+                    int? tier = MapStickToTierPercent(input.Players[i].Stick);
+                    if (tier.HasValue) _pendingInversionTierPercent[i] = tier;
+                }
+
+                _resolveTick++;
+                if (_resolveTick >= _resolveWindowTicks)
+                {
+                    _resolveTick = 0;
+                    _resolveSubPhase = _weaponWindowNeededThisRound ? ResolveSubPhase.Weapon : ResolveSubPhase.Done;
+                    if (_resolveSubPhase == ResolveSubPhase.Done) _resolveFinished = true;
+                }
+                return;
             }
 
+            // Weapon sub-phase: stick aims at one of the OTHER 3 seats by relative
+            // offset (W/N/E -> +1/+2/+3 mod 4 -- see class doc); a held button
+            // (level-triggered, same convention as TickMove) confirms the
+            // CURRENTLY aimed seat and arms exactly once per round.
+            for (int i = 0; i < 4; i++)
+            {
+                if (!_inventory[i].HasValue) continue;
+                if (_weaponFireArmed[i]) continue;
+
+                int? relativeSlot = MapStickToWeaponTargetSlot(input.Players[i].Stick);
+                if (relativeSlot.HasValue) _pendingWeaponTarget[i] = (i + 1 + relativeSlot.Value) % 4;
+                if (input.Players[i].Button && _pendingWeaponTarget[i].HasValue) _weaponFireArmed[i] = true;
+            }
+
+            // Reuses the deposit window's own duration (see class doc) -- 4s each,
+            // 8s worst case combined, comfortably under GDD §2.2's 10s BOARD_RESOLVE max.
             _resolveTick++;
             if (_resolveTick >= _resolveWindowTicks) _resolveFinished = true;
         }
 
-        /// <summary>True once the deposit-choice window has closed (or never opened, if nobody landed on Inversión this round).</summary>
+        /// <summary>True once every open sub-window has closed (or none ever opened, if nobody needed a choice this round).</summary>
         public bool ResolveFinished => _resolveFinished;
+
+        /// <summary>True while the weapon aim+confirm sub-window is the currently-open one (as opposed to the deposit sub-window, or neither). For a HUD/bot to know which stick semantics currently apply.</summary>
+        public bool WeaponWindowActive => _resolveSubPhase == ResolveSubPhase.Weapon;
 
         private static int? MapStickToTierPercent(Direction8 stick)
         {
@@ -368,6 +445,22 @@ namespace Barcade.Core.Board
             }
         }
 
+        private static int? MapStickToWeaponTargetSlot(Direction8 stick)
+        {
+            // Same three-of-four-cardinals idiom as MapStickToTierPercent above,
+            // reused a third time (also SessionStateMachine.MapCardinalToWagerChoice)
+            // for "aim at one of the other 3 seats, offset order, one direction
+            // unused". Any other direction is a no-op: sticky, keeps whatever aim
+            // was already pending.
+            switch (stick)
+            {
+                case Direction8.W: return 0; // seat+1
+                case Direction8.N: return 1; // seat+2
+                case Direction8.E: return 2; // seat+3
+                default: return null;
+            }
+        }
+
         // ── IBoardModel: Resolve (GDD §5.3/§5.4) ─────────────────────────────────
 
         /// <inheritdoc/>
@@ -379,6 +472,17 @@ namespace Barcade.Core.Board
             var stars = new List<StarEvent>();
             RoundModifier modifier = RoundModifier.None;
             bool modifierSet = false;
+
+            // Weapon fire runs as its own pass BEFORE the per-square tile-effect
+            // loop below -- a seat that lands on Cangrejo THIS round is granted a
+            // weapon inside that loop, and must not be able to fire it in the same
+            // round it was picked up (see class doc "Weapon USE": use is for a
+            // weapon held BEFORE this round's BeginResolvePhase).
+            for (int seat = 0; seat < 4; seat++)
+            {
+                if (_weaponFireArmed[seat] && _inventory[seat].HasValue && _pendingWeaponTarget[seat].HasValue)
+                    ResolveWeaponFire(seat, _pendingWeaponTarget[seat].Value, coinFlows);
+            }
 
             for (int seat = 0; seat < 4; seat++)
             {
@@ -481,6 +585,139 @@ namespace Barcade.Core.Board
         {
             int roll = rng.NextInt(0, 3);
             _inventory[seat] = (WeaponKind)roll; // GDD §5.4: replaces whatever was held
+        }
+
+        // ── Weapon USE (GDD §5.4) ─────────────────────────────────────────────────
+        //
+        // Every weapon's restriction is a hard gate on FIRING itself: an aimed tap
+        // at an ineligible target (wrong leader for Guante, out of Iman's range) is
+        // a no-op -- the weapon is NOT consumed and the seat may re-aim within the
+        // remaining window (though _weaponFireArmed already latched on the tap, so
+        // in practice a rejected shot simply does nothing for the rest of this
+        // round -- see class doc "confirming with tap" for why re-arming isn't
+        // offered). Colmena has no target-eligibility restriction (GDD names only
+        // "no afecta al lanzador", already structurally guaranteed since the aim
+        // mapping never lets a seat select itself) so it always fires successfully.
+
+        private void ResolveWeaponFire(int shooter, int target, List<CoinDelta> coinFlows)
+        {
+            switch (_inventory[shooter])
+            {
+                case WeaponKind.GuanteDeBoxeo: ResolveGuanteDeBoxeo(shooter, target, coinFlows); break;
+                case WeaponKind.Iman: ResolveIman(shooter, target, coinFlows); break;
+                case WeaponKind.Colmena: ResolveColmena(shooter, target, coinFlows); break;
+            }
+        }
+
+        /// <summary>
+        /// GDD §5.4: usable only against 1st place. On a valid target, the target
+        /// loses 50% of coins to the visible floor/pot (Bank), which the floor
+        /// then redistributes among every seat within
+        /// <see cref="GuanteFloorShareRangeSquares"/> of the TARGET's square
+        /// (target included -- GDD names no shooter/target exclusion here, unlike
+        /// Colmena's explicit thrower immunity).
+        /// </summary>
+        private void ResolveGuanteDeBoxeo(int shooter, int target, List<CoinDelta> coinFlows)
+        {
+            if (!IsLeader(target)) return; // restriction failed -- not consumed
+            _inventory[shooter] = null;
+
+            int amount = _balances[target] / 2;
+            if (amount <= 0) return;
+            _balances[target] -= amount;
+            coinFlows.Add(new CoinDelta(target, CoinDelta.Bank, amount));
+            DistributeFloorShare(target, amount, coinFlows);
+        }
+
+        /// <summary>[ASSUMED] leader = highest current balance, ties broken by lowest seat index (this codebase's established tie-break convention).</summary>
+        private bool IsLeader(int seat)
+        {
+            int best = 0;
+            for (int i = 1; i < 4; i++)
+                if (_balances[i] > _balances[best]) best = i;
+            return seat == best;
+        }
+
+        private void DistributeFloorShare(int centerSeat, int amount, List<CoinDelta> coinFlows)
+        {
+            int centerSquare = _positions[centerSeat];
+            var recipients = new List<int>(4);
+            for (int i = 0; i < 4; i++)
+                if (RingDistance(_positions[i], centerSquare) <= GuanteFloorShareRangeSquares)
+                    recipients.Add(i);
+
+            int share = amount / recipients.Count;
+            int remainder = amount - share * recipients.Count;
+            for (int idx = 0; idx < recipients.Count; idx++)
+            {
+                // Remainder dealt to the lowest seat indices first (recipients was
+                // built in seat-index order) -- this codebase's established
+                // deterministic tie-break convention (e.g. BoardTileQuota's own
+                // Hamilton-remainder step).
+                int give = share + (idx < remainder ? 1 : 0);
+                if (give <= 0) continue;
+                int recipient = recipients[idx];
+                _balances[recipient] += give;
+                coinFlows.Add(new CoinDelta(CoinDelta.Bank, recipient, give));
+            }
+        }
+
+        /// <summary>
+        /// GDD §5.4: range <=4 squares. On a valid target, steals the target's
+        /// held object if it has one (Iman is consumed and replaced by the stolen
+        /// weapon), else steals <see cref="ImanCoinSteal"/> coins clamped to the
+        /// target's balance (GDD "nunca por debajo de 0", applied uniformly).
+        /// </summary>
+        private void ResolveIman(int shooter, int target, List<CoinDelta> coinFlows)
+        {
+            if (RingDistance(_positions[shooter], _positions[target]) > ImanRangeSquares) return; // restriction failed -- not consumed
+            _inventory[shooter] = null;
+
+            if (_inventory[target].HasValue)
+            {
+                _inventory[shooter] = _inventory[target];
+                _inventory[target] = null;
+                // An object transfer, not a coin flow -- no CoinDelta (AC1 scopes
+                // "visible origin->destination CoinDeltas" to coin flows).
+            }
+            else
+            {
+                int amount = Math.Min(ImanCoinSteal, _balances[target]);
+                if (amount <= 0) return;
+                _balances[target] -= amount;
+                _balances[shooter] += amount;
+                coinFlows.Add(new CoinDelta(target, shooter, amount));
+            }
+        }
+
+        /// <summary>
+        /// GDD §5.4: area weapon, no target-eligibility restriction. Everyone on
+        /// the target's square or adjacent (<see cref="ColmenaAreaSquares"/>)
+        /// loses <see cref="ColmenaDamage"/> coins toward the thrower, clamped to
+        /// their balance; the thrower is immune even if standing in the blast.
+        /// </summary>
+        private void ResolveColmena(int shooter, int target, List<CoinDelta> coinFlows)
+        {
+            _inventory[shooter] = null;
+
+            int targetSquare = _positions[target];
+            for (int i = 0; i < 4; i++)
+            {
+                if (i == shooter) continue; // "no afecta al lanzador"
+                if (RingDistance(_positions[i], targetSquare) > ColmenaAreaSquares) continue;
+
+                int amount = Math.Min(ColmenaDamage, _balances[i]);
+                if (amount <= 0) continue;
+                _balances[i] -= amount;
+                _balances[shooter] += amount;
+                coinFlows.Add(new CoinDelta(i, shooter, amount));
+            }
+        }
+
+        private int RingDistance(int a, int b)
+        {
+            int diff = Math.Abs(a - b);
+            return Math.Min(diff, _ring.Length - diff);
         }
 
         private static RoundModifier RollEvento(SeededRandom rng)
