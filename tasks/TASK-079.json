@@ -9,7 +9,7 @@
     "Duration 75 s; a Jefe standing at timeout wins; payout is asym1v3 shape [6,2,2,2] (Jefe/leader 6, attackers 2 each) passing the validator",
     "Tests-first; full fast suite green after, no regression"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -28,7 +28,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-08T16:36:40.627Z",
-  "updated_at": "2026-07-08T16:36:40.627Z",
+  "updated_at": "2026-07-08T18:02:35.157Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",

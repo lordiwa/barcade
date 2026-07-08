@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T18:01:23.760Z",
+  "generated_at": "2026-07-08T18:02:35.157Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -472,7 +472,7 @@
     {
       "key": "TASK-079",
       "title": "GDD T-112d — Special JEFE/Boss phase §7.2 (ronda 5-6, same-tick role swap) [split from TASK-041]",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "high"
     }
   ]
