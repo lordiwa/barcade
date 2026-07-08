@@ -7,7 +7,7 @@
     "The GUID stays with whichever asset existing scenes/prefabs reference; the other asset gets a freshly minted unique GUID; no reference breaks (verified by grep + Unity import)",
     "Unity gate passes: clean import/compile with no missing-reference warnings for the two .inputactions assets, and 4-player input still functions (PlayMode smoke or scene UAT)"
   ],
-  "status": "todo",
+  "status": "done",
   "priority": "low",
   "labels": [
     "hygiene",
@@ -19,9 +19,20 @@
   "depends_on": [],
   "linked_commits": [],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "uat",
+      "at": "2026-07-08T03:04:53.842Z",
+      "body": "UAT VERDICT: PASS. Human approved close 2026-07-08 after reviewing firsthand verification that TASK-047 is a MISDIAGNOSIS (not a real defect), no code change required.\n\nEvidence: (1) shared GUID 8404be70184654265930450def6a9037 is NOT an asset GUID — it is the top-level guid of the Input System package importer Library/PackageCache/com.unity.inputsystem@ea5ab5b33a26/InputSystem/Editor/AssetImporter/InputActionImporter.cs.meta, referenced (correctly) by both .inputactions .meta files in their `script:` field. (2) The two assets have distinct unique own guids: ArcadeControls=405d5b9e506026749a293d1551fafa3f (referenced by Game.unity), InputSystem_Actions=052faaac586de48259a63d0c4782560b (referenced only by EditorBuildSettings.asset, unused default). (3) AC1 real check: top-level guid across all 286 .meta in Assets, sort|uniq -d => ZERO duplicates.\n\nAC1 satisfied (0 duplicates). AC2 moot & intentionally skipped (reminting would break the importer binding). AC3 moot (unique GUIDs => already deterministic; provable headlessly, no Editor gate needed)."
+    },
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T03:05:00.448Z",
+      "body": "CLOSED as VERIFIED-NOT-A-DEFECT (uat-only; UAT verdict PASS recorded above; human approved). No code change. Summary: the 'duplicate GUID' was the shared Input System importer script ref (correct), not a duplicate asset GUID; real repo-wide dup-asset-GUID check = 0 across 286 .meta. AC1 satisfied; AC2/AC3 moot. Out-of-scope observation (unused InputSystem_Actions.inputactions default, wired only in EditorBuildSettings) noted to human, not filed per their choice."
+    }
+  ],
   "created_at": "2026-07-07T05:31:25.100Z",
-  "updated_at": "2026-07-07T05:31:25.100Z",
+  "updated_at": "2026-07-08T03:05:00.448Z",
   "jira_key": null,
   "verification_tier": "uat-only",
   "marker": "[EXPLICIT]",

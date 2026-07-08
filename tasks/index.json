@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T02:55:10.760Z",
+  "generated_at": "2026-07-08T03:05:00.448Z",
   "tasks": [
     {
       "key": "TASK-001",
@@ -280,7 +280,7 @@
     {
       "key": "TASK-047",
       "title": "Fix repo-wide duplicate .meta GUID shared by ArcadeControls.inputactions and InputSystem_Actions.inputactions",
-      "status": "todo",
+      "status": "done",
       "priority": "low"
     },
     {
