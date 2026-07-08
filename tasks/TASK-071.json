@@ -8,7 +8,7 @@
     "The 1000-session sweep asserts Coins == BoardSnapshot.Balances at every BOARD_RESOLVE exit (per-seed reconciliation, not just delta positivity)",
     "Fast + slow suites green, no regression; the strengthened gate still passes with zero violations (or surfaces a real one)"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "medium",
   "labels": [
     "gdd-v2",
@@ -28,7 +28,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-08T02:10:58.866Z",
-  "updated_at": "2026-07-08T02:10:58.866Z",
+  "updated_at": "2026-07-08T19:06:19.734Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
