@@ -741,5 +741,249 @@ namespace Barcade.Core.Tests
 
             Assert.That(board.ResolveFinished, Is.True);
         }
+
+        // ── TASK-042 (T-114): weapon USE (§5.4) ──────────────────────────────────
+        //
+        // Aiming convention [ASSUMED]: stick W/N/E selects one of the OTHER 3
+        // seats by relative offset (+1/+2/+3 mod 4, seat-index order) -- the same
+        // "three-of-four-cardinals, one unused, left-to-right/low-to-high" idiom
+        // already established twice in this codebase (MapStickToTierPercent's own
+        // Inversión-deposit convention above, and SessionStateMachine's own
+        // MapCardinalToWagerChoice for FINAL_WAGER). A held button (level-
+        // triggered, same "no debounce needed" convention as TickMove) confirms
+        // ("tap") the CURRENTLY aimed seat and ARMS exactly once -- further stick/
+        // button changes that same window are ignored, mirroring a real "confirm"
+        // gesture rather than a revisable choice (contrast with Inversión's own
+        // sticky-until-window-closes tier pick). The weapon window opens only if
+        // some seat holds a weapon at BeginResolvePhase (cero tiempo muerto) and
+        // runs SEQUENTIALLY after the deposit window (never concurrently -- avoids
+        // an ambiguous double-meaning of one seat's stick when it both landed on
+        // Inversión and holds a weapon in the same round).
+
+        [Test]
+        public void BeginResolvePhase_NoWeaponsHeld_NoInversionLanding_ClosesImmediately()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetForcedPositions(Positions(0, 0));
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            Assert.That(board.ResolveFinished, Is.True, "GDD 'cero tiempo muerto': nothing needs a choice this round");
+            Assert.That(board.WeaponWindowActive, Is.False);
+        }
+
+        [Test]
+        public void Resolve_GuanteDeBoxeo_AgainstNonLeader_NoOpAndWeaponRetained()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 100, 10, 10 }); // seat 1 (Azul) is the leader
+            board.SetInventory(new WeaponKind?[] { WeaponKind.GuanteDeBoxeo, null, null, null });
+            board.SetForcedPositions(Positions(0, 0));
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+            Assert.That(board.WeaponWindowActive, Is.True, "seat 0 holds a weapon -- the aim/confirm window must open");
+
+            var inputs = new FakeInputs();
+            // N -> slot 1 -> seat (0+2)%4 = 2 (Amarillo), NOT the leader (seat 1)
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.N, button: true);
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            BoardResolution res = board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Weapons[0], Is.EqualTo(WeaponKind.GuanteDeBoxeo),
+                "GDD §5.4: only usable against 1st place -- an invalid target must not consume the weapon");
+            Assert.That(board.GetSnapshot().Balances[2], Is.EqualTo(10), "no-op: seat 2 was never a legal target");
+            Assert.That(res.CoinFlows, Is.Empty);
+        }
+
+        [Test]
+        public void Resolve_GuanteDeBoxeo_AgainstLeader_HalfCoinsFallToFloor_SharedWithinTwoSquares()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 100, 10, 10 }); // seat 1 is the leader (100 coins)
+            board.SetInventory(new WeaponKind?[] { WeaponKind.GuanteDeBoxeo, null, null, null });
+            // shooter (0) far from the blast; target (1) at square 1; seat2 at
+            // square 2 (distance 1, within <=2); seat3 at square 15 (distance 6, outside).
+            board.SetForcedPositions(new[] { 10, 1, 2, 15 });
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            var inputs = new FakeInputs();
+            // W -> slot 0 -> seat (0+1)%4 = 1 (the leader)
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true);
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            BoardResolution res = board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Weapons[0], Is.Null, "consumed on a successful fire");
+            Assert.That(board.GetSnapshot().Balances[1], Is.EqualTo(75), "leader loses 50% (100 -> 50) then gets a floor share back (+25)");
+            Assert.That(board.GetSnapshot().Balances[2], Is.EqualTo(35), "within <=2 squares of the target -- floor share (+25)");
+            Assert.That(board.GetSnapshot().Balances[3], Is.EqualTo(10), "outside the <=2-square radius -- unaffected");
+            Assert.That(board.GetSnapshot().Balances[0], Is.EqualTo(10), "shooter out of radius -- no self-share this time");
+
+            Assert.That(FindFlow(res.CoinFlows, 1, CoinDelta.Bank).Amount, Is.EqualTo(50), "the lost half falls to the visible floor/pot");
+            Assert.That(FindFlow(res.CoinFlows, CoinDelta.Bank, 1).Amount, Is.EqualTo(25));
+            Assert.That(FindFlow(res.CoinFlows, CoinDelta.Bank, 2).Amount, Is.EqualTo(25));
+        }
+
+        [Test]
+        public void Resolve_Iman_OutOfRange_NoOpAndWeaponRetained()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 10, 10, 10 });
+            board.SetInventory(new WeaponKind?[] { WeaponKind.Iman, null, null, null });
+            board.SetForcedPositions(new[] { 0, 10, 0, 0 }); // seat 1 is 10 squares away -- outside Iman's <=4 range
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true); // -> seat 1
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Weapons[0], Is.EqualTo(WeaponKind.Iman), "out of range -- no-op, weapon retained");
+            Assert.That(board.GetSnapshot().Balances[1], Is.EqualTo(10));
+        }
+
+        [Test]
+        public void Resolve_Iman_InRange_TargetHoldsWeapon_StealsTheObjectNotCoins()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 10, 10, 10 });
+            board.SetInventory(new WeaponKind?[] { WeaponKind.Iman, WeaponKind.Colmena, null, null });
+            board.SetForcedPositions(new[] { 0, 2, 0, 0 }); // 2 squares away -- within range
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true); // -> seat 1
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            BoardResolution res = board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Weapons[0], Is.EqualTo(WeaponKind.Colmena), "Iman is consumed/replaced by the stolen object");
+            Assert.That(board.GetSnapshot().Weapons[1], Is.Null, "the target's weapon was stolen");
+            Assert.That(board.GetSnapshot().Balances[0], Is.EqualTo(10));
+            Assert.That(board.GetSnapshot().Balances[1], Is.EqualTo(10));
+            Assert.That(res.CoinFlows, Is.Empty, "stealing an object is not a coin flow");
+        }
+
+        [Test]
+        public void Resolve_Iman_InRange_TargetHoldsNoWeapon_Steals6CoinsClampedToBalance()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 20, 10, 10 });
+            board.SetInventory(new WeaponKind?[] { WeaponKind.Iman, null, null, null });
+            board.SetForcedPositions(new[] { 0, 4, 0, 0 }); // exactly at the range boundary (4 squares)
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true);
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            BoardResolution res = board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Weapons[0], Is.Null, "consumed on use");
+            Assert.That(board.GetSnapshot().Balances[0], Is.EqualTo(16));
+            Assert.That(board.GetSnapshot().Balances[1], Is.EqualTo(14));
+            Assert.That(FindFlow(res.CoinFlows, 1, 0).Amount, Is.EqualTo(6));
+
+            // Clamp case: target has fewer than 6 coins.
+            var board2 = new BoardModel(BoardConfig.GddDefaults, ring);
+            board2.SetBalances(new[] { 10, 3, 10, 10 });
+            board2.SetInventory(new WeaponKind?[] { WeaponKind.Iman, null, null, null });
+            board2.SetForcedPositions(new[] { 0, 1, 0, 0 });
+            board2.BeginMovePhase(new SeededRandom(1));
+            board2.BeginResolvePhase();
+            var inputs2 = new FakeInputs();
+            inputs2.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true);
+            while (!board2.ResolveFinished) board2.TickResolve(inputs2.Build(0));
+            board2.Resolve(new SeededRandom(1));
+            Assert.That(board2.GetSnapshot().Balances[1], Is.EqualTo(0), "GDD 'nunca por debajo de 0' clamp, applied uniformly (see BoardModel class doc)");
+            Assert.That(board2.GetSnapshot().Balances[0], Is.EqualTo(13));
+        }
+
+        [Test]
+        public void Resolve_Colmena_AreaDamageTowardThrower_ThrowerImmuneEvenWhenStandingInTheBlast()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 10, 10, 10 });
+            board.SetInventory(new WeaponKind?[] { WeaponKind.Colmena, null, null, null });
+            // Target square 5: seat1 at 5 (dist 0), seat2 at 6 (dist 1, adjacent -- in
+            // area), seat3 at 8 (dist 3 -- outside). Shooter (seat0) placed AT the
+            // target square too, to prove thrower immunity even inside the blast.
+            board.SetForcedPositions(new[] { 5, 5, 6, 8 });
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true); // -> seat 1
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            BoardResolution res = board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Weapons[0], Is.Null);
+            Assert.That(board.GetSnapshot().Balances[0], Is.EqualTo(16), "thrower immune to the blast, but receives every victim's coins (10+3+3)");
+            Assert.That(board.GetSnapshot().Balances[1], Is.EqualTo(7));
+            Assert.That(board.GetSnapshot().Balances[2], Is.EqualTo(7));
+            Assert.That(board.GetSnapshot().Balances[3], Is.EqualTo(10), "outside the blast area (distance 3 > 1)");
+            Assert.That(FindFlow(res.CoinFlows, 1, 0).Amount, Is.EqualTo(3));
+            Assert.That(FindFlow(res.CoinFlows, 2, 0).Amount, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void WeaponUse_HeldButtonArmsOnce_LaterAimChangeIsIgnored()
+        {
+            var ring = Ring(20);
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 10, 3, 10, 3 });
+            board.SetInventory(new WeaponKind?[] { WeaponKind.Iman, null, null, null });
+            board.SetForcedPositions(new[] { 0, 1, 0, 1 }); // seats 1 and 3 both within range
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+
+            var inputs = new FakeInputs();
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.W, button: true); // arms against seat 1 on tick 0
+            board.TickResolve(inputs.Build(0));
+
+            // Change aim + keep holding the button -- already armed, must be ignored.
+            inputs.Set(PlayerSlot.Rojo, stick: Direction8.N, button: true); // would be seat 2 if it mattered
+            while (!board.ResolveFinished) board.TickResolve(inputs.Build(0));
+
+            board.Resolve(new SeededRandom(1));
+
+            Assert.That(board.GetSnapshot().Balances[1], Is.EqualTo(0), "the FIRST confirmed target (seat 1) is locked in");
+            Assert.That(board.GetSnapshot().Balances[2], Is.EqualTo(10), "seat 2 (the later aim) was never actually targeted");
+        }
+
+        [Test]
+        public void ResolveWindows_DepositAndWeaponBothNeeded_RunSequentially_StayWithinTenSecondBudget()
+        {
+            // GDD §2.2: BOARD_RESOLVE max 10s. Both sub-windows are 4s each (see
+            // BoardModel class doc) -- 8s worst case, comfortably under budget.
+            var ring = Ring(20, (0, BoardTileType.Inversion));
+            var board = new BoardModel(BoardConfig.GddDefaults, ring);
+            board.SetBalances(new[] { 100, 10, 10, 10 });
+            board.SetInventory(new WeaponKind?[] { WeaponKind.Iman, null, null, null });
+            board.SetForcedPositions(Positions(0, 0)); // seat 0 lands on Inversion this round
+            board.BeginMovePhase(new SeededRandom(1));
+            board.BeginResolvePhase();
+            Assert.That(board.WeaponWindowActive, Is.False, "deposit sub-window opens first");
+
+            var inputs = new FakeInputs();
+            int ticks = 0;
+            while (!board.ResolveFinished) { board.TickResolve(inputs.Build(0)); ticks++; }
+
+            Assert.That(ticks, Is.LessThanOrEqualTo(10 * TicksPerSecond), "GDD §2.2: BOARD_RESOLVE max 10s");
+        }
     }
 }

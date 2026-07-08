@@ -2225,5 +2225,137 @@ namespace Barcade.Core.Tests
             foreach (int c in fsm.LastWagerResult.CoinsAfter)
                 Assert.That(c, Is.GreaterThanOrEqualTo(0), "no balance may go negative");
         }
+
+        // ── TASK-042 (T-114): evento application (§5.5) ──────────────────────────
+        //
+        // BoardResolution.Modifier (drawn seeded, TASK-031) now actually reaches
+        // the next microgame/session state instead of being discarded (dev-t068's
+        // own "TASK-042 territory" note). DobleVelocidad and Apagon are the two
+        // AC3 names a concretely testable, currently-reachable channel for:
+        // DobleVelocidad via the EXISTING difficultyMult -> IMicrogame.Initialize
+        // channel (already how the climax's own 1.5x D_final would eventually
+        // flow, per SetActiveMicrogame's own doc), Apagon via a new public flag
+        // for a future HUD presenter to read (Core has no rendering of its own).
+        // LluviaDeMonedas is immediate (no "next microgame" qualifier in the GDD
+        // text, unlike the other three) -- a Bank-sourced CoinDelta to every
+        // active seat, applied the instant BOARD_RESOLVE exits, through the SAME
+        // ApplyCoinFlows/Coins channel every other coin flow already uses.
+        // MuerteSubita/ModoPinata reach the same LastRoundModifier state channel
+        // but have no mechanic today with a "lives"/"damage" concept to hook a
+        // behavioral effect onto (Esquiva is already unconditionally one-hit;
+        // see hand-off) -- reachability is pinned, the mechanic-side effect is an
+        // honest, flagged gap for whenever such a mechanic exists.
+
+        /// <summary>
+        /// Searches a small range of construction seeds for one whose round-0
+        /// ring places an Evento square exactly one tap away (offset 1 -- every
+        /// seat's shared starting position with a button already held from Join,
+        /// same reasoning as DriveToBoardMove_RingReaches) AND whose seeded
+        /// Evento roll produces <paramref name="wanted"/>. Drives the session
+        /// through BOARD_RESOLVE into MgIntro so the caller can inspect the
+        /// modifier's effect on the round that immediately follows.
+        /// </summary>
+        private static (SessionStateMachine fsm, FakeInputs inputs) DriveThroughBoardResolve_RoundZero_WithModifier(
+            RoundModifier wanted, V2Microgame microgame)
+        {
+            for (int seed = 1; seed < 3000; seed++)
+            {
+                var fsm = new SessionStateMachine(new SeededRandom(seed), FastConfig(totalRounds: 1));
+                if (microgame != null) fsm.SetActiveMicrogame(microgame, "TEST", playDurationSeconds: 10f);
+                var inputs = JoinReadyInputs();
+                fsm.InsertCredit();
+
+                int t = 0;
+                for (; t < 300 && fsm.CurrentPhase != SessionPhase.BoardMove; t++) fsm.Tick(inputs.Build(t));
+                if (fsm.CurrentPhase != SessionPhase.BoardMove) continue;
+                if (fsm.BoardSnapshot.Ring[1] != BoardTileType.Evento) continue;
+
+                for (; t < 800 && fsm.CurrentPhase != SessionPhase.MgIntro && fsm.CurrentPhase != SessionPhase.MgPlay; t++)
+                    fsm.Tick(inputs.Build(t));
+                if (fsm.LastRoundModifier == wanted) return (fsm, inputs);
+            }
+            Assert.Fail($"no seed in [1,3000) draws {wanted} on an Evento landing at round 0 -- widen the search range");
+            throw new InvalidOperationException("unreachable");
+        }
+
+        [Test]
+        public void Evento_DobleVelocidad_MultipliesNextMicrogamesDifficultyByOneAndAHalf()
+        {
+            var mg = new FakeMicrogame(finishAfterTicks: int.MaxValue);
+            (SessionStateMachine fsm, FakeInputs _) = DriveThroughBoardResolve_RoundZero_WithModifier(RoundModifier.DobleVelocidad, mg);
+
+            Assert.That(fsm.LastRoundModifier, Is.EqualTo(RoundModifier.DobleVelocidad));
+            Assert.That(mg.InitializeCalled, Is.True);
+            Assert.That(mg.LastDifficultyMult, Is.EqualTo(1.5f).Within(0.0001f),
+                "GDD §5.5: DobleVelocidad -> siguiente microjuego a 1.5x -- reaches Initialize's difficultyMult");
+        }
+
+        [Test]
+        public void Evento_NoModifierOrOtherModifier_LeavesDifficultyMultUnchanged()
+        {
+            var mg = new FakeMicrogame(finishAfterTicks: int.MaxValue);
+            // Any non-DobleVelocidad outcome (including None) must NOT apply the 1.5x.
+            for (RoundModifier candidate = RoundModifier.MuerteSubita; candidate <= RoundModifier.Apagon; candidate++)
+            {
+                var mgLocal = new FakeMicrogame(finishAfterTicks: int.MaxValue);
+                (SessionStateMachine fsm, FakeInputs _) = DriveThroughBoardResolve_RoundZero_WithModifier(candidate, mgLocal);
+                Assert.That(mgLocal.LastDifficultyMult, Is.EqualTo(1f).Within(0.0001f),
+                    $"modifier {candidate} must not apply DobleVelocidad's 1.5x multiplier");
+            }
+        }
+
+        [Test]
+        public void Evento_LluviaDeMonedas_AddsTwoCoinsToEveryActiveSeat_BankSourced()
+        {
+            (SessionStateMachine fsm, FakeInputs _) = DriveThroughBoardResolve_RoundZero_WithModifier(RoundModifier.LluviaDeMonedas, null);
+
+            Assert.That(fsm.Coins, Is.EqualTo(new[] { 2, 2, 2, 2 }), "GDD §5.5: LluviaDeMonedas -> +2 a todos, no 'next microgame' qualifier -- immediate");
+            Assert.That(fsm.LastBoardResolution, Is.Not.Null);
+            CoinDelta[] flows = fsm.LastBoardResolution.Value.CoinFlows;
+            for (int seat = 0; seat < 4; seat++)
+            {
+                CoinDelta flow = Array.Find(flows, f => f.Origin == CoinDelta.Bank && f.Destination == seat && f.Amount == 2);
+                Assert.That(flow.Amount, Is.EqualTo(2), $"seat {seat} must have a visible Bank->seat CoinDelta (GDD §5.3 invariant)");
+            }
+        }
+
+        [Test]
+        public void Evento_Apagon_SetsFlagUntilGameOver_ThenClearsOnNextSession()
+        {
+            (SessionStateMachine fsm, FakeInputs inputs) = DriveThroughBoardResolve_RoundZero_WithModifier(RoundModifier.Apagon, null);
+            Assert.That(fsm.ApagonActive, Is.True, "GDD §5.5: Apagon -> HUD de puntuaciones oculto hasta el final");
+
+            for (int t = 1000; fsm.CurrentPhase != SessionPhase.GameOver && t < 3000; t++)
+            {
+                inputs.Set(PlayerSlot.Rojo, true, Direction8.N);
+                inputs.Set(PlayerSlot.Azul, true, Direction8.N);
+                inputs.Set(PlayerSlot.Amarillo, true, Direction8.N);
+                inputs.Set(PlayerSlot.Verde, true, Direction8.N);
+                fsm.Tick(inputs.Build(t));
+            }
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.GameOver), "test setup: reached GameOver");
+            Assert.That(fsm.ApagonActive, Is.True, "must persist through the whole session, 'hasta el final'");
+
+            for (int t = 3000; fsm.CurrentPhase != SessionPhase.Attract && t < 3100; t++)
+                fsm.Tick(inputs.Build(t));
+            Assert.That(fsm.CurrentPhase, Is.EqualTo(SessionPhase.Attract), "test setup: session reset");
+            Assert.That(fsm.ApagonActive, Is.False, "a fresh session must not read back the previous one's Apagon flag");
+        }
+
+        [Test]
+        public void Evento_MuerteSubitaAndModoPinata_ReachSessionStateChannel()
+        {
+            // AC3 names DobleVelocidad/Apagon as the two concretely-testable
+            // effects; MuerteSubita/ModoPinata reach the same LastRoundModifier
+            // channel a mechanic (or Framework HUD) would consume, but no current
+            // v2 mechanic has a "lives"/"damage-spills-coins" concept to hang a
+            // behavioral effect on -- flagged as a follow-up in the hand-off
+            // rather than faked here.
+            (SessionStateMachine fsmA, FakeInputs _) = DriveThroughBoardResolve_RoundZero_WithModifier(RoundModifier.MuerteSubita, null);
+            Assert.That(fsmA.LastRoundModifier, Is.EqualTo(RoundModifier.MuerteSubita));
+
+            (SessionStateMachine fsmB, FakeInputs _) = DriveThroughBoardResolve_RoundZero_WithModifier(RoundModifier.ModoPinata, null);
+            Assert.That(fsmB.LastRoundModifier, Is.EqualTo(RoundModifier.ModoPinata));
+        }
     }
 }
