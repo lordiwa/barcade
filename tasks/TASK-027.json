@@ -10,7 +10,7 @@
     "Projection math (logical x,y,height -> world position per profile) is covered by fast or EditMode tests as regression locks",
     "Headless-safe primitive fallback when a prefab is missing, mirroring the DodgeGameBootstrap pattern; compile gate clean in the Unity Editor"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -34,7 +34,7 @@
     }
   ],
   "created_at": "2026-07-07T03:26:33.247Z",
-  "updated_at": "2026-07-07T12:19:56.817Z",
+  "updated_at": "2026-07-08T03:08:41.353Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
