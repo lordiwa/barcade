@@ -9,7 +9,7 @@
     "The headless fast suite and the Unity EditMode assembly both remain green after the change",
     "No false positives on existing safe pre-3.6 constructs (e.g. Is.EquivalentTo at MicrogameDefinitionV2Tests.cs:262 must NOT be flagged)"
   ],
-  "status": "in_progress",
+  "status": "done",
   "priority": "medium",
   "labels": [
     "testing",
@@ -21,11 +21,19 @@
   ],
   "assignee": null,
   "depends_on": [],
-  "linked_commits": [],
+  "linked_commits": [
+    "f96620d"
+  ],
   "linked_prs": [],
-  "comments": [],
+  "comments": [
+    {
+      "author": "orchestrator",
+      "at": "2026-07-08T20:07:07.358Z",
+      "body": "CLOSED (loop iter 7) — tests-after, depth FULL. All 5 ACs met; fresh-context review rev-t074 APPROVE-WITH-NITS (no HIGH / no MEDIUM); orchestrator fast-suite gate independently 849/0.\n\nDELIVERY: static gate for the headless-NUnit vs Unity-bundled-NUnit divergence (rev-t073 follow-up). Commit f96620d (tests-after, single new file + csproj line + .meta). Fast 848->849 (+1 the gate test).\n\nOPTION CHOICE (investigated all three, ruled out A/B with hard evidence): AC1 — Unity's bundled NUnit is EXACTLY 3.5.0.0 (com.unity.test-framework 1.4.6 -> com.unity.ext.nunit 2.0.5 -> nunit.framework.dll AssemblyVersion 3.5.0.0, read from the actual DLL, documented in the class doc). OPTION A (pin headless NUnit to 3.5.0) RULED OUT with evidence: it compiles clean (proving no post-3.5 construct remains in the 849-test suite beyond the already-removed Is.AnyOf) BUT throws TypeLoadException at runtime under net8.0 — NUnit 3.5.0 is net40/45-only (netstandard landed ~3.7), so legacy remoting/System.Web types are absent; pinning down would take the suite 849->0. No single NUnit version both net8.0-loads AND matches Unity's 3.5.0 surface, so exact-match pinning is genuinely infeasible. OPTION B (Unity-compile CI) RULED OUT: no Unity license/runner in this CI env (documented in .github/workflows/fast-tests.yml:13). LANDED ON OPTION C: a static denylist analyzer test (NUnitUnityCompatibilityTests.cs) mirroring the existing GDD §13 System.Random source-scanner pattern — textual scan (StripComments removes //, /* */, AND string literals so it's self-scan-safe) over Assets/Tests/EditMode + PlayMode (SearchOption.AllDirectories), fail-loud path resolver (walks up trying BOTH repo-root and Unity-CWD layouts, THROWS if not found — no TASK-075 CWD-vacuity fragility).\n\nREVIEW (verified firsthand): regex precision both directions — \\bIs\\.AnyOf\\b matches Is.AnyOf, NOT Is.EquivalentTo (now MicrogameDefinitionV2Tests.cs:316) / Is.All.Not / Has.None / substrings; live non-vacuous [Test] asserting offenders Is.Empty, scans real files via File.ReadAllText. AC3 demonstrated: reintroducing Is.AnyOf into SmokeTests.cs failed the gate naming the file+construct, reverted byte-identical. AC4 both green: headless 849/0; Unity ran the new test 1/1 via filtered MCP run_tests against the real bundled NUnit 3.5.0 (single-file+csproj change = negligible regression surface). AC5 no false positive on Is.EquivalentTo.\n\n[ASSUMED] (reviewer-confirmed sound): denylist scoped to the single confirmed incident (Is.AnyOf) rather than a speculative post-3.5 construct list — avoids inventing false-positive risk; class doc documents the inherent incompleteness + the extension path (add an entry per real future divergence).\n\nDEFERRED LOW-1 (trivial, opportunistic — NOT swept): NUnitUnityCompatibilityTests.cs:75 class-doc cites the old Is.EquivalentTo line :262; actual is :316 (the commit body has it right). Cosmetic doc line-ref only, no behavioral impact; sweep on next touch of that file."
+    }
+  ],
   "created_at": "2026-07-08T02:55:10.760Z",
-  "updated_at": "2026-07-08T19:47:34.986Z",
+  "updated_at": "2026-07-08T20:07:07.358Z",
   "jira_key": null,
   "verification_tier": "tests-after",
   "marker": "[EXPLICIT]",
