@@ -104,6 +104,8 @@
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\IgualaMicrogameV2Tests.cs" />
     <!-- TASK-078 (T-112, GDD §7.1): special coop phase composed from MECH_08/MECH_09 -->
     <Compile Include="..\..\Barcade\Assets\Tests\EditMode\CoopPhaseMicrogameV2Tests.cs" />
+    <!-- TASK-079 (T-112, GDD §7.2): special asymmetric Jefe/boss phase -->
+    <Compile Include="..\..\Barcade\Assets\Tests\EditMode\JefeMicrogameV2Tests.cs" />
   </ItemGroup>
 
 </Project>
