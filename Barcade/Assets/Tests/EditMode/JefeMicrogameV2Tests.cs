@@ -314,41 +314,95 @@ namespace Barcade.Core.Tests
 
         // ── AC1: zero heap allocation in steady-state Tick ───────────────────────
 
+        /// <summary>
+        /// All 4 seats co-located and mashing, but each on its OWN staggered
+        /// 16-tick cycle (seat i's 2-tick press window at offset i*4 -- 0-1,
+        /// 4-5, 8-9, 12-13, never overlapping another seat's) so no two seats
+        /// ever confirm a press on the SAME tick. Two simultaneous confirms
+        /// would let several hits (and even multiple role swaps) cascade
+        /// invisibly within one single Tick() call -- only the NET result
+        /// would be observable from outside, silently hiding the individual
+        /// swap events this sensor test needs to actually witness. Staggering
+        /// guarantees exactly one melee hit (or, when the currently-pressing
+        /// seat happens to BE Jefe, one AoE-fire attempt) per confirm tick, so
+        /// role swaps and AoE fires are each individually tick-observable via
+        /// the public JefeSeat/IsAoeActive accessors between ticks.
+        /// </summary>
+        private static void SetStaggeredMashPattern(FakeInputs inputs, int t)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                int phase = ((t - i * 4) % 16 + 16) % 16;
+                inputs.Set(AllSlots[i], Direction8.None, phase < 2);
+            }
+        }
+
         [Test]
         public void SteadyStateTick_AllocatesNoManagedMemory()
         {
-            var mg = new V2Jefe(JefeParams.GddDefaults(0));
-            mg.SetForcedAvatarPositions(new (float, float)[] { (0.1f, 0.1f), (0.9f, 0.9f), (0.9f, 0.1f), (0.1f, 0.9f) }); // far apart -- no melee, no AoE
-            mg.Initialize(new SeededRandom(42), PlayerRoster.AllHuman, 1f);
-
-            var inputs = new FakeInputs(); // nobody moves, nobody presses
-
-            for (int i = 0; i < 100; i++) mg.Tick(inputs.Build(i));
-            Assert.That(mg.IsFinished, Is.False, "sensor setup: must still be live after warmup");
-
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 100; i < 1100; i++) mg.Tick(inputs.Build(i));
-            long after = GC.GetAllocatedBytesForCurrentThread();
-
-            Assert.That(mg.IsFinished, Is.False, "sensor setup: must still be live after the measured window (75s = 4500 ticks)");
-            Assert.That(after - before, Is.EqualTo(0L));
-        }
-
-        /// <summary>Mutation-proof sensor check — see PersigueMicrogameV2Tests's twin test for the rationale.</summary>
-        [Test]
-        public void SteadyStateTick_SensorDetectsADeliberateAllocation()
-        {
-            var mg = new V2Jefe(JefeParams.GddDefaults(0));
-            mg.SetForcedAvatarPositions(new (float, float)[] { (0.1f, 0.1f), (0.9f, 0.9f), (0.9f, 0.1f), (0.1f, 0.9f) });
+            // A short AoE cooldown (0.5s vs GddDefaults' 2s) so the whichever-
+            // seat-is-Jefe-at-its-own-scheduled-turn alignment needed to fire
+            // an AoE has many more chances to occur across the window.
+            var p = new JefeParams(
+                jefeSeat: 0, avatarSpeed: 0.35f, avatarRadius: 0.03f, jefeHitboxMultiplier: 1.5f,
+                meleeRange: 0.05f, telegraphSeconds: 0.6f, aoeBlastRadius: 0.15f, aoeCooldownSeconds: 0.5f,
+                attackerStunSeconds: 0.5f, durationSeconds: 75f);
+            var mg = new V2Jefe(p);
+            mg.SetForcedAvatarPositions(new (float, float)[] { (0.5f, 0.5f), (0.5f, 0.5f), (0.5f, 0.5f), (0.5f, 0.5f) }); // co-located: melee always in range regardless of who currently holds Jefe
             mg.Initialize(new SeededRandom(42), PlayerRoster.AllHuman, 1f);
 
             var inputs = new FakeInputs();
-            for (int i = 0; i < 100; i++) mg.Tick(inputs.Build(i));
+            for (int i = 0; i < 100; i++) { SetStaggeredMashPattern(inputs, i); mg.Tick(inputs.Build(i)); }
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: must still be live after warmup");
+
+            bool sawSwap = false;
+            bool sawAoeResolve = false;
+            int lastJefeSeat = mg.JefeSeat;
+            bool wasAoeActive = mg.IsAoeActive;
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 100; i < 1100; i++)
+            {
+                SetStaggeredMashPattern(inputs, i);
+                mg.Tick(inputs.Build(i));
+
+                if (mg.JefeSeat != lastJefeSeat) sawSwap = true;
+                lastJefeSeat = mg.JefeSeat;
+
+                bool nowAoeActive = mg.IsAoeActive;
+                if (wasAoeActive && !nowAoeActive) sawAoeResolve = true;
+                wasAoeActive = nowAoeActive;
+            }
+            long after = GC.GetAllocatedBytesForCurrentThread();
+
+            // This phase runs the full GDD-literal 75s (4500 ticks); only the
+            // 1100-tick warmup+measured window above is exercised by this test.
+            Assert.That(mg.IsFinished, Is.False, "sensor setup: must still be live after the measured window");
+            Assert.That(sawSwap, Is.True, "sensor sanity: the melee-hit/role-swap branch (ResolveMeleeAttacks) must have actually fired during the measured window");
+            Assert.That(sawAoeResolve, Is.True, "sensor sanity: the AoE fire+telegraph+resolve branch (ResolveJefeAoe) must have actually fired during the measured window");
+            Assert.That(after - before, Is.EqualTo(0L));
+        }
+
+        /// <summary>Mutation-proof sensor check — see PersigueMicrogameV2Tests's twin test for the rationale. Same co-located/mashing scenario as the test above, so it stresses the identical melee+AoE code paths.</summary>
+        [Test]
+        public void SteadyStateTick_SensorDetectsADeliberateAllocation()
+        {
+            var p = new JefeParams(
+                jefeSeat: 0, avatarSpeed: 0.35f, avatarRadius: 0.03f, jefeHitboxMultiplier: 1.5f,
+                meleeRange: 0.05f, telegraphSeconds: 0.6f, aoeBlastRadius: 0.15f, aoeCooldownSeconds: 0.5f,
+                attackerStunSeconds: 0.5f, durationSeconds: 75f);
+            var mg = new V2Jefe(p);
+            mg.SetForcedAvatarPositions(new (float, float)[] { (0.5f, 0.5f), (0.5f, 0.5f), (0.5f, 0.5f), (0.5f, 0.5f) });
+            mg.Initialize(new SeededRandom(42), PlayerRoster.AllHuman, 1f);
+
+            var inputs = new FakeInputs();
+            for (int i = 0; i < 100; i++) { SetStaggeredMashPattern(inputs, i); mg.Tick(inputs.Build(i)); }
 
             long before = GC.GetAllocatedBytesForCurrentThread();
             object[] deliberate = null;
             for (int i = 100; i < 1100; i++)
             {
+                SetStaggeredMashPattern(inputs, i);
                 mg.Tick(inputs.Build(i));
                 deliberate = new object[4];
             }
