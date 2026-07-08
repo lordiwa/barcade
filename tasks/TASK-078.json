@@ -9,7 +9,7 @@
     "bronze/plata/oro score thresholds pay exactly 2/4/6 coins to ALL players equally (coop payout, no internal ranking, P2)",
     "Tests-first; full fast suite green after, no regression"
   ],
-  "status": "todo",
+  "status": "in_progress",
   "priority": "high",
   "labels": [
     "gdd-v2",
@@ -29,7 +29,7 @@
   "linked_prs": [],
   "comments": [],
   "created_at": "2026-07-08T16:36:28.515Z",
-  "updated_at": "2026-07-08T16:36:28.515Z",
+  "updated_at": "2026-07-08T17:33:44.446Z",
   "jira_key": null,
   "verification_tier": "tdd",
   "marker": "[EXPLICIT]",
